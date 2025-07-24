@@ -1,0 +1,1982 @@
+---
+alwaysApply: true
+---
+# Универсальные правила структурирования Flask-проектов с PostgreSQL
+
+## Основные принципы при работе с кодом:
+
+1. **Всегда проверяй существующую структуру** перед созданием нового
+2. **Следуй DRY** - не дублируй код
+3. **Безопасность превыше всего** - валидируй, шифруй, проверяй
+4. **Думай о масштабировании** - код должен быть готов к росту
+5. **Документируй сложную логику** - будущий ты скажет спасибо
+
+## 1. Структура файлов и каталогов
+
+- **Корневой каталог**:
+  - `app/` - основной пакет приложения
+  - `migrations/` - миграции базы данных (Alembic)
+  - `tests/` - тесты приложения
+  - `scripts/` - скрипты управления проектом
+  - `config.py` - файл конфигурации
+  - `.env` - переменные окружения (не включать в репозиторий)
+  - `.env.example` - пример файла для настройки
+  - `requirements.txt` - зависимости проекта
+  - `.flaskenv` - переменные Flask
+
+- **Основной пакет приложения (app/)**:
+  - `__init__.py` - инициализация и настройка приложения
+  - `models/` - модели данных (детальная структура)
+    - `__init__.py` - импорты всех моделей
+    - `base.py` - базовая модель с общими полями
+    - `user.py` - модель пользователя
+    - `role.py` - модель роли
+    - `c_gender.py` - справочник полов  
+    - `associations.py` - ассоциативные таблицы
+  - `controllers/` - контроллеры для веб-интерфейса
+  - `mobile_controllers/` - контроллеры для мобильного API
+  - `forms/` - формы WTForms
+  - `utils/` - вспомогательные функции
+    - `validators.py` - кастомные валидаторы
+    - `decorators.py` - дополнительные декораторы
+    - `cache.py` - система кеширования
+    - `admin_tools.py` - административные инструменты
+  - `static/` - статические файлы
+  - `templates/` - шаблоны
+  - `version.py` - версионирование приложения
+  - `errors.py` - обработка ошибок
+
+- **Скрипты управления (scripts/)**:
+  - `dev.py` - скрипт для разработки
+  - `prod.py` - продакшен скрипт
+  - `db.py` - управление базой данных
+
+- **Тесты (tests/)**:
+  - `unit/` - юнит-тесты для моделей и утилит
+  - `integration/` - интеграционные тесты для API
+  - `fixtures/` - тестовые данные
+
+## 2. Инициализация приложения
+
+- **Расширения Flask** в `app/__init__.py`:
+  ```python
+  from flask import Flask
+  from flask_sqlalchemy import SQLAlchemy
+  from flask_migrate import Migrate
+  from flask_wtf.csrf import CSRFProtect
+  from flask_login import LoginManager
+  from flask_jwt_extended import JWTManager
+  from flask_caching import Cache
+  from flask_limiter import Limiter
+  from flask_limiter.util import get_remote_address
+  import logging
+  from logging.handlers import RotatingFileHandler
+  from typing import Optional
+
+  # Инициализация расширений
+  db = SQLAlchemy()
+  migrate = Migrate()
+  csrf = CSRFProtect()
+  login_manager = LoginManager()
+  jwt = JWTManager()
+  cache = Cache()
+  limiter = Limiter(
+      key_func=get_remote_address,
+      default_limits=["1000 per hour", "100 per minute"]
+  )
+
+  def create_app(config_name: str = 'development') -> Flask:
+      """
+      Фабрика приложений Flask.
+      
+      Args:
+          config_name: Название конфигурации ('development', 'testing', 'production')
+          
+      Returns:
+          Flask: Настроенное приложение Flask
+      """
+      app = Flask(__name__)
+      
+      # Загрузка конфигурации
+      from config import get_config
+      app.config.from_object(get_config(config_name))
+      
+      # Инициализация расширений
+      init_extensions(app)
+      
+      # Настройка логирования
+      setup_logging(app)
+      
+      # Регистрация blueprints
+      register_blueprints(app)
+      
+      # Обработчики ошибок
+      register_error_handlers(app)
+      
+      # Инициализация системных компонентов
+      init_system_components(app)
+      
+      return app
+
+  def init_extensions(app: Flask) -> None:
+      """Инициализация расширений Flask."""
+      db.init_app(app)
+      migrate.init_app(app, db)
+      csrf.init_app(app)
+      login_manager.init_app(app)
+      jwt.init_app(app)
+      cache.init_app(app)
+      limiter.init_app(app)
+      
+      # Настройка Flask-Login
+      login_manager.login_view = 'auth.login'
+      login_manager.login_message = 'Пожалуйста, войдите в систему.'
+      login_manager.login_message_category = 'info'
+
+  def register_blueprints(app: Flask) -> None:
+      """Регистрация blueprints."""
+      from .controllers import auth_bp, admin_bp, main_bp
+      from .mobile_controllers import mobile_auth_bp, mobile_api_bp
+      
+      # Web blueprints
+      app.register_blueprint(main_bp)
+      app.register_blueprint(auth_bp, url_prefix='/auth')
+      app.register_blueprint(admin_bp, url_prefix='/admin')
+      
+      # Mobile API blueprints
+      app.register_blueprint(mobile_auth_bp, url_prefix='/app/auth')
+      app.register_blueprint(mobile_api_bp, url_prefix='/app/api')
+
+  def register_error_handlers(app: Flask) -> None:
+      """Регистрация обработчиков ошибок."""
+      from .errors import register_error_handlers as register_handlers
+      register_handlers(app)
+
+  def init_system_components(app: Flask) -> None:
+      """Инициализация системных компонентов."""
+      # Автоматическая инициализация БД при первом запуске
+      with app.app_context():
+          try:
+              # Проверка существования таблиц
+              from sqlalchemy import inspect
+              inspector = inspect(db.engine)
+              tables = inspector.get_table_names()
+              
+              if not tables:
+                  app.logger.info("Таблицы БД не найдены, выполняется инициализация...")
+                  db.create_all()
+                  app.logger.info("База данных инициализирована")
+                  
+                  # Создание начальных данных
+                  from .utils.admin_tools import DatabaseManager
+                  result = DatabaseManager.seed_database()
+                  app.logger.info(f"Инициализация данных: {result['message']}")
+                  
+          except Exception as e:
+              app.logger.error(f"Ошибка инициализации системы: {e}")
+  ```
+
+## 3. Правила именования
+
+### Модели
+- **Имена классов моделей: CamelCase**
+  - Таблицы-справочники: префикс `C_` (например, `C_Gender`, `C_Status`)
+  - Ассоциативные таблицы: названия связываемых таблиц (например, `User_Roles`)
+  - Основные сущности: просто CamelCase (например, `User`, `Order`)
+
+- **Имена файлов моделей: snake_case**
+  - Соответствуют имени класса в snake_case
+  - Все модели импортируются в `models/__init__.py`
+
+### Структура файлов моделей
+
+**app/models/__init__.py:**
+```python
+"""Импорт всех моделей для автообнаружения Flask-Migrate."""
+
+from .base import BaseModel
+from .user import User
+from .role import Role
+from .c_gender import C_Gender
+from .associations import user_roles
+
+__all__ = [
+    'BaseModel',
+    'User', 
+    'Role',
+    'C_Gender',
+    'user_roles',
+]
+```
+
+**Базовая модель с общей функциональностью (app/models/base.py):**
+```python
+import sqlalchemy as sa
+import sqlalchemy.orm as so
+from datetime import datetime
+from typing import Optional, Any, Dict
+from app import db
+
+class BaseModel(db.Model):
+    """Базовая модель с общими полями и методами."""
+    
+    __abstract__ = True
+    
+    id: so.Mapped[int] = so.mapped_column(primary_key=True)
+    created_at: so.Mapped[datetime] = so.mapped_column(
+        sa.DateTime(timezone=True),
+        server_default=sa.func.now(),
+        nullable=False
+    )
+    updated_at: so.Mapped[Optional[datetime]] = so.mapped_column(
+        sa.DateTime(timezone=True),
+        onupdate=sa.func.now(),
+        nullable=True
+    )
+    
+    def save(self) -> 'BaseModel':
+        """Сохранение записи."""
+        db.session.add(self)
+        db.session.commit()
+        return self
+    
+    def delete(self) -> None:
+        """Удаление записи."""
+        db.session.delete(self)
+        db.session.commit()
+    
+    def update(self, **kwargs) -> 'BaseModel':
+        """Обновление полей."""
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+        db.session.commit()
+        return self
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Базовая сериализация."""
+        return {
+            'id': self.id,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+    
+    @classmethod
+    def get_by_id(cls, id: int) -> Optional['BaseModel']:
+        """Получение записи по ID."""
+        return cls.query.get(id)
+    
+    @classmethod
+    def get_all(cls) -> list['BaseModel']:
+        """Получение всех записей."""
+        return cls.query.all()
+```
+
+**Пример модели с полной типизацией (app/models/user.py):**
+```python
+import sqlalchemy as sa
+import sqlalchemy.orm as so
+from typing import Optional, TYPE_CHECKING, Dict, Any
+from datetime import datetime
+from flask import current_app
+from app import db
+from .base import BaseModel
+
+if TYPE_CHECKING:
+    from .role import Role
+
+class User(BaseModel):
+    """Модель пользователя с современной типизацией."""
+    
+    __tablename__ = 'user'
+    
+    # Основные поля с типизацией
+    username: so.Mapped[str] = so.mapped_column(
+        sa.Text, unique=True, index=True, nullable=False
+    )
+    _email: so.Mapped[Optional[str]] = so.mapped_column(
+        'email', sa.Text, nullable=True, index=True
+    )
+    _phone: so.Mapped[Optional[str]] = so.mapped_column(
+        'phone', sa.Text, nullable=True
+    )
+    password_hash: so.Mapped[str] = so.mapped_column(sa.Text, nullable=False)
+    is_active: so.Mapped[bool] = so.mapped_column(
+        sa.Boolean, default=True, nullable=False
+    )
+    is_verified: so.Mapped[bool] = so.mapped_column(
+        sa.Boolean, default=False, nullable=False
+    )
+    
+    # Временные метки
+    last_login: so.Mapped[Optional[datetime]] = so.mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=True
+    )
+    
+    # Отношения с типизацией
+    roles: so.Mapped[list["Role"]] = so.relationship(
+        secondary="user_roles",
+        back_populates="users",
+        lazy='selectin'  # Оптимизация запросов
+    )
+    
+    def __repr__(self) -> str:
+        """Строковое представление."""
+        return f'<User {self.username}>'
+    
+    @property
+    def email(self) -> Optional[str]:
+        """Расшифровка email."""
+        if self._email:
+            try:
+                result = db.session.execute(
+                    sa.text("SELECT pgp_sym_decrypt(:email::bytea, :key)"),
+                    {
+                        "email": self._email, 
+                        "key": current_app.config['ENCRYPTION_KEY']
+                    }
+                ).scalar()
+                return result
+            except Exception as e:
+                current_app.logger.error(f"Email decryption failed: {e}")
+                return None
+        return None
+    
+    @email.setter
+    def email(self, value: Optional[str]) -> None:
+        """Шифрование email."""
+        if value:
+            try:
+                encrypted = db.session.execute(
+                    sa.text("SELECT pgp_sym_encrypt(:email, :key)"),
+                    {
+                        "email": value,
+                        "key": current_app.config['ENCRYPTION_KEY']
+                    }
+                ).scalar()
+                self._email = encrypted
+            except Exception as e:
+                current_app.logger.error(f"Email encryption failed: {e}")
+                raise ValueError("Failed to encrypt email")
+        else:
+            self._email = None
+    
+    @property
+    def phone(self) -> Optional[str]:
+        """Расшифровка телефона."""
+        if self._phone:
+            try:
+                result = db.session.execute(
+                    sa.text("SELECT pgp_sym_decrypt(:phone::bytea, :key)"),
+                    {
+                        "phone": self._phone,
+                        "key": current_app.config['ENCRYPTION_KEY']
+                    }
+                ).scalar()
+                return result
+            except Exception as e:
+                current_app.logger.error(f"Phone decryption failed: {e}")
+                return None
+        return None
+    
+    @phone.setter
+    def phone(self, value: Optional[str]) -> None:
+        """Шифрование телефона."""
+        if value:
+            try:
+                encrypted = db.session.execute(
+                    sa.text("SELECT pgp_sym_encrypt(:phone, :key)"),
+                    {
+                        "phone": value,
+                        "key": current_app.config['ENCRYPTION_KEY']
+                    }
+                ).scalar()
+                self._phone = encrypted
+            except Exception as e:
+                current_app.logger.error(f"Phone encryption failed: {e}")
+                raise ValueError("Failed to encrypt phone")
+        else:
+            self._phone = None
+    
+    def set_password(self, password: str) -> None:
+        """Установка пароля с хешированием."""
+        from argon2 import PasswordHasher
+        ph = PasswordHasher()
+        self.password_hash = ph.hash(password)
+    
+    def check_password(self, password: str) -> bool:
+        """Проверка пароля."""
+        try:
+            from argon2 import PasswordHasher
+            ph = PasswordHasher()
+            ph.verify(self.password_hash, password)
+            return True
+        except Exception:
+            return False
+    
+    def has_role(self, role_name: str) -> bool:
+        """Проверка наличия роли."""
+        return any(role.name == role_name for role in self.roles)
+    
+    def to_dict(self, include_sensitive: bool = False) -> Dict[str, Any]:
+        """Сериализация в словарь."""
+        data = super().to_dict()
+        data.update({
+            'username': self.username,
+            'is_active': self.is_active,
+            'is_verified': self.is_verified,
+            'last_login': self.last_login.isoformat() if self.last_login else None,
+        })
+        
+        if include_sensitive:
+            data.update({
+                'email': self.email,
+                'phone': self.phone,
+            })
+        
+        return data
+    
+    @classmethod
+    def find_by_username(cls, username: str) -> Optional['User']:
+        """Поиск пользователя по имени."""
+        return cls.query.filter_by(username=username).first()
+```
+
+**Пример справочной модели (app/models/c_gender.py):**
+```python
+import sqlalchemy as sa
+import sqlalchemy.orm as so
+from .base import BaseModel
+
+class C_Gender(BaseModel):
+    """Справочник полов."""
+    
+    __tablename__ = 'c_gender'
+    
+    name: so.Mapped[str] = so.mapped_column(
+        sa.Text, unique=True, nullable=False
+    )
+    code: so.Mapped[str] = so.mapped_column(
+        sa.String(10), unique=True, nullable=False
+    )
+    is_active: so.Mapped[bool] = so.mapped_column(
+        sa.Boolean, default=True, nullable=False
+    )
+    sort_order: so.Mapped[int] = so.mapped_column(
+        sa.Integer, default=0, nullable=False
+    )
+    
+    def __repr__(self) -> str:
+        return f'<C_Gender {self.name}>'
+    
+    @classmethod
+    def get_active(cls) -> list['C_Gender']:
+        """Получение активных записей."""
+        return cls.query.filter_by(is_active=True).order_by(cls.sort_order).all()
+```
+
+**Ассоциативные таблицы (app/models/associations.py):**
+```python
+import sqlalchemy as sa
+from app import db
+
+# Ассоциативная таблица для связи многие-ко-многим
+user_roles = sa.Table(
+    'user_roles',
+    db.metadata,
+    sa.Column('user_id', sa.Integer, sa.ForeignKey('user.id'), primary_key=True),
+    sa.Column('role_id', sa.Integer, sa.ForeignKey('role.id'), primary_key=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
+    sa.Index('idx_user_roles_user_id', 'user_id'),
+    sa.Index('idx_user_roles_role_id', 'role_id'),
+)
+```
+
+### Контроллеры
+
+- **Файлы контроллеров:**
+  - Web: `controllers/функционал.py` (например, `auth.py`, `admin.py`)
+  - Mobile: `mobile_controllers/mobile_функционал.py`
+
+- **Blueprints:**
+  - Web: `функционал_bp` (например, `auth_bp`)
+  - Mobile: `mobile_функционал_bp`
+
+- **Маршруты:**
+  - Web: `/функционал/действие`
+  - Mobile: `/app/модуль/действие`
+
+### Утилиты
+
+- **Классы утилит:** CamelCase (например, `EmailService`)
+- **Файлы утилит:** snake_case (например, `email_service.py`)
+- **Константы:** UPPER_CASE
+
+## 4. Модели и типизация данных
+
+- **Обязательная типизация всех полей** с использованием `so.Mapped`
+- **Использовать `sa.Text` для строковых полей**
+- **Индексы для полей поиска**
+- **Шифрование чувствительных данных**
+- **Временные метки для аудита**
+- **Методы сериализации** (`to_dict`)
+- **Классметоды для поиска**
+
+## 5. Конфигурация
+
+```python
+import os
+from datetime import timedelta
+from pathlib import Path
+from typing import Type
+from dotenv import load_dotenv
+
+# Загрузка переменных окружения
+env_file = Path(__file__).parent / '.env'
+if env_file.exists():
+    load_dotenv(env_file)
+
+class BaseConfig:
+    """Базовая конфигурация."""
+    
+    # Основные настройки
+    SECRET_KEY: str = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
+    
+    # База данных
+    DB_NAME: str = os.environ.get('DB_NAME', 'flask_app')
+    DB_USER: str = os.environ.get('DB_USER', 'postgres')
+    DB_PASSWORD: str = os.environ.get('DB_PASSWORD', 'password')
+    DB_HOST: str = os.environ.get('DB_HOST', 'localhost')
+    DB_PORT: str = os.environ.get('DB_PORT', '5432')
+    
+    SQLALCHEMY_DATABASE_URI: str = (
+        f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    )
+    SQLALCHEMY_TRACK_MODIFICATIONS: bool = False
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_size': 10,
+        'pool_recycle': 300,
+        'pool_pre_ping': True,
+    }
+    
+    # JWT настройки
+    JWT_SECRET_KEY: str = os.environ.get('JWT_SECRET_KEY') or SECRET_KEY
+    JWT_ACCESS_TOKEN_EXPIRES: timedelta = timedelta(days=15)
+    JWT_REFRESH_TOKEN_EXPIRES: timedelta = timedelta(days=30)
+    
+    # Шифрование
+    ENCRYPTION_KEY: str = os.environ.get('ENCRYPTION_KEY', 'default-encryption-key')
+    
+    # Redis и кеширование
+    REDIS_URL: str = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+    CACHE_TYPE: str = "redis"
+    CACHE_REDIS_URL: str = REDIS_URL
+    CACHE_DEFAULT_TIMEOUT: int = 300
+    
+    # Rate limiting
+    RATELIMIT_STORAGE_URL: str = os.environ.get('REDIS_URL', 'redis://localhost:6379/1')
+    RATELIMIT_DEFAULT: str = "1000 per hour"
+    
+    # Email настройки
+    MAIL_SERVER: str = os.environ.get('MAIL_SERVER', 'localhost')
+    MAIL_PORT: int = int(os.environ.get('MAIL_PORT', '587'))
+    MAIL_USE_TLS: bool = os.environ.get('MAIL_USE_TLS', 'true').lower() == 'true'
+    MAIL_USERNAME: str = os.environ.get('MAIL_USERNAME', '')
+    MAIL_PASSWORD: str = os.environ.get('MAIL_PASSWORD', '')
+    
+    # Celery настройки
+    CELERY_BROKER_URL: str = REDIS_URL
+    CELERY_RESULT_BACKEND: str = REDIS_URL
+    
+    # Безопасность
+    WTF_CSRF_TIME_LIMIT: int = 3600
+    SESSION_COOKIE_SECURE: bool = True
+    SESSION_COOKIE_HTTPONLY: bool = True
+    SESSION_COOKIE_SAMESITE: str = 'Lax'
+    
+    # Файлы
+    UPLOAD_FOLDER: str = 'uploads'
+    MAX_CONTENT_LENGTH: int = 16 * 1024 * 1024  # 16MB
+
+class DevelopmentConfig(BaseConfig):
+    """Конфигурация для разработки."""
+    
+    DEBUG: bool = True
+    TESTING: bool = False
+    SESSION_COOKIE_SECURE: bool = False
+    
+    # Менее строгие настройки для разработки
+    WTF_CSRF_ENABLED: bool = True
+    RATELIMIT_ENABLED: bool = False
+
+class TestingConfig(BaseConfig):
+    """Конфигурация для тестирования."""
+    
+    DEBUG: bool = False
+    TESTING: bool = True
+    WTF_CSRF_ENABLED: bool = False
+    RATELIMIT_ENABLED: bool = False
+    
+    # Тестовая база данных
+    SQLALCHEMY_DATABASE_URI: str = 'sqlite:///:memory:'
+    
+    # Отключение внешних сервисов
+    CACHE_TYPE: str = "null"
+    CELERY_TASK_ALWAYS_EAGER: bool = True
+
+class ProductionConfig(BaseConfig):
+    """Конфигурация для продакшена."""
+    
+    DEBUG: bool = False
+    TESTING: bool = False
+    
+    # Строгие настройки безопасности
+    SESSION_COOKIE_SECURE: bool = True
+    WTF_CSRF_ENABLED: bool = True
+    RATELIMIT_ENABLED: bool = True
+    
+    # Логирование
+    LOG_LEVEL: str = 'INFO'
+
+# Словарь конфигураций
+config_map: dict[str, Type[BaseConfig]] = {
+    'development': DevelopmentConfig,
+    'testing': TestingConfig,
+    'production': ProductionConfig,
+    'default': DevelopmentConfig,
+}
+
+def get_config(config_name: str = 'default') -> Type[BaseConfig]:
+    """
+    Получение конфигурации по имени.
+    
+    Args:
+        config_name: Имя конфигурации
+        
+    Returns:
+        Класс конфигурации
+    """
+    return config_map.get(config_name, DevelopmentConfig)
+```
+
+## 6. Аутентификация и авторизация
+
+- **JWT для API**
+- **Сессии для веб-интерфейса**
+- **CSRF защита для веб-форм**
+
+```python
+from functools import wraps
+from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
+from flask_login import current_user
+from app.errors import AuthenticationError, AuthorizationError
+
+def auth_required(f):
+    """Универсальный декоратор аутентификации"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not current_user.is_authenticated:
+            try:
+                verify_jwt_in_request()
+            except:
+                raise AuthenticationError("Требуется авторизация")
+        return f(*args, **kwargs)
+    return decorated
+
+def admin_required(f):
+    """Декоратор для проверки прав администратора"""
+    @wraps(f)
+    @auth_required
+    def decorated(*args, **kwargs):
+        user = current_user if current_user.is_authenticated else get_current_user()
+        if not user.has_role('admin'):
+            raise AuthorizationError("Недостаточно прав доступа")
+        return f(*args, **kwargs)
+    return decorated
+
+def role_required(*roles):
+    """Декоратор для проверки ролей пользователя."""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            from flask_login import current_user
+            
+            if not current_user.is_authenticated:
+                raise AuthenticationError("Требуется авторизация")
+            
+            if not any(current_user.has_role(role) for role in roles):
+                raise AuthorizationError("Недостаточно прав доступа")
+            
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+```
+
+## 7. Обработка данных
+
+### Валидация входных данных
+
+```python
+def validate_request_data(required_fields, data):
+    """Проверка обязательных полей"""
+    missing = [field for field in required_fields if field not in data or not data[field]]
+    if missing:
+        from app.errors import ValidationError
+        raise ValidationError(f"Missing required fields: {', '.join(missing)}")
+```
+
+### Транзакции и обработка ошибок БД
+
+```python
+from contextlib import contextmanager
+from sqlalchemy.exc import IntegrityError, OperationalError
+
+@contextmanager
+def transaction():
+    """Контекстный менеджер для безопасных транзакций"""
+    try:
+        yield db.session
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Transaction failed: {str(e)}", exc_info=True)
+        raise
+    finally:
+        db.session.close()
+
+def with_transaction(f):
+    """Декоратор для автоматического управления транзакциями"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        try:
+            result = f(*args, **kwargs)
+            db.session.commit()
+            return result
+        except IntegrityError as e:
+            db.session.rollback()
+            app.logger.error(f"Integrity error in {f.__name__}: {str(e)}")
+            if "unique constraint" in str(e):
+                from app.errors import ValidationError
+                raise ValidationError("Запись с такими данными уже существует")
+            raise
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error in {f.__name__}: {str(e)}", exc_info=True)
+            raise
+    return decorated
+```
+
+## 8. API принципы
+
+### Единый формат ответов
+
+```python
+def api_response(status="success", message="", data=None, status_code=200, errors=None):
+    """Стандартный формат ответа API"""
+    response = {
+        "status": status,
+        "message": message,
+        "data": data or {}
+    }
+    if errors:
+        response["errors"] = errors
+    return jsonify(response), status_code
+```
+
+## 9. Обработка ошибок и исключений
+
+### app/errors.py - Централизованная обработка:
+
+```python
+"""Обработка ошибок приложения."""
+
+from flask import Flask, request, jsonify, render_template, current_app
+from werkzeug.exceptions import HTTPException
+from sqlalchemy.exc import IntegrityError, OperationalError
+import logging
+
+class ValidationError(Exception):
+    """Кастомное исключение для ошибок валидации."""
+    
+    def __init__(self, message: str, field: str = None, code: str = None):
+        self.message = message
+        self.field = field
+        self.code = code
+        super().__init__(self.message)
+
+class BusinessLogicError(Exception):
+    """Исключение для ошибок бизнес-логики."""
+    
+    def __init__(self, message: str, code: str = None):
+        self.message = message
+        self.code = code
+        super().__init__(self.message)
+
+class AuthenticationError(Exception):
+    """Исключение для ошибок аутентификации."""
+    pass
+
+class AuthorizationError(Exception):
+    """Исключение для ошибок авторизации."""
+    pass
+
+def is_api_request() -> bool:
+    """Проверка, является ли запрос API запросом."""
+    return (
+        request.path.startswith('/app/') or 
+        request.headers.get('Accept', '').startswith('application/json') or
+        request.headers.get('Content-Type', '').startswith('application/json')
+    )
+
+def api_error_response(message: str, status_code: int = 400, 
+                      errors: dict = None, code: str = None):
+    """Стандартный формат ошибки для API."""
+    response = {
+        "status": "error",
+        "message": message,
+        "data": {}
+    }
+    
+    if errors:
+        response["errors"] = errors
+    if code:
+        response["code"] = code
+        
+    return jsonify(response), status_code
+
+def register_error_handlers(app: Flask) -> None:
+    """Регистрация обработчиков ошибок."""
+    
+    @app.errorhandler(ValidationError)
+    def handle_validation_error(e: ValidationError):
+        """Обработка ошибок валидации."""
+        if is_api_request():
+            errors = {e.field: e.message} if e.field else None
+            return api_error_response(
+                message=e.message,
+                status_code=400,
+                errors=errors,
+                code=e.code
+            )
+        else:
+            return render_template('errors/400.html', error=e.message), 400
+    
+    @app.errorhandler(BusinessLogicError)
+    def handle_business_logic_error(e: BusinessLogicError):
+        """Обработка ошибок бизнес-логики."""
+        if is_api_request():
+            return api_error_response(
+                message=e.message,
+                status_code=422,
+                code=e.code
+            )
+        else:
+            return render_template('errors/422.html', error=e.message), 422
+    
+    @app.errorhandler(AuthenticationError)
+    def handle_authentication_error(e: AuthenticationError):
+        """Обработка ошибок аутентификации."""
+        if is_api_request():
+            return api_error_response(
+                message=str(e),
+                status_code=401
+            )
+        else:
+            return render_template('errors/401.html'), 401
+    
+    @app.errorhandler(AuthorizationError)
+    def handle_authorization_error(e: AuthorizationError):
+        """Обработка ошибок авторизации."""
+        if is_api_request():
+            return api_error_response(
+                message=str(e),
+                status_code=403
+            )
+        else:
+            return render_template('errors/403.html'), 403
+    
+    @app.errorhandler(IntegrityError)
+    def handle_integrity_error(e: IntegrityError):
+        """Обработка ошибок целостности БД."""
+        app.logger.error(f"Database integrity error: {str(e)}")
+        
+        message = "Данные не могут быть сохранены из-за конфликта"
+        if "unique constraint" in str(e):
+            message = "Запись с такими данными уже существует"
+        elif "foreign key constraint" in str(e):
+            message = "Связанная запись не найдена"
+            
+        if is_api_request():
+            return api_error_response(message=message, status_code=409)
+        else:
+            return render_template('errors/409.html', error=message), 409
+    
+    @app.errorhandler(404)
+    def handle_not_found(e):
+        """Обработка 404 ошибок."""
+        if is_api_request():
+            return api_error_response(
+                message="Ресурс не найден",
+                status_code=404
+            )
+        else:
+            return render_template('errors/404.html'), 404
+    
+    @app.errorhandler(500)
+    def handle_internal_error(e):
+        """Обработка внутренних ошибок сервера."""
+        app.logger.error(f"Internal server error: {str(e)}", exc_info=True)
+        
+        if is_api_request():
+            return api_error_response(
+                message="Внутренняя ошибка сервера",
+                status_code=500
+            )
+        else:
+            return render_template('errors/500.html'), 500
+    
+    @app.errorhandler(HTTPException)
+    def handle_http_exception(e: HTTPException):
+        """Обработка HTTP исключений."""
+        if is_api_request():
+            return api_error_response(
+                message=e.description or "HTTP ошибка",
+                status_code=e.code
+            )
+        else:
+            template = f'errors/{e.code}.html'
+            try:
+                return render_template(template), e.code
+            except:
+                return render_template('errors/generic.html', 
+                                     error=e.description), e.code
+```
+
+## 10. Логирование
+
+### Настройка логирования
+
+```python
+def setup_logging(app: Flask) -> None:
+    """Настройка системы логирования."""
+    if app.config.get('TESTING'):
+        return
+        
+    # Создание директории для логов
+    import os
+    if not os.path.exists('logs'):
+        os.mkdir('logs')
+    
+    # Настройка уровня логирования
+    log_level = logging.DEBUG if app.debug else logging.INFO
+    app.logger.setLevel(log_level)
+    
+    # Настройка форматтера с дополнительным контекстом
+    formatter = logging.Formatter(
+        '%(asctime)s %(name)s %(levelname)s: %(message)s '
+        '[in %(pathname)s:%(lineno)d] [request_id: %(request_id)s]'
+    )
+    
+    # Файловый обработчик
+    file_handler = RotatingFileHandler(
+        'logs/app.log',
+        maxBytes=10485760,  # 10MB
+        backupCount=10
+    )
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(log_level)
+    app.logger.addHandler(file_handler)
+    
+    # Обработчик ошибок
+    error_handler = RotatingFileHandler(
+        'logs/errors.log',
+        maxBytes=10485760,
+        backupCount=5
+    )
+    error_handler.setFormatter(formatter)
+    error_handler.setLevel(logging.ERROR)
+    app.logger.addHandler(error_handler)
+    
+    # Консольный вывод для разработки
+    if app.debug:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        console_handler.setLevel(logging.DEBUG)
+        app.logger.addHandler(console_handler)
+    
+    # Добавление контекста запроса в логи
+    @app.before_request
+    def before_request():
+        import uuid
+        from flask import g
+        from datetime import datetime
+        
+        g.request_id = str(uuid.uuid4())
+        g.start_time = datetime.utcnow()
+        
+        app.logger.info(
+            f"Request started: {request.method} {request.path}",
+            extra={'request_id': g.request_id}
+        )
+    
+    @app.after_request
+    def after_request(response):
+        from flask import g
+        from datetime import datetime
+        
+        if hasattr(g, 'request_id') and hasattr(g, 'start_time'):
+            duration = (datetime.utcnow() - g.start_time).total_seconds()
+            
+            app.logger.info(
+                f"Request completed: {response.status_code} "
+                f"({duration:.4f}s)",
+                extra={'request_id': g.request_id}
+            )
+        
+        return response
+        
+    app.logger.info('Приложение запущено')
+```
+
+### Использование логирования
+
+```python
+# Информационные сообщения
+app.logger.info(f"User {user_id} logged in successfully")
+
+# Предупреждения
+app.logger.warning(f"Deprecated API endpoint called: {request.path}")
+
+# Ошибки с трейсбеком
+try:
+    process_payment(order_id)
+except Exception as e:
+    app.logger.error(f"Payment processing failed for order {order_id}", exc_info=True)
+
+# Структурированное логирование
+app.logger.info(
+    "API request processed",
+    extra={
+        "user_id": current_user.id,
+        "endpoint": request.endpoint,
+        "method": request.method,
+        "status_code": response.status_code,
+        "duration_ms": duration
+    }
+)
+```
+
+## 11. Разделение веб и мобильного интерфейса
+
+- **Web контроллеры:**
+  - Возвращают HTML шаблоны
+  - Используют Flask-Login для аутентификации
+  - Работают с сессиями и flash сообщениями
+
+- **Mobile контроллеры:**
+  - Возвращают только JSON
+  - Используют JWT для аутентификации
+  - Не используют CSRF защиту
+
+## 12. Безопасность
+
+### Хеширование паролей
+
+```python
+from argon2 import PasswordHasher
+
+ph = PasswordHasher()
+
+class User(db.Model):
+    # ...
+    password_hash: so.Mapped[str] = so.mapped_column(sa.Text)
+    
+    def set_password(self, password):
+        """Установка пароля с хешированием"""
+        self.password_hash = ph.hash(password)
+    
+    def check_password(self, password):
+        """Проверка пароля"""
+        try:
+            ph.verify(self.password_hash, password)
+            return True
+        except:
+            return False
+```
+
+### Защита от атак - SecurityMiddleware
+
+```python
+# app/utils/security.py
+from flask import Flask, request, abort, current_app
+import re
+from datetime import datetime, timedelta
+
+class SecurityMiddleware:
+    """Middleware для дополнительной безопасности."""
+    
+    def __init__(self, app: Flask = None):
+        self.app = app
+        self.blocked_ips = set()
+        self.suspicious_patterns = [
+            r'<script.*?>.*?</script>',  # XSS
+            r'union.*select',            # SQL injection
+            r'drop.*table',              # SQL injection
+            r'exec\s*\(',               # Code injection
+        ]
+        
+        if app:
+            self.init_app(app)
+    
+    def init_app(self, app: Flask):
+        """Инициализация middleware."""
+        app.before_request(self.before_request)
+        app.after_request(self.after_request)
+    
+    def before_request(self):
+        """Проверки перед обработкой запроса."""
+        # Проверка IP адреса
+        if self.is_ip_blocked(request.remote_addr):
+            abort(403)
+        
+        # Проверка на подозрительные паттерны
+        if self.has_suspicious_content():
+            current_app.logger.warning(
+                f"Suspicious request detected from {request.remote_addr}: {request.url}"
+            )
+            abort(400)
+        
+        # Проверка размера запроса
+        if request.content_length and request.content_length > 10 * 1024 * 1024:  # 10MB
+            abort(413)
+    
+    def after_request(self, response):
+        """Установка заголовков безопасности."""
+        # HSTS
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+        
+        # Предотвращение clickjacking
+        response.headers['X-Frame-Options'] = 'DENY'
+        
+        # XSS защита
+        response.headers['X-XSS-Protection'] = '1; mode=block'
+        
+        # Content type sniffing
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        
+        # CSP (Content Security Policy)
+        if not current_app.debug:
+            response.headers['Content-Security-Policy'] = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline'; "
+                "style-src 'self' 'unsafe-inline'; "
+                "img-src 'self' data: https:; "
+                "font-src 'self' https:; "
+                "connect-src 'self'; "
+                "frame-ancestors 'none';"
+            )
+        
+        return response
+    
+    def is_ip_blocked(self, ip: str) -> bool:
+        """Проверка, заблокирован ли IP."""
+        return ip in self.blocked_ips
+    
+    def has_suspicious_content(self) -> bool:
+        """Проверка на подозрительный контент."""
+        content_to_check = [
+            request.url,
+            request.get_data(as_text=True),
+            str(request.headers),
+        ]
+        
+        for content in content_to_check:
+            if content:
+                for pattern in self.suspicious_patterns:
+                    if re.search(pattern, content, re.IGNORECASE):
+                        return True
+        
+        return False
+```
+
+## 13. Стилистика написания кода
+
+- **DRY** - не повторяй себя
+- **Clean Code** - чистый и понятный код
+- **Не писать стили в теге head**
+- **Не писать JS в HTML шаблонах**
+- **Вся логика в контроллерах, не в шаблонах**
+- **Использовать контекст для понимания кода**
+
+## 14. Правила взаимодействия с ассистентом
+
+- **При обращении за помощью:**
+  - Всегда предоставлять контекст: какой файл, какая функция
+  - Показывать связанные модели и контроллеры
+  - Указывать версии используемых библиотек при проблемах
+  
+- **При создании нового функционала:**
+  - Сначала обсудить архитектурное решение
+  - Проверить, нет ли похожего функционала в проекте
+  - Следовать существующим паттернам
+
+- **При отладке:**
+  - Предоставлять полный traceback ошибки
+  - Показывать соответствующие части кода
+  - Указывать, что уже пробовали исправить
+
+## 15. Тестирование
+
+### Структура тестов
+
+```python
+# tests/conftest.py
+import pytest
+from app import create_app, db
+from app.models import User
+import tempfile
+import os
+
+@pytest.fixture(scope='session')
+def app():
+    """Создание тестового приложения."""
+    # Создание временной базы данных
+    db_fd, db_path = tempfile.mkstemp()
+    
+    app = create_app('testing')
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+    app.config['WTF_CSRF_ENABLED'] = False
+    
+    with app.app_context():
+        db.create_all()
+        yield app
+        db.drop_all()
+    
+    os.close(db_fd)
+    os.unlink(db_path)
+
+@pytest.fixture
+def client(app):
+    """Тестовый клиент."""
+    return app.test_client()
+
+@pytest.fixture
+def runner(app):
+    """CLI runner для тестирования команд."""
+    return app.test_cli_runner()
+
+@pytest.fixture
+def auth_user(app):
+    """Создание тестового пользователя."""
+    with app.app_context():
+        user = User(
+            username='testuser',
+            is_active=True
+        )
+        user.email = 'test@example.com'
+        user.set_password('testpassword')
+        db.session.add(user)
+        db.session.commit()
+        return user
+
+@pytest.fixture
+def auth_headers(client, auth_user):
+    """JWT токен для аутентификации."""
+    response = client.post('/app/auth/login', json={
+        'username': 'testuser',
+        'password': 'testpassword'
+    })
+    
+    if response.status_code == 200:
+        token = response.json['data']['access_token']
+        return {'Authorization': f'Bearer {token}'}
+    
+    return {}
+```
+
+### Примеры тестов
+
+```python
+def test_user_registration(client):
+    """Тест регистрации пользователя"""
+    response = client.post('/app/auth/register', json={
+        'username': 'newuser',
+        'email': 'newuser@example.com',
+        'password': 'secure_password'
+    })
+    assert response.status_code == 201
+    assert response.json['status'] == 'success'
+
+def test_protected_endpoint_without_auth(client):
+    """Тест доступа к защищенному эндпоинту без авторизации."""
+    response = client.get('/app/api/profile')
+    assert response.status_code == 401
+
+def test_protected_endpoint_with_auth(client, auth_headers):
+    """Тест доступа к защищенному эндпоинту с авторизацией."""
+    response = client.get('/app/api/profile', headers=auth_headers)
+    assert response.status_code == 200
+    assert response.json['status'] == 'success'
+```
+
+## 16. Работа с миграциями
+
+### Создание миграций
+
+```bash
+# Создание новой миграции
+flask db migrate -m "add user roles table"
+
+# Применение миграций
+flask db upgrade
+
+# Откат миграции
+flask db downgrade
+```
+
+### Правила работы с миграциями
+
+- Всегда проверять автосгенерированные миграции
+- Не удалять примененные миграции в продакшене
+- Добавлять комментарии для сложных изменений
+
+## 17. Оптимизация и производительность
+
+### Запросы к БД
+
+```python
+# Избегать N+1 запросов
+users = User.query.options(
+    so.joinedload(User.roles),
+    so.joinedload(User.orders)
+).filter_by(is_active=True).all()
+
+# Пагинация для больших выборок
+page = request.args.get('page', 1, type=int)
+per_page = 20
+users = User.query.paginate(
+    page=page,
+    per_page=per_page,
+    error_out=False
+)
+```
+
+### Расширенная система кеширования
+
+```python
+# app/utils/cache.py
+from functools import wraps
+from flask import request, current_app
+from app import cache
+import json
+import hashlib
+from typing import Any, Optional, Callable
+
+class CacheManager:
+    """Менеджер кеширования."""
+    
+    def __init__(self, cache_instance):
+        self.cache = cache_instance
+    
+    def generate_key(self, prefix: str, *args, **kwargs) -> str:
+        """Генерация ключа кеша."""
+        key_data = {
+            'args': args,
+            'kwargs': kwargs,
+            'user_id': getattr(request, 'user_id', None) if request else None,
+        }
+        key_string = json.dumps(key_data, sort_keys=True, default=str)
+        key_hash = hashlib.md5(key_string.encode()).hexdigest()
+        return f"{prefix}:{key_hash}"
+    
+    def cached_result(self, timeout: int = 300, key_prefix: str = None):
+        """Декоратор для кеширования результатов функций."""
+        def decorator(f: Callable) -> Callable:
+            @wraps(f)
+            def decorated_function(*args, **kwargs):
+                if current_app.config.get('TESTING'):
+                    return f(*args, **kwargs)
+                
+                prefix = key_prefix or f"func:{f.__name__}"
+                key = self.generate_key(prefix, *args, **kwargs)
+                
+                # Попытка получить из кеша
+                cached_result = self.cache.get(key)
+                if cached_result is not None:
+                    return cached_result
+                
+                # Выполнение функции и кеширование
+                result = f(*args, **kwargs)
+                self.cache.set(key, result, timeout=timeout)
+                return result
+            
+            return decorated_function
+        return decorator
+    
+    def invalidate_pattern(self, pattern: str) -> None:
+        """Инвалидация кеша по паттерну."""
+        try:
+            import redis
+            r = redis.from_url(current_app.config['CACHE_REDIS_URL'])
+            keys = r.keys(pattern)
+            if keys:
+                r.delete(*keys)
+                current_app.logger.info(f"Invalidated {len(keys)} cache keys")
+        except Exception as e:
+            current_app.logger.error(f"Cache invalidation failed: {e}")
+
+# Глобальный экземпляр
+cache_manager = CacheManager(cache)
+
+# Использование:
+@cache_manager.cached_result(timeout=300)
+def get_all_users():
+    """Получение всех пользователей с кешированием"""
+    return User.query.filter_by(is_active=True).all()
+```
+
+## 18. Дополнительные утилиты
+
+### Кастомные валидаторы (app/utils/validators.py)
+
+```python
+"""Кастомные валидаторы."""
+
+import re
+from typing import Any, Optional
+
+def validate_phone(phone: str) -> bool:
+    """Валидация номера телефона."""
+    pattern = r'^\+?1?\d{9,15}
+    return bool(re.match(pattern, phone))
+
+def validate_password_strength(password: str) -> tuple[bool, list[str]]:
+    """Проверка силы пароля."""
+    errors = []
+    
+    if len(password) < 8:
+        errors.append("Пароль должен содержать минимум 8 символов")
+    
+    if not re.search(r'[A-Z]', password):
+        errors.append("Пароль должен содержать заглавную букву")
+    
+    if not re.search(r'[a-z]', password):
+        errors.append("Пароль должен содержать строчную букву")
+    
+    if not re.search(r'\d', password):
+        errors.append("Пароль должен содержать цифру")
+    
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
+        errors.append("Пароль должен содержать специальный символ")
+    
+    return len(errors) == 0, errors
+
+def sanitize_input(value: Any) -> str:
+    """Очистка пользовательского ввода."""
+    if not isinstance(value, str):
+        value = str(value)
+    
+    # Удаление потенциально опасных символов
+    value = re.sub(r'[<>"\']', '', value)
+    return value.strip()
+```
+
+### Дополнительные декораторы (app/utils/decorators.py)
+
+```python
+"""Дополнительные декораторы."""
+
+from functools import wraps
+from flask import request, current_app
+import time
+
+def measure_time(f):
+    """Декоратор для измерения времени выполнения."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        start_time = time.time()
+        result = f(*args, **kwargs)
+        end_time = time.time()
+        
+        duration = end_time - start_time
+        current_app.logger.info(
+            f"Function {f.__name__} executed in {duration:.4f} seconds"
+        )
+        
+        return result
+    return decorated_function
+
+def log_requests(f):
+    """Декоратор для логирования запросов."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        current_app.logger.info(
+            f"Request: {request.method} {request.path} "
+            f"from {request.remote_addr}"
+        )
+        return f(*args, **kwargs)
+    return decorated_function
+```
+
+### Административные инструменты (app/utils/admin_tools.py)
+
+```python
+"""Инструменты для административного управления."""
+
+from flask import current_app
+from app import db
+from app.models import User, Role
+from typing import Dict, Any, List
+
+class DatabaseManager:
+    """Менеджер для работы с базой данных."""
+    
+    @staticmethod
+    def init_database() -> Dict[str, Any]:
+        """Инициализация базы данных."""
+        try:
+            db.create_all()
+            current_app.logger.info("База данных инициализирована")
+            return {"status": "success", "message": "База данных инициализирована"}
+        except Exception as e:
+            current_app.logger.error(f"Ошибка инициализации БД: {e}")
+            return {"status": "error", "message": str(e)}
+    
+    @staticmethod
+    def seed_database() -> Dict[str, Any]:
+        """Заполнение базы данных начальными данными."""
+        try:
+            # Проверка существования ролей
+            if Role.query.count() > 0:
+                return {"status": "info", "message": "Данные уже существуют"}
+            
+            # Создание ролей
+            admin_role = Role(name='admin', description='Администратор')
+            user_role = Role(name='user', description='Пользователь')
+            
+            db.session.add_all([admin_role, user_role])
+            db.session.flush()  # Получаем ID ролей
+            
+            # Создание администратора
+            admin_user = User(username='admin', is_active=True)
+            admin_user.set_password('admin123')
+            admin_user.roles.append(admin_role)
+            
+            db.session.add(admin_user)
+            db.session.commit()
+            
+            current_app.logger.info("Начальные данные добавлены")
+            return {"status": "success", "message": "Начальные данные добавлены"}
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Ошибка заполнения БД: {e}")
+            return {"status": "error", "message": str(e)}
+    
+    @staticmethod
+    def create_admin_user(username: str, password: str, email: str = None) -> Dict[str, Any]:
+        """Создание администратора."""
+        try:
+            # Проверка существования пользователя
+            if User.find_by_username(username):
+                return {"status": "error", "message": "Пользователь уже существует"}
+            
+            # Получение или создание роли администратора
+            admin_role = Role.query.filter_by(name='admin').first()
+            if not admin_role:
+                admin_role = Role(name='admin', description='Администратор')
+                db.session.add(admin_role)
+                db.session.flush()
+            
+            # Создание пользователя
+            user = User(username=username, is_active=True)
+            user.set_password(password)
+            if email:
+                user.email = email
+            user.roles.append(admin_role)
+            
+            db.session.add(user)
+            db.session.commit()
+            
+            current_app.logger.info(f"Администратор {username} создан")
+            return {"status": "success", "message": f"Администратор {username} создан"}
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Ошибка создания администратора: {e}")
+            return {"status": "error", "message": str(e)}
+
+class SystemInfo:
+    """Информация о системе."""
+    
+    @staticmethod
+    def get_system_status() -> Dict[str, Any]:
+        """Получение статуса системы."""
+        try:
+            # Проверка подключения к БД
+            db.session.execute(sa.text('SELECT 1')).scalar()
+            db_status = "connected"
+        except Exception:
+            db_status = "disconnected"
+        
+        # Подсчет пользователей
+        try:
+            user_count = User.query.count()
+            role_count = Role.query.count()
+        except Exception:
+            user_count = 0
+            role_count = 0
+        
+        return {
+            "database": {
+                "status": db_status,
+                "users_count": user_count,
+                "roles_count": role_count
+            },
+            "environment": current_app.config.get('ENV', 'unknown')
+        }
+```
+
+## 19. Скрипты управления проектом
+
+### scripts/dev.py - Скрипт разработки:
+```python
+#!/usr/bin/env python3
+"""Скрипт для запуска в режиме разработки."""
+
+import os
+import sys
+from pathlib import Path
+
+# Добавляем корневую директорию в PATH
+root_dir = Path(__file__).parent.parent
+sys.path.insert(0, str(root_dir))
+
+from app import create_app
+
+def main():
+    """Запуск приложения в режиме разработки."""
+    os.environ.setdefault('FLASK_ENV', 'development')
+    os.environ.setdefault('FLASK_DEBUG', '1')
+    
+    app = create_app('development')
+    app.run(
+        host='0.0.0.0',
+        port=5000,
+        debug=True,
+        use_reloader=True
+    )
+
+if __name__ == '__main__':
+    main()
+```
+
+### scripts/prod.py - Продакшен скрипт:
+```python
+#!/usr/bin/env python3
+"""Скрипт для запуска в продакшене."""
+
+import os
+import sys
+from pathlib import Path
+
+root_dir = Path(__file__).parent.parent
+sys.path.insert(0, str(root_dir))
+
+from app import create_app
+
+def main():
+    """Запуск приложения в продакшене."""
+    os.environ.setdefault('FLASK_ENV', 'production')
+    
+    app = create_app('production')
+    
+    # Gunicorn запуск
+    import gunicorn.app.wsgiapp as wsgi
+    
+    sys.argv = [
+        'gunicorn',
+        '--bind', '0.0.0.0:8000',
+        '--workers', '4',
+        '--worker-class', 'sync',
+        '--timeout', '30',
+        '--keepalive', '2',
+        '--max-requests', '1000',
+        '--max-requests-jitter', '100',
+        '--log-level', 'info',
+        '--access-logfile', '-',
+        '--error-logfile', '-',
+        'app:create_app()',
+    ]
+    
+    wsgi.run()
+
+if __name__ == '__main__':
+    main()
+```
+
+### scripts/db.py - Управление БД:
+```python
+#!/usr/bin/env python3
+"""Скрипты для работы с базой данных."""
+
+import click
+from flask.cli import with_appcontext
+from app import create_app, db
+
+@click.group()
+def cli():
+    """Команды управления базой данных."""
+    pass
+
+@cli.command()
+@with_appcontext
+def init():
+    """Инициализация базы данных."""
+    db.create_all()
+    click.echo('База данных инициализирована.')
+
+@cli.command()
+@with_appcontext
+def drop():
+    """Удаление всех таблиц."""
+    if click.confirm('Вы уверены, что хотите удалить все таблицы?'):
+        db.drop_all()
+        click.echo('Все таблицы удалены.')
+
+@cli.command()
+@with_appcontext
+def reset():
+    """Пересоздание базы данных."""
+    if click.confirm('Вы уверены, что хотите пересоздать базу данных?'):
+        db.drop_all()
+        db.create_all()
+        click.echo('База данных пересоздана.')
+
+@cli.command()
+@click.argument('username')
+@click.argument('password')
+@click.option('--email', help='Email администратора')
+@with_appcontext
+def create_admin(username, password, email):
+    """Создание администратора."""
+    from app.utils.admin_tools import DatabaseManager
+    result = DatabaseManager.create_admin_user(username, password, email)
+    click.echo(result['message'])
+
+def main():
+    """Главная функция для запуска CLI."""
+    app = create_app()
+    with app.app_context():
+        cli()
+
+if __name__ == '__main__':
+    main()
+```
+
+## 20. Версионирование приложения
+
+### app/version.py - Управление версиями:
+```python
+"""Версионирование приложения."""
+
+import os
+from datetime import datetime
+from typing import Dict, Any
+
+# Версия приложения
+__version__ = "1.0.0"
+__build__ = "dev"
+__release_date__ = "2025-01-01"
+
+def get_version_info() -> Dict[str, Any]:
+    """Получение информации о версии."""
+    return {
+        "version": __version__,
+        "build": __build__,
+        "release_date": __release_date__,
+        "build_time": datetime.utcnow().isoformat(),
+        "python_version": os.sys.version,
+        "environment": os.environ.get('FLASK_ENV', 'development'),
+    }
+
+def get_version_string() -> str:
+    """Строковое представление версии."""
+    return f"{__version__}-{__build__}"
+
+# Для автоматического определения версии из git
+def get_git_version() -> str:
+    """Получение версии из git."""
+    try:
+        import subprocess
+        result = subprocess.run(
+            ['git', 'describe', '--tags', '--always', '--dirty'],
+            capture_output=True,
+            text=True,
+            cwd=os.path.dirname(__file__)
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+    return get_version_string()
+```
+
+## 21. Формы и валидация
+
+### Современные формы с WTForms:
+```python
+# app/forms/auth.py
+from flask_wtf import FlaskForm
+from wtforms import StringField, PasswordField, BooleanField, SubmitField
+from wtforms.validators import DataRequired, Email, Length, EqualTo, ValidationError
+from app.models import User
+from app.utils.validators import validate_password_strength
+
+class RegistrationForm(FlaskForm):
+    """Форма регистрации."""
+    
+    username = StringField(
+        'Имя пользователя',
+        validators=[
+            DataRequired(message='Поле обязательно для заполнения'),
+            Length(min=3, max=20, message='Длина должна быть от 3 до 20 символов')
+        ]
+    )
+    
+    email = StringField(
+        'Email',
+        validators=[
+            DataRequired(message='Поле обязательно для заполнения'),
+            Email(message='Введите корректный email адрес')
+        ]
+    )
+    
+    password = PasswordField(
+        'Пароль',
+        validators=[
+            DataRequired(message='Поле обязательно для заполнения'),
+            Length(min=8, message='Пароль должен содержать минимум 8 символов')
+        ]
+    )
+    
+    password_confirm = PasswordField(
+        'Подтверждение пароля',
+        validators=[
+            DataRequired(message='Поле обязательно для заполнения'),
+            EqualTo('password', message='Пароли должны совпадать')
+        ]
+    )
+    
+    submit = SubmitField('Зарегистрироваться')
+    
+    def validate_username(self, username):
+        """Проверка уникальности имени пользователя."""
+        user = User.find_by_username(username.data)
+        if user:
+            raise ValidationError('Это имя пользователя уже занято.')
+    
+    def validate_email(self, email):
+        """Проверка уникальности email."""
+        # Примечание: поиск по зашифрованному полю неэффективен
+        # В реальном проекте стоит хранить хеш email для быстрого поиска
+        pass
+    
+    def validate_password(self, password):
+        """Проверка силы пароля."""
+        is_valid, errors = validate_password_strength(password.data)
+        if not is_valid:
+            raise ValidationError('; '.join(errors))
+
+class LoginForm(FlaskForm):
+    """Форма входа."""
+    
+    username = StringField(
+        'Имя пользователя',
+        validators=[DataRequired(message='Поле обязательно для заполнения')]
+    )
+    
+    password = PasswordField(
+        'Пароль',
+        validators=[DataRequired(message='Поле обязательно для заполнения')]
+    )
+    
+    remember_me = BooleanField('Запомнить меня')
+    submit = SubmitField('Войти')
+```
+
+## 22. Документация
+
+### Docstrings
+
+```python
+def create_user(username: str, email: str, password: str) -> User:
+    """
+    Создание нового пользователя.
+    
+    Args:
+        username: Имя пользователя
+        email: Email адрес
+        password: Пароль в открытом виде
+        
+    Returns:
+        User: Созданный пользователь
+        
+    Raises:
+        ValidationError: Если данные не валидны
+        IntegrityError: Если пользователь уже существует
+    """
+    # Реализация функции
+```
+
+### Swagger документация
+
+```python
+from flasgger import swag_from
+
+@mobile_auth_bp.route('/register', methods=['POST'])
+@swag_from({
+    'tags': ['Authentication'],
+    'summary': 'Register new user',
+    'parameters': [{
+        'in': 'body',
+        'name': 'body',
+        'schema': {
+            'type': 'object',
+            'required': ['username', 'email', 'password'],
+            'properties': {
+                'username': {'type': 'string'},
+                'email': {'type': 'string'},
+                'password': {'type': 'string'}
+            }
+        }
+    }],
+    'responses': {
+        '201': {'description': 'User created successfully'},
+        '400': {'description': 'Validation error'}
+    }
+})
+def app_register():
+    """Регистрация нового пользователя"""
+    pass
+```
+
+## 23. Чеклист перед коммитом
+- [ ] Код следует установленным соглашениям
+- [ ] Добавлены необходимые индексы в БД
+- [ ] Чувствительные данные зашифрованы
+- [ ] Входные данные валидируются
+- [ ] Добавлены тесты для нового функционала
+- [ ] Обновлена документация
+- [ ] Нет хардкода секретов или конфигурации
+- [ ] Логирование добавлено для важных операций
+- [ ] Проверено на SQL инъекции и XSS
+- [ ] Добавлены необходимые индексы БД
+- [ ] Валидация входных данных
+- [ ] Проверена типизация моделей
+- [ ] Обработка ошибок настроена правильно
+- [ ] Кеширование добавлено где необходимо
+- [ ] Безопасность проверена (SecurityMiddleware)
+- [ ] Административные функции работают
+- [ ] Структура логирования с контекстом
