@@ -1,0 +1,66 @@
+# Flask и основные расширения
+Flask
+Flask-SQLAlchemy
+Flask-Migrate
+Flask-WTF
+Flask-Login
+Flask-JWT-Extended
+Flask-Caching
+Flask-Limiter
+
+# База данных
+psycopg2-binary
+SQLAlchemy
+
+# Безопасность и аутентификация
+argon2-cffi
+cryptography
+PyJWT
+
+# Валидация и формы
+WTForms
+email-validator
+
+# Кеширование и очереди
+redis
+celery
+
+# Логирование и мониторинг
+python-dotenv
+structlog
+
+# HTTP и API
+requests
+gunicorn
+
+# WebSocket и реальное время
+flask-socketio
+eventlet
+
+# Тестирование
+pytest
+pytest-flask
+pytest-cov
+factory-boy
+
+# Разработка и отладка
+click
+python-dateutil
+
+# Документация API
+flasgger
+
+# Утилиты
+Pillow
+python-magic
+
+# Продакшен
+sentry-sdk[flask]
+prometheus-flask-exporter
+
+# Дополнительные утилиты
+marshmallow
+marshmallow-sqlalchemy 
+
+# Работа с принтерами
+python-escpos
