@@ -1,6 +1,6 @@
 """Инициализация Flask приложения."""
 
-from flask import Flask
+from flask import Flask, g, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFProtect
@@ -72,6 +72,12 @@ def init_extensions(app: Flask) -> None:
     login_manager.login_view = 'auth.login'
     login_manager.login_message = 'Пожалуйста, войдите в систему.'
     login_manager.login_message_category = 'info'
+    
+    @login_manager.user_loader
+    def load_user(user_id):
+        """Загрузка пользователя по ID для Flask-Login."""
+        from app.models import Staff
+        return Staff.query.get(int(user_id))
 
 def register_blueprints(app: Flask) -> None:
     """Регистрация blueprints."""

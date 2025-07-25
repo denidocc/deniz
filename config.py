@@ -13,14 +13,14 @@ class BaseConfig:
     """Базовая конфигурация."""
     
     # Основные настройки
-    SECRET_KEY: str = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
+    SECRET_KEY: str = os.environ.get('SECRET_KEY')
     
     # База данных
-    DB_NAME: str = os.environ.get('DB_NAME', 'denizdb')
-    DB_USER: str = os.environ.get('DB_USER', 'postgres')
-    DB_PASSWORD: str = os.environ.get('DB_PASSWORD', 'password')
-    DB_HOST: str = os.environ.get('DB_HOST', 'localhost')
-    DB_PORT: str = os.environ.get('DB_PORT', '5432')
+    DB_NAME: str = os.environ.get('DB_NAME')
+    DB_USER: str = os.environ.get('DB_USER')
+    DB_PASSWORD: str = os.environ.get('DB_PASSWORD')
+    DB_HOST: str = os.environ.get('DB_HOST')
+    DB_PORT: str = os.environ.get('DB_PORT')
     
     SQLALCHEMY_DATABASE_URI: str = (
         f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
@@ -38,24 +38,17 @@ class BaseConfig:
     JWT_REFRESH_TOKEN_EXPIRES: timedelta = timedelta(days=30)
     
     # Шифрование
-    ENCRYPTION_KEY: str = os.environ.get('ENCRYPTION_KEY', 'default-encryption-key')
+    ENCRYPTION_KEY: str = os.environ.get('ENCRYPTION_KEY')
     
     # Redis и кеширование
-    REDIS_URL: str = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+    REDIS_URL: str = os.environ.get('REDIS_URL')
     CACHE_TYPE: str = "redis"
     CACHE_REDIS_URL: str = REDIS_URL
     CACHE_DEFAULT_TIMEOUT: int = 300
     
     # Rate limiting
-    RATELIMIT_STORAGE_URL: str = os.environ.get('REDIS_URL', 'redis://localhost:6379/1')
+    RATELIMIT_STORAGE_URL: str = os.environ.get('REDIS_URL')
     RATELIMIT_DEFAULT: str = "1000 per hour"
-    
-    # Email настройки
-    MAIL_SERVER: str = os.environ.get('MAIL_SERVER', 'localhost')
-    MAIL_PORT: int = int(os.environ.get('MAIL_PORT', '587'))
-    MAIL_USE_TLS: bool = os.environ.get('MAIL_USE_TLS', 'true').lower() == 'true'
-    MAIL_USERNAME: str = os.environ.get('MAIL_USERNAME', '')
-    MAIL_PASSWORD: str = os.environ.get('MAIL_PASSWORD', '')
     
     # Celery настройки
     CELERY_BROKER_URL: str = REDIS_URL
@@ -63,6 +56,8 @@ class BaseConfig:
     
     # Безопасность
     WTF_CSRF_TIME_LIMIT: int = 3600
+    WTF_CSRF_SECRET_KEY: str = os.environ.get('WTF_CSRF_SECRET_KEY')
+    WTF_CSRF_ENABLED: str = os.environ.get('WTF_CSRF_ENABLED')
     SESSION_COOKIE_SECURE: bool = True
     SESSION_COOKIE_HTTPONLY: bool = True
     SESSION_COOKIE_SAMESITE: str = 'Lax'
