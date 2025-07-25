@@ -52,6 +52,11 @@ class DatabaseManager:
             # Инициализация системных настроек
             SystemSetting.initialize_default_settings()
             
+            # Заполнение меню тестовыми данными
+            from .menu_seeder import MenuSeeder
+            menu_result = MenuSeeder.seed_menu()
+            current_app.logger.info(f"Заполнение меню: {menu_result['message']}")
+            
             current_app.logger.info("Начальные данные добавлены")
             return {"status": "success", "message": "Начальные данные добавлены"}
             
