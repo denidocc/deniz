@@ -2,7 +2,7 @@
 
 from flask import current_app
 from app import db
-# from app.models import Staff, Role  # Временно закомментировано
+from app.models import Staff, SystemSetting
 from typing import Dict, Any, List
 
 class DatabaseManager:
@@ -23,40 +23,34 @@ class DatabaseManager:
     def seed_database() -> Dict[str, Any]:
         """Заполнение базы данных начальными данными."""
         try:
-            # TODO: Временно отключено до создания моделей
-            # Проверка существования ролей
-            # if Role.query.count() > 0:
-            #     return {"status": "info", "message": "Данные уже существуют"}
-            # 
-            # # Создание ролей
-            # admin_role = Role(name='admin', description='Администратор')
-            # waiter_role = Role(name='waiter', description='Официант')
-            # kitchen_role = Role(name='kitchen', description='Кухня')
-            # bar_role = Role(name='bar', description='Бар')
-            # 
-            # db.session.add_all([admin_role, waiter_role, kitchen_role, bar_role])
-            # db.session.flush()  # Получаем ID ролей
-            # 
-            # # Создание стандартных пользователей
-            # users = [
-            #     Staff(name='Администратор', login='admin', role='admin'),
-            #     Staff(name='Официант 1', login='waiter1', role='waiter'),
-            #     Staff(name='Официант 2', login='waiter2', role='waiter'),
-            #     Staff(name='Официант 3', login='waiter3', role='waiter'),
-            #     Staff(name='Кухня', login='kitchen', role='kitchen'),
-            #     Staff(name='Бар', login='bar', role='bar'),
-            # ]
-            # 
-            # # Установка паролей
-            # for user in users:
-            #     user.set_password('deniz2025' if user.role == 'waiter' else 'admin123')
-            #     if user.role == 'admin':
-            #         user.set_password('admin123')
-            #     elif user.role in ['kitchen', 'bar']:
-            #         user.set_password(f'{user.role}123')
-            # 
-            # db.session.add_all(users)
-            # db.session.commit()
+            # Проверка существования пользователей
+            if Staff.query.count() > 0:
+                return {"status": "info", "message": "Данные уже существуют"}
+            
+            # Создание стандартных пользователей
+            users = [
+                Staff(name='Администратор', login='admin', role='admin'),
+                Staff(name='Официант 1', login='waiter1', role='waiter'),
+                Staff(name='Официант 2', login='waiter2', role='waiter'),
+                Staff(name='Официант 3', login='waiter3', role='waiter'),
+                Staff(name='Кухня', login='kitchen', role='kitchen'),
+                Staff(name='Бар', login='bar', role='bar'),
+            ]
+            
+            # Установка паролей
+            for user in users:
+                if user.role == 'waiter':
+                    user.set_password('deniz2025')
+                elif user.role == 'admin':
+                    user.set_password('admin123')
+                elif user.role in ['kitchen', 'bar']:
+                    user.set_password(f'{user.role}123')
+            
+            db.session.add_all(users)
+            db.session.commit()
+            
+            # Инициализация системных настроек
+            SystemSetting.initialize_default_settings()
             
             current_app.logger.info("Начальные данные добавлены")
             return {"status": "success", "message": "Начальные данные добавлены"}
@@ -70,27 +64,21 @@ class DatabaseManager:
     def create_admin_user(username: str, password: str, email: str = None) -> Dict[str, Any]:
         """Создание администратора."""
         try:
-            # TODO: Временно отключено до создания моделей
-            # # Проверка существования пользователя
-            # if Staff.find_by_username(username):
-            #     return {"status": "error", "message": "Пользователь уже существует"}
-            # 
-            # # Получение или создание роли администратора
-            # admin_role = Role.query.filter_by(name='admin').first()
-            # if not admin_role:
-            #     admin_role = Role(name='admin', description='Администратор')
-            #     db.session.add(admin_role)
-            #     db.session.flush()
-            # 
-            # # Создание пользователя
-            # user = Staff(username=username, is_active=True)
-            # user.set_password(password)
-            # if email:
-            #     user.email = email
-            # user.roles.append(admin_role)
-            # 
-            # db.session.add(user)
-            # db.session.commit()
+            # Проверка существования пользователя
+            if Staff.find_by_login(username):
+                return {"status": "error", "message": "Пользователь уже существует"}
+            
+            # Создание пользователя
+            user = Staff(
+                name=username,
+                login=username,
+                role='admin',
+                is_active=True
+            )
+            user.set_password(password)
+            
+            db.session.add(user)
+            db.session.commit()
             
             current_app.logger.info(f"Администратор {username} создан")
             return {"status": "success", "message": f"Администратор {username} создан"}
@@ -113,20 +101,19 @@ class SystemInfo:
         except Exception:
             db_status = "disconnected"
         
-        # TODO: Временно отключено до создания моделей
-        # # Подсчет пользователей
-        # try:
-        #     user_count = Staff.query.count()
-        #     role_count = Role.query.count()
-        # except Exception:
-        #     user_count = 0
-        #     role_count = 0
+        # Подсчет пользователей
+        try:
+            user_count = Staff.query.count()
+            active_user_count = Staff.query.filter_by(is_active=True).count()
+        except Exception:
+            user_count = 0
+            active_user_count = 0
         
         return {
             "database": {
                 "status": db_status,
-                "users_count": 0,  # Временно
-                "roles_count": 0,   # Временно
+                "users_count": user_count,
+                "active_users_count": active_user_count,
             },
             "environment": current_app.config.get('ENV', 'unknown'),
             "debug": current_app.debug
