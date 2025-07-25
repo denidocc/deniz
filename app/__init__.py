@@ -1,0 +1,190 @@
+"""Инициализация Flask приложения."""
+
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+from flask_wtf.csrf import CSRFProtect
+from flask_login import LoginManager
+from flask_jwt_extended import JWTManager
+from flask_caching import Cache
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+import logging
+from logging.handlers import RotatingFileHandler
+from typing import Optional
+
+# Инициализация расширений
+db = SQLAlchemy()
+migrate = Migrate()
+csrf = CSRFProtect()
+login_manager = LoginManager()
+jwt = JWTManager()
+cache = Cache()
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["1000 per hour", "100 per minute"]
+)
+
+def create_app(config_name: str = 'development') -> Flask:
+    """
+    Фабрика приложений Flask.
+    
+    Args:
+        config_name: Название конфигурации ('development', 'testing', 'production')
+        
+    Returns:
+        Flask: Настроенное приложение Flask
+    """
+    app = Flask(__name__)
+    
+    # Загрузка конфигурации
+    from config import get_config
+    app.config.from_object(get_config(config_name))
+    
+    # Инициализация расширений
+    init_extensions(app)
+    
+    # Настройка логирования
+    setup_logging(app)
+    
+    # Регистрация blueprints
+    register_blueprints(app)
+    
+    # Обработчики ошибок
+    register_error_handlers(app)
+    
+    # Инициализация системных компонентов
+    init_system_components(app)
+    
+    return app
+
+def init_extensions(app: Flask) -> None:
+    """Инициализация расширений Flask."""
+    db.init_app(app)
+    migrate.init_app(app, db)
+    csrf.init_app(app)
+    login_manager.init_app(app)
+    jwt.init_app(app)
+    cache.init_app(app)
+    limiter.init_app(app)
+    
+    # Настройка Flask-Login
+    login_manager.login_view = 'auth.login'
+    login_manager.login_message = 'Пожалуйста, войдите в систему.'
+    login_manager.login_message_category = 'info'
+
+def register_blueprints(app: Flask) -> None:
+    """Регистрация blueprints."""
+    from .controllers import auth_bp, admin_bp, main_bp, waiter_bp
+    
+    # Web blueprints
+    app.register_blueprint(main_bp)
+    app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(admin_bp, url_prefix='/admin')
+    app.register_blueprint(waiter_bp, url_prefix='/waiter')
+
+def register_error_handlers(app: Flask) -> None:
+    """Регистрация обработчиков ошибок."""
+    from .errors import register_error_handlers as register_handlers
+    register_handlers(app)
+
+def init_system_components(app: Flask) -> None:
+    """Инициализация системных компонентов."""
+    # Автоматическая инициализация БД при первом запуске
+    with app.app_context():
+        try:
+            # Проверка существования таблиц
+            from sqlalchemy import inspect
+            inspector = inspect(db.engine)
+            tables = inspector.get_table_names()
+            
+            if not tables:
+                app.logger.info("Таблицы БД не найдены, выполняется инициализация...")
+                db.create_all()
+                app.logger.info("База данных инициализирована")
+                
+                # Создание начальных данных
+                from .utils.admin_tools import DatabaseManager
+                result = DatabaseManager.seed_database()
+                app.logger.info(f"Инициализация данных: {result['message']}")
+                
+        except Exception as e:
+            app.logger.error(f"Ошибка инициализации системы: {e}")
+
+def setup_logging(app: Flask) -> None:
+    """Настройка системы логирования."""
+    if app.config.get('TESTING'):
+        return
+        
+    # Создание директории для логов
+    import os
+    if not os.path.exists('logs'):
+        os.mkdir('logs')
+    
+    # Настройка уровня логирования
+    log_level = logging.DEBUG if app.debug else logging.INFO
+    app.logger.setLevel(log_level)
+    
+    # Настройка форматтера
+    formatter = logging.Formatter(
+        '%(asctime)s %(name)s %(levelname)s: %(message)s '
+        '[in %(pathname)s:%(lineno)d]'
+    )
+    
+    # Файловый обработчик
+    file_handler = RotatingFileHandler(
+        'logs/app.log',
+        maxBytes=10485760,  # 10MB
+        backupCount=10
+    )
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(log_level)
+    app.logger.addHandler(file_handler)
+    
+    # Обработчик ошибок
+    error_handler = RotatingFileHandler(
+        'logs/errors.log',
+        maxBytes=10485760,
+        backupCount=5
+    )
+    error_handler.setFormatter(formatter)
+    error_handler.setLevel(logging.ERROR)
+    app.logger.addHandler(error_handler)
+    
+    # Консольный вывод для разработки
+    if app.debug:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        console_handler.setLevel(logging.DEBUG)
+        app.logger.addHandler(console_handler)
+    
+    # Добавление контекста запроса в логи
+    @app.before_request
+    def before_request():
+        import uuid
+        from flask import g
+        from datetime import datetime
+        
+        g.request_id = str(uuid.uuid4())
+        g.start_time = datetime.utcnow()
+        
+        app.logger.info(
+            f"Request started: {request.method} {request.path} [request_id: {g.request_id}]"
+        )
+    
+    @app.after_request
+    def after_request(response):
+        from flask import g, request
+        from datetime import datetime
+        
+        if hasattr(g, 'request_id') and hasattr(g, 'start_time'):
+            duration = (datetime.utcnow() - g.start_time).total_seconds()
+            
+            app.logger.info(
+                f"Request completed: {response.status_code} "
+                f"({duration:.4f}s) [request_id: {g.request_id}]"
+            )
+        
+        return response
+        
+    app.logger.info('Приложение DENIZ Restaurant запущено') 
