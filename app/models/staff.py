@@ -4,10 +4,9 @@ import sqlalchemy as sa
 import sqlalchemy.orm as so
 from typing import Optional, TYPE_CHECKING, Dict, Any
 from datetime import datetime
-from werkzeug.security import generate_password_hash, check_password_hash
+from argon2 import PasswordHasher
 from flask_login import UserMixin
-from app import db
-from .base import BaseModel
+from .base import BaseModel, db
 
 if TYPE_CHECKING:
     from .staff_shift import StaffShift
@@ -64,11 +63,17 @@ class Staff(BaseModel, UserMixin):
     
     def set_password(self, password: str) -> None:
         """Установка пароля с хешированием."""
-        self.password_hash = generate_password_hash(password)
+        ph = PasswordHasher()
+        self.password_hash = ph.hash(password)
     
     def check_password(self, password: str) -> bool:
         """Проверка пароля."""
-        return check_password_hash(self.password_hash, password)
+        try:
+            ph = PasswordHasher()
+            ph.verify(self.password_hash, password)
+            return True
+        except Exception:
+            return False
     
     def has_role(self, role_name: str) -> bool:
         """Проверка наличия роли."""

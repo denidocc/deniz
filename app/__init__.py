@@ -68,6 +68,10 @@ def init_extensions(app: Flask) -> None:
     cache.init_app(app)
     limiter.init_app(app)
     
+    # Обновляем db в модулях моделей
+    from app.models import base
+    base.db = db
+    
     # Настройка Flask-Login
     login_manager.login_view = 'auth.login'
     login_manager.login_message = 'Пожалуйста, войдите в систему.'
@@ -136,10 +140,18 @@ def setup_logging(app: Flask) -> None:
     log_level = logging.DEBUG if app.debug else logging.INFO
     app.logger.setLevel(log_level)
     
-    # Настройка форматтера
-    formatter = logging.Formatter(
+    # Настройка форматтера с дополнительным контекстом
+    class RequestFormatter(logging.Formatter):
+        def format(self, record):
+            if hasattr(g, 'request_id'):
+                record.request_id = g.request_id
+            else:
+                record.request_id = 'no-request'
+            return super().format(record)
+    
+    formatter = RequestFormatter(
         '%(asctime)s %(name)s %(levelname)s: %(message)s '
-        '[in %(pathname)s:%(lineno)d]'
+        '[in %(pathname)s:%(lineno)d] [request_id: %(request_id)s]'
     )
     
     # Файловый обработчик
@@ -180,7 +192,7 @@ def setup_logging(app: Flask) -> None:
         g.start_time = datetime.utcnow()
         
         app.logger.info(
-            f"Request started: {request.method} {request.path} [request_id: {g.request_id}]"
+            f"Request started: {request.method} {request.path}"
         )
     
     @app.after_request
@@ -193,7 +205,7 @@ def setup_logging(app: Flask) -> None:
             
             app.logger.info(
                 f"Request completed: {response.status_code} "
-                f"({duration:.4f}s) [request_id: {g.request_id}]"
+                f"({duration:.4f}s)"
             )
         
         return response

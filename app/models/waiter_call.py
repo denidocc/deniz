@@ -4,8 +4,7 @@ import sqlalchemy as sa
 import sqlalchemy.orm as so
 from typing import Optional, TYPE_CHECKING, Dict, Any
 from datetime import datetime
-from app import db
-from .base import BaseModel
+from .base import BaseModel, db
 
 if TYPE_CHECKING:
     from .table import Table

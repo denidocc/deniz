@@ -3,8 +3,7 @@
 import sqlalchemy as sa
 import sqlalchemy.orm as so
 from typing import TYPE_CHECKING, Dict, Any, Optional
-from app import db
-from .base import BaseModel
+from .base import BaseModel, db
 
 if TYPE_CHECKING:
     pass
