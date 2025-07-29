@@ -6,6 +6,7 @@ from typing import Optional, TYPE_CHECKING, Dict, Any
 from datetime import datetime, date
 from decimal import Decimal
 from .base import BaseModel
+from app import db
 
 if TYPE_CHECKING:
     from .staff import Staff
