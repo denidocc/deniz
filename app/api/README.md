@@ -379,4 +379,147 @@ curl "http://localhost:5000/api/menu/items/1"
   "name": "Большая порция",
   "price_modifier": 150.00
 }
-``` 
+```
+
+## System API
+
+### 6. Информация о системе
+
+**GET** `/api/system/info`
+
+Получение общей информации о системе, версии и конфигурации.
+
+#### Пример запроса
+
+```bash
+curl "http://localhost:5000/api/system/info"
+```
+
+#### Пример ответа
+
+```json
+{
+  "status": "success",
+  "message": "Информация о системе",
+  "data": {
+    "name": "DENIZ Restaurant API",
+    "version": "1.0.0",
+    "build": "dev",
+    "environment": "development",
+    "features": {
+      "menu_api": true,
+      "orders_api": false,
+      "auth_api": false,
+      "printer_integration": false,
+      "multi_language": true,
+      "caching": true,
+      "security_middleware": true,
+      "rate_limiting": true
+    },
+    "supported_languages": ["ru", "tk", "en"],
+    "database": {
+      "status": "connected",
+      "type": "PostgreSQL"
+    }
+  }
+}
+```
+
+### 7. Проверка состояния системы
+
+**GET** `/api/system/health`
+
+Healthcheck endpoint для мониторинга доступности системы.
+
+#### Пример запроса
+
+```bash
+curl "http://localhost:5000/api/system/health"
+```
+
+#### Пример ответа
+
+```json
+{
+  "status": "healthy",
+  "timestamp": "2025-01-29T10:30:00Z",
+  "version": "1.0.0",
+  "uptime": 3600.5,
+  "checks": {
+    "database": "healthy",
+    "cache": "healthy"
+  },
+  "environment": "development"
+}
+```
+
+### 8. Статистика системы
+
+**GET** `/api/system/stats`
+
+Получение статистики использования системы и производительности.
+
+#### Пример запроса
+
+```bash
+curl "http://localhost:5000/api/system/stats"
+```
+
+#### Пример ответа
+
+```json
+{
+  "status": "success",
+  "message": "Статистика системы",
+  "data": {
+    "uptime_seconds": 3600.5,
+    "version": "1.0.0",
+    "environment": "development",
+    "process_id": 12345,
+    "memory_usage": {
+      "description": "Для получения информации о памяти требуется psutil"
+    },
+    "request_stats": {
+      "description": "Статистика запросов будет добавлена в будущих версиях"
+    }
+  }
+}
+```
+
+## Обновленные лимиты запросов
+
+### Menu API
+- `/api/menu` - 1000 запросов в час
+- `/api/menu/categories` - 500 запросов в час
+- `/api/menu/items/{id}` - 2000 запросов в час
+- `/api/menu/search` - 300 запросов в час
+- `/api/menu/stats` - 100 запросов в час
+
+### System API
+- `/api/system/info` - 50 запросов в час
+- `/api/system/health` - 200 запросов в час
+- `/api/system/stats` - 100 запросов в час
+
+## Безопасность
+
+API включает расширенную систему безопасности:
+
+- ✅ **Rate Limiting** - Ограничение количества запросов
+- ✅ **Input Validation** - Валидация всех входных данных
+- ✅ **XSS Protection** - Защита от межсайтового скриптинга
+- ✅ **SQL Injection Protection** - Защита от SQL инъекций
+- ✅ **Security Headers** - HSTS, CSP, X-Frame-Options
+- ✅ **Request Logging** - Логирование всех запросов с unique ID
+- ✅ **Error Handling** - Централизованная обработка ошибок
+- ✅ **Content Filtering** - Фильтрация подозрительного контента
+
+## Планируемые функции
+
+В следующих спринтах будут добавлены:
+
+- **Orders API** - Управление заказами клиентов
+- **Auth API** - Аутентификация персонала
+- **Waiter API** - Интерфейс для официантов  
+- **Print API** - Интеграция с принтерами чеков
+- **Admin API** - Административные функции
+- **WebSocket** - Real-time уведомления 

@@ -56,6 +56,9 @@ def create_app(config_name: str = 'development') -> Flask:
     # Инициализация системных компонентов
     init_system_components(app)
     
+    # Инициализация системы безопасности
+    init_security_components(app)
+    
     return app
 
 def init_extensions(app: Flask) -> None:
@@ -86,7 +89,7 @@ def init_extensions(app: Flask) -> None:
 def register_blueprints(app: Flask) -> None:
     """Регистрация blueprints."""
     from .controllers import auth_bp, admin_bp, main_bp, waiter_bp
-    from .api import menu_api, docs_api
+    from .api import menu_api, docs_api, system_api
     
     # Web blueprints
     app.register_blueprint(main_bp)
@@ -97,6 +100,7 @@ def register_blueprints(app: Flask) -> None:
     # API blueprints
     app.register_blueprint(menu_api)
     app.register_blueprint(docs_api)
+    app.register_blueprint(system_api)
 
 def register_error_handlers(app: Flask) -> None:
     """Регистрация обработчиков ошибок."""
@@ -125,6 +129,15 @@ def init_system_components(app: Flask) -> None:
                 
         except Exception as e:
             app.logger.error(f"Ошибка инициализации системы: {e}")
+
+def init_security_components(app: Flask) -> None:
+    """Инициализация компонентов безопасности."""
+    try:
+        from .utils.security import init_security
+        init_security(app)
+        app.logger.info("Система безопасности инициализирована")
+    except Exception as e:
+        app.logger.error(f"Ошибка инициализации системы безопасности: {e}")
 
 def setup_logging(app: Flask) -> None:
     """Настройка системы логирования."""

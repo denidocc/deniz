@@ -70,6 +70,12 @@ class BaseConfig:
     SERVICE_CHARGE_PERCENT: float = 10.0  # Сервисный сбор 10%
     ORDER_EDIT_TIMEOUT_MINUTES: int = 5  # Время для отмены заказа
     
+    # Настройки безопасности
+    SECURITY_MAX_REQUESTS_PER_MINUTE: int = 100  # Максимум запросов в минуту с одного IP
+    SECURITY_REQUEST_TIMEOUT: int = 30  # Таймаут запроса в секундах
+    SECURITY_ENABLE_IP_BLOCKING: bool = True  # Включить блокировку IP
+    SECURITY_ENABLE_CONTENT_FILTERING: bool = True  # Включить фильтрацию контента
+    
     # Принтеры
     PRINTERS = {
         'kitchen': {
@@ -99,6 +105,11 @@ class DevelopmentConfig(BaseConfig):
     # Менее строгие настройки для разработки
     WTF_CSRF_ENABLED: bool = True
     RATELIMIT_ENABLED: bool = False
+    
+    # Более мягкие настройки безопасности для разработки
+    SECURITY_MAX_REQUESTS_PER_MINUTE: int = 1000  # Больше запросов для разработки
+    SECURITY_ENABLE_IP_BLOCKING: bool = False  # Отключить блокировку IP в разработке
+    SECURITY_ENABLE_CONTENT_FILTERING: bool = True  # Оставить фильтрацию
 
 class TestingConfig(BaseConfig):
     """Конфигурация для тестирования."""

@@ -8,17 +8,64 @@ API_DOCS = {
     "openapi": "3.0.0",
     "info": {
         "title": "DENIZ Restaurant API",
-        "description": "REST API для системы заказов ресторана DENIZ",
+        "description": """
+        REST API для системы заказов ресторана DENIZ.
+        
+        ## Функциональность:
+        - 🍽️ Получение меню с многоязычной поддержкой (русский, туркменский, английский)
+        - 🔍 Поиск и фильтрация блюд
+        - 📊 Статистика меню
+        - 📋 Управление заказами (планируется)
+        - 👥 Система авторизации персонала (планируется)
+        - 🖨️ Интеграция с принтерами (планируется)
+        
+        ## Безопасность:
+        - Rate limiting
+        - Валидация входных данных
+        - Защита от XSS и SQL инъекций
+        - Логирование всех запросов
+        
+        ## Поддерживаемые языки:
+        - `ru` - Русский (по умолчанию)
+        - `tk` - Туркменский
+        - `en` - Английский
+        """,
         "version": "1.0.0",
         "contact": {
             "name": "DENIZ Restaurant",
             "email": "info@deniz-restaurant.com"
+        },
+        "license": {
+            "name": "Proprietary",
+            "url": "https://deniz-restaurant.com/license"
         }
     },
     "servers": [
         {
             "url": "http://localhost:5000",
             "description": "Development server"
+        },
+        {
+            "url": "https://api.deniz-restaurant.com",
+            "description": "Production server"
+        }
+    ],
+    "tags": [
+        {
+            "name": "Menu",
+            "description": "API endpoints для работы с меню ресторана"
+        },
+        {
+            "name": "Orders",
+            "description": "API endpoints для управления заказами (планируется)"
+        },
+        {
+            "name": "Auth",
+            "description": "API endpoints для аутентификации персонала (планируется)"
+        },
+        {
+            "name": "System",
+            "description": "Системные API endpoints"
         }
     ],
     "paths": {
@@ -396,6 +443,87 @@ API_DOCS = {
                     }
                 }
             }
+        },
+        "/api/system/info": {
+            "get": {
+                "summary": "Информация о системе",
+                "description": "Получение общей информации о системе и версии API",
+                "tags": ["System"],
+                "responses": {
+                    "200": {
+                        "description": "Информация о системе",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Информация о системе"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/SystemInfo"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/system/health": {
+            "get": {
+                "summary": "Проверка состояния системы",
+                "description": "Healthcheck endpoint для мониторинга",
+                "tags": ["System"],
+                "responses": {
+                    "200": {
+                        "description": "Система работает нормально",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "healthy"
+                                        },
+                                        "timestamp": {
+                                            "type": "string",
+                                            "format": "date-time",
+                                            "example": "2025-01-29T10:30:00Z"
+                                        },
+                                        "version": {
+                                            "type": "string",
+                                            "example": "1.0.0"
+                                        },
+                                        "uptime": {
+                                            "type": "number",
+                                            "description": "Время работы в секундах",
+                                            "example": 3600.5
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Система недоступна",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "components": {
@@ -583,11 +711,75 @@ API_DOCS = {
                     }
                 }
             },
+            "SystemInfo": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "example": "DENIZ Restaurant API"
+                    },
+                    "version": {
+                        "type": "string",
+                        "example": "1.0.0"
+                    },
+                    "build": {
+                        "type": "string",
+                        "example": "dev"
+                    },
+                    "environment": {
+                        "type": "string",
+                        "example": "development"
+                    },
+                    "features": {
+                        "type": "object",
+                        "properties": {
+                            "menu_api": {
+                                "type": "boolean",
+                                "example": true
+                            },
+                            "orders_api": {
+                                "type": "boolean",
+                                "example": false
+                            },
+                            "auth_api": {
+                                "type": "boolean",
+                                "example": false
+                            },
+                            "printer_integration": {
+                                "type": "boolean",
+                                "example": false
+                            }
+                        }
+                    },
+                    "supported_languages": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": ["ru", "tk", "en"]
+                    },
+                    "database": {
+                        "type": "object",
+                        "properties": {
+                            "status": {
+                                "type": "string",
+                                "example": "connected"
+                            },
+                            "type": {
+                                "type": "string",
+                                "example": "PostgreSQL"
+                            }
+                        }
+                    }
+                }
+            },
             "ErrorResponse": {
                 "type": "object",
+                "required": ["status", "message", "data"],
                 "properties": {
                     "status": {
                         "type": "string",
+                        "enum": ["error"],
                         "example": "error"
                     },
                     "message": {
@@ -597,6 +789,18 @@ API_DOCS = {
                     "data": {
                         "type": "object",
                         "example": {}
+                    },
+                    "errors": {
+                        "type": "object",
+                        "description": "Детали ошибок валидации",
+                        "example": {
+                            "field_name": "Ошибка в поле"
+                        }
+                    },
+                    "code": {
+                        "type": "string",
+                        "description": "Код ошибки для программной обработки",
+                        "example": "VALIDATION_ERROR"
                     }
                 }
             }
