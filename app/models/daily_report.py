@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Dict, Any, Optional
 from datetime import date
 from decimal import Decimal
 import json
-from .base import BaseModel, db
+from .base import BaseModel
 
 if TYPE_CHECKING:
     pass

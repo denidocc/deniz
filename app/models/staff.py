@@ -6,7 +6,7 @@ from typing import Optional, TYPE_CHECKING, Dict, Any
 from datetime import datetime
 from argon2 import PasswordHasher
 from flask_login import UserMixin
-from .base import BaseModel, db
+from .base import BaseModel
 
 if TYPE_CHECKING:
     from .staff_shift import StaffShift

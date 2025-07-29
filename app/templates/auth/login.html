@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DENIZ Restaurant - Вход в систему</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+</head>
+<body>
+    <div class="wave"></div>
+    <div class="container">
+        <div class="logo">
+            <h1>DENIZ</h1>
+            <p class="subtitle">Система управления рестораном</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('auth.login') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="login">Логин</label>
+                <input type="text" id="login" name="login" required autocomplete="username">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Пароль</label>
+                <input type="password" id="password" name="password" required autocomplete="current-password">
+            </div>
+
+            <button type="submit" class="btn btn-primary">Войти в систему</button>
+        </form>
+
+        <a href="{{ url_for('main.index') }}" class="btn btn-secondary">На главную</a>
+
+        <div class="credentials-info">
+            <h3>Тестовые учетные данные:</h3>
+            <ul>
+                <li><span class="role">Официанты:</span> waiter1/deniz2025, waiter2/deniz2025, waiter3/deniz2025</li>
+                <li><span class="role">Администратор:</span> admin/admin123</li>
+                <li><span class="role">Кухня:</span> kitchen/kitchen123</li>
+                <li><span class="role">Бар:</span> bar/bar123</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html> 

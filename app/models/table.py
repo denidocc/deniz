@@ -3,7 +3,7 @@
 import sqlalchemy as sa
 import sqlalchemy.orm as so
 from typing import Optional, TYPE_CHECKING, Dict, Any
-from .base import BaseModel, db
+from .base import BaseModel
 
 if TYPE_CHECKING:
     from .order import Order

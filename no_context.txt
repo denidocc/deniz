@@ -1,0 +1,47 @@
+main
+├── arch_n_db (Спринт 1: Архитектура и база данных)
+    ├── setup_flask_app (Настройка Flask приложения с ролевой системой)
+    ├── create_models (Создание моделей SQLAlchemy)
+    ├── api_endpoints (API endpoints для меню)
+    ├── auth_system (Система авторизации с предустановленными логинами)
+    └── logging_audit (Логирование и аудит)
+
+
+
+# Обычный запуск
+python scripts/dev.py run
+
+# С кастомным портом
+python scripts/dev.py run --port 8000
+
+# Инициализация БД
+python scripts/dev.py init-db
+
+# Сброс БД
+python scripts/dev.py reset-db
+
+# Показать все маршруты
+python scripts/dev.py show-routes
+
+# Справка
+python scripts/dev.py --help
+
+
+# 1. Удалить локальную ветку
+git branch -d api_endpoints
+
+# 2. Удалить удаленную ветку с сервера
+git push origin --delete api_endpoints
+
+
+# 1. Переключиться на main
+git checkout main
+
+# 2. Обновить main (если есть изменения)
+git pull origin main
+
+# 3. Слить ветку api_endpoints
+git merge api_endpoints
+
+# 4. Удалить ветку api_endpoints (если merge прошел успешно)
+git branch -d api_endpoints

@@ -4,10 +4,9 @@ import sqlalchemy as sa
 import sqlalchemy.orm as so
 from datetime import datetime
 from typing import Optional, Any, Dict
-from flask_sqlalchemy import SQLAlchemy
 
-# Локальный экземпляр будет заменен на глобальный при инициализации
-db = SQLAlchemy()
+# Импортируем db из app
+from app import db
 
 class BaseModel(db.Model):
     """Базовая модель с общими полями и методами."""

@@ -4,6 +4,7 @@ from flask import current_app
 from app import db
 from app.models import Staff, SystemSetting
 from typing import Dict, Any, List
+import click
 
 class DatabaseManager:
     """Менеджер для работы с базой данных."""
@@ -101,7 +102,8 @@ class SystemInfo:
         """Получение статуса системы."""
         try:
             # Проверка подключения к БД
-            db.session.execute(db.text('SELECT 1')).scalar()
+            from sqlalchemy import text
+            db.session.execute(text('SELECT 1')).scalar()
             db_status = "connected"
         except Exception:
             db_status = "disconnected"
@@ -122,4 +124,64 @@ class SystemInfo:
             },
             "environment": current_app.config.get('ENV', 'unknown'),
             "debug": current_app.debug
-        } 
+        }
+
+# CLI команды
+@click.group()
+def cli():
+    """Команды управления базой данных DENIZ Restaurant."""
+    pass
+
+@cli.command()
+def init_db():
+    """Инициализация базы данных."""
+    result = DatabaseManager.init_database()
+    click.echo(f"Статус: {result['status']}")
+    click.echo(f"Сообщение: {result['message']}")
+
+@cli.command()
+def seed_db():
+    """Заполнение базы данных тестовыми данными."""
+    result = DatabaseManager.seed_database()
+    click.echo(f"Статус: {result['status']}")
+    click.echo(f"Сообщение: {result['message']}")
+
+@cli.command()
+def reset_db():
+    """Пересоздание базы данных."""
+    if click.confirm('Вы уверены, что хотите пересоздать базу данных?'):
+        db.drop_all()
+        click.echo("Все таблицы удалены")
+        
+        result = DatabaseManager.init_database()
+        click.echo(f"Инициализация: {result['message']}")
+        
+        seed_result = DatabaseManager.seed_database()
+        click.echo(f"Заполнение: {seed_result['message']}")
+
+@cli.command()
+@click.argument('username')
+@click.argument('password')
+@click.option('--email', help='Email администратора')
+def create_admin(username, password, email):
+    """Создание администратора."""
+    result = DatabaseManager.create_admin_user(username, password, email)
+    click.echo(f"Статус: {result['status']}")
+    click.echo(f"Сообщение: {result['message']}")
+
+@cli.command()
+def status():
+    """Статус системы."""
+    info = SystemInfo.get_system_status()
+    click.echo("=== Статус системы DENIZ Restaurant ===")
+    click.echo(f"База данных: {info['database']['status']}")
+    click.echo(f"Пользователей: {info['database']['users_count']}")
+    click.echo(f"Активных пользователей: {info['database']['active_users_count']}")
+    click.echo(f"Окружение: {info['environment']}")
+    click.echo(f"Debug режим: {info['debug']}")
+
+if __name__ == '__main__':
+    from app import create_app
+    app = create_app()
+    with app.app_context():
+        cli() 

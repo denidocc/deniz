@@ -5,7 +5,7 @@ import sqlalchemy.orm as so
 from typing import Optional, TYPE_CHECKING, Dict, Any
 from datetime import datetime, date
 from decimal import Decimal
-from .base import BaseModel, db
+from .base import BaseModel
 
 if TYPE_CHECKING:
     from .staff import Staff

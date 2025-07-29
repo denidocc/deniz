@@ -71,9 +71,7 @@ def init_extensions(app: Flask) -> None:
     cache.init_app(app)
     limiter.init_app(app)
     
-    # Обновляем db в модулях моделей
-    from app.models import base
-    base.db = db
+    # db теперь доступен через from app import db
     
     # Настройка Flask-Login
     login_manager.login_view = 'auth.login'

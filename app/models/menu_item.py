@@ -4,7 +4,7 @@ import sqlalchemy as sa
 import sqlalchemy.orm as so
 from typing import Optional, TYPE_CHECKING, Dict, Any
 from decimal import Decimal
-from .base import BaseModel, db
+from .base import BaseModel
 
 if TYPE_CHECKING:
     from .menu_category import MenuCategory
