@@ -42,7 +42,7 @@ API_DOCS = {
     },
     "servers": [
         {
-            "url": "http://localhost:5000",
+            "url": "http://localhost:8000",
             "description": "Development server"
         },
         {
@@ -735,19 +735,19 @@ API_DOCS = {
                         "properties": {
                             "menu_api": {
                                 "type": "boolean",
-                                "example": true
+                                "example": True
                             },
                             "orders_api": {
                                 "type": "boolean",
-                                "example": false
+                                "example": False
                             },
                             "auth_api": {
                                 "type": "boolean",
-                                "example": false
+                                "example": False
                             },
                             "printer_integration": {
                                 "type": "boolean",
-                                "example": false
+                                "example": False
                             }
                         }
                     },

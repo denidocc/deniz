@@ -156,10 +156,16 @@ def setup_logging(app: Flask) -> None:
     # Настройка форматтера с дополнительным контекстом
     class RequestFormatter(logging.Formatter):
         def format(self, record):
-            if hasattr(g, 'request_id'):
-                record.request_id = g.request_id
-            else:
-                record.request_id = 'no-request'
+            try:
+                # Проверяем наличие контекста приложения
+                from flask import has_request_context
+                if has_request_context() and hasattr(g, 'request_id'):
+                    record.request_id = g.request_id
+                else:
+                    record.request_id = 'no-request'
+            except RuntimeError:
+                # Если нет контекста приложения
+                record.request_id = 'app-init'
             return super().format(record)
     
     formatter = RequestFormatter(

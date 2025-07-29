@@ -7,7 +7,7 @@ REST API для системы заказов ресторана DENIZ. API пр
 ## Базовый URL
 
 ```
-http://localhost:5000
+http://localhost:8000
 ```
 
 ## Аутентификация
@@ -34,7 +34,7 @@ http://localhost:5000
 #### Пример запроса
 
 ```bash
-curl "http://localhost:5000/api/menu?lang=ru&preparation_type=kitchen"
+curl "http://localhost:8000/api/menu?lang=ru&preparation_type=kitchen"
 ```
 
 #### Пример ответа
@@ -96,7 +96,7 @@ curl "http://localhost:5000/api/menu?lang=ru&preparation_type=kitchen"
 #### Пример запроса
 
 ```bash
-curl "http://localhost:5000/api/menu/categories?lang=tk"
+curl "http://localhost:8000/api/menu/categories?lang=tk"
 ```
 
 #### Пример ответа
@@ -143,7 +143,7 @@ curl "http://localhost:5000/api/menu/categories?lang=tk"
 #### Пример запроса
 
 ```bash
-curl "http://localhost:5000/api/menu/items/15?lang=en"
+curl "http://localhost:8000/api/menu/items/15?lang=en"
 ```
 
 #### Пример ответа
@@ -203,7 +203,7 @@ curl "http://localhost:5000/api/menu/items/15?lang=en"
 #### Пример запроса
 
 ```bash
-curl "http://localhost:5000/api/menu/search?q=борщ&lang=ru&preparation_type=kitchen"
+curl "http://localhost:8000/api/menu/search?q=борщ&lang=ru&preparation_type=kitchen"
 ```
 
 #### Пример ответа
@@ -245,7 +245,7 @@ curl "http://localhost:5000/api/menu/search?q=борщ&lang=ru&preparation_type=
 #### Пример запроса
 
 ```bash
-curl "http://localhost:5000/api/menu/stats"
+curl "http://localhost:8000/api/menu/stats"
 ```
 
 #### Пример ответа
@@ -310,7 +310,7 @@ curl "http://localhost:5000/api/menu/stats"
 
 ## Интерактивная документация
 
-Доступна по адресу: `http://localhost:5000/api/docs`
+Доступна по адресу: `http://localhost:8000/api/docs`
 
 ## Тестирование API
 
@@ -324,16 +324,16 @@ curl "http://localhost:5000/api/menu/stats"
 
 ```bash
 # Получение меню на русском языке
-curl "http://localhost:5000/api/menu?lang=ru"
+curl "http://localhost:8000/api/menu?lang=ru"
 
 # Поиск блюд
-curl "http://localhost:5000/api/menu/search?q=стейк"
+curl "http://localhost:8000/api/menu/search?q=стейк"
 
 # Получение статистики
-curl "http://localhost:5000/api/menu/stats"
+curl "http://localhost:8000/api/menu/stats"
 
 # Получение конкретного блюда
-curl "http://localhost:5000/api/menu/items/1"
+curl "http://localhost:8000/api/menu/items/1"
 ```
 
 ## Структура данных
@@ -392,7 +392,7 @@ curl "http://localhost:5000/api/menu/items/1"
 #### Пример запроса
 
 ```bash
-curl "http://localhost:5000/api/system/info"
+curl "http://localhost:8000/api/system/info"
 ```
 
 #### Пример ответа
@@ -434,7 +434,7 @@ Healthcheck endpoint для мониторинга доступности сис
 #### Пример запроса
 
 ```bash
-curl "http://localhost:5000/api/system/health"
+curl "http://localhost:8000/api/system/health"
 ```
 
 #### Пример ответа
@@ -462,7 +462,7 @@ curl "http://localhost:5000/api/system/health"
 #### Пример запроса
 
 ```bash
-curl "http://localhost:5000/api/system/stats"
+curl "http://localhost:8000/api/system/stats"
 ```
 
 #### Пример ответа

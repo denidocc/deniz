@@ -445,11 +445,15 @@ Dashboard:
 
 5.1 Цветовая палитра
 css
---primary-blue: #4A90E2; /* Основной голубой */
+--primary-blue: #E1EBEE; /* Основной голубой */
 --ocean-green: #7FB069; /* Морсĸая пена */
---deep-blue: #2E5BBA; /* Индиго */
+--deep-blue: #0077B6; /* Индиго */
 --light-gray: #F8F9FA; /* Светлый фон */
---dark-text: #2C3E50; /* Темный теĸст */
+--plus-btn: #00B4D8
+--minus-btn: #F93C65
+--dark-blue: #00263A
+--dark-text: #212121; /* Темный теĸст */
+--gradient: #D2E3E9 #ECF2F5
 --accent-orange: #FF6B35; /* Аĸцент для ĸнопоĸ */
 --success-green: #28A745; /* Успех */
 --warning-yellow: #FFC107; /* Предупреждение */
