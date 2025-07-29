@@ -87,7 +87,7 @@ def init_extensions(app: Flask) -> None:
 def register_blueprints(app: Flask) -> None:
     """Регистрация blueprints."""
     from .controllers import auth_bp, admin_bp, main_bp, waiter_bp
-    from .api import menu_api, docs_api, system_api
+    from .api import menu_api, docs_api, system_api, audit_api
     
     # Web blueprints
     app.register_blueprint(main_bp)
@@ -99,6 +99,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(menu_api)
     app.register_blueprint(docs_api)
     app.register_blueprint(system_api)
+    app.register_blueprint(audit_api, url_prefix='/api/audit')
 
 def register_error_handlers(app: Flask) -> None:
     """Регистрация обработчиков ошибок."""

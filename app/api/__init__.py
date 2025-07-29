@@ -3,5 +3,6 @@
 from .menu import menu_api
 from .docs_endpoint import docs_api
 from .system import system_api
+from .audit import audit_api
 
-__all__ = ['menu_api', 'docs_api', 'system_api'] 
+__all__ = ['menu_api', 'docs_api', 'system_api', 'audit_api'] 
