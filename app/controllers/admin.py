@@ -1,32 +1,32 @@
-"""Контроллер административной панели."""
+"""Административные контроллеры."""
 
-from flask import Blueprint, render_template, current_app
-from app.controllers.auth import admin_required
+from flask import Blueprint, render_template
+from app.utils.decorators import admin_required
 
 admin_bp = Blueprint('admin', __name__)
 
 @admin_bp.route('/dashboard')
 @admin_required
 def dashboard():
-    """Главная страница администратора."""
+    """Главная страница административной панели."""
     return render_template('admin/dashboard.html')
 
 @admin_bp.route('/menu')
 @admin_required
-def menu_management():
+def menu():
     """Управление меню."""
     return render_template('admin/menu.html')
 
 @admin_bp.route('/staff')
 @admin_required
-def staff_management():
+def staff():
     """Управление персоналом."""
     return render_template('admin/staff.html')
 
 @admin_bp.route('/reports')
 @admin_required
 def reports():
-    """Отчеты и статистика."""
+    """Отчеты."""
     return render_template('admin/reports.html')
 
 @admin_bp.route('/settings')

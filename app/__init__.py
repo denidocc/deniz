@@ -47,6 +47,12 @@ def create_app(config_name: str = 'development') -> Flask:
     # Настройка логирования
     setup_logging(app)
     
+    # Инициализация системы аудита
+    init_audit_system(app)
+    
+    # Регистрация CLI команд аудита
+    register_audit_commands(app)
+    
     # Регистрация blueprints
     register_blueprints(app)
     
@@ -128,6 +134,24 @@ def init_system_components(app: Flask) -> None:
                 
         except Exception as e:
             app.logger.error(f"Ошибка инициализации системы: {e}")
+
+def init_audit_system(app: Flask) -> None:
+    """Инициализация системы аудита."""
+    try:
+        from .utils.audit_middleware import audit_middleware
+        audit_middleware.init_app(app)
+        app.logger.info("Система аудита инициализирована")
+    except Exception as e:
+        app.logger.error(f"Ошибка инициализации аудита: {e}")
+
+def register_audit_commands(app: Flask) -> None:
+    """Регистрация CLI команд аудита."""
+    try:
+        from .utils.audit_cli import register_audit_commands
+        register_audit_commands(app)
+        app.logger.info("CLI команды аудита зарегистрированы")
+    except Exception as e:
+        app.logger.error(f"Ошибка регистрации CLI команд аудита: {e}")
 
 def init_security_components(app: Flask) -> None:
     """Инициализация компонентов безопасности."""

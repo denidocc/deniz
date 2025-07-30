@@ -120,10 +120,12 @@ def get_recent_logs():
 @login_required
 @admin_required
 @audit_action("view_staff_logs")
-def get_staff_logs(staff_id: int):
-    """Получение логов конкретного сотрудника."""
+def get_staff_logs(staff_id):
+    """Получение логов сотрудника."""
     try:
-        # Проверка существования сотрудника
+        limit = min(request.args.get('limit', 20, type=int), 100)
+        
+        # Проверяем существование сотрудника
         staff = Staff.query.get(staff_id)
         if not staff:
             return jsonify({
@@ -131,9 +133,7 @@ def get_staff_logs(staff_id: int):
                 "message": "Сотрудник не найден"
             }), 404
         
-        limit = min(request.args.get('limit', 50, type=int), 100)
-        logs = AuditLog.get_by_staff(staff_id, limit=limit)
-        
+        logs = AuditLog.get_by_staff(staff_id, limit)
         logs_data = [log.to_dict() for log in logs]
         
         return jsonify({
@@ -160,19 +160,32 @@ def get_staff_logs(staff_id: int):
 @audit_api.route('/logs/table/<int:table_id>', methods=['GET'])
 @login_required
 @admin_required
-@audit_action("view_table_logs")
-def get_table_logs(table_id: int):
+@audit_action("view_table_logs", table_affected=True)
+def get_table_logs(table_id):
     """Получение логов по столу."""
     try:
         limit = min(request.args.get('limit', 50, type=int), 100)
-        logs = AuditLog.get_by_table(table_id, limit=limit)
         
+        # Проверяем существование стола
+        from app.models import Table
+        table = Table.query.get(table_id)
+        if not table:
+            return jsonify({
+                "status": "error",
+                "message": "Стол не найден"
+            }), 404
+        
+        logs = AuditLog.get_by_table(table_id, limit)
         logs_data = [log.to_dict() for log in logs]
         
         return jsonify({
             "status": "success",
             "data": {
-                "table_id": table_id,
+                "table": {
+                    "id": table.id,
+                    "table_number": table.table_number,
+                    "status": table.status
+                },
                 "logs": logs_data,
                 "count": len(logs_data)
             }
@@ -182,25 +195,42 @@ def get_table_logs(table_id: int):
         current_app.logger.error(f"Error getting table logs: {e}")
         return jsonify({
             "status": "error",
-            "message": "Ошибка при получении логов по столу"
+            "message": "Ошибка при получении логов стола"
         }), 500
 
 @audit_api.route('/logs/order/<int:order_id>', methods=['GET'])
 @login_required
 @admin_required
-@audit_action("view_order_logs")
-def get_order_logs(order_id: int):
+@audit_action("view_order_logs", order_affected=True)
+def get_order_logs(order_id):
     """Получение логов по заказу."""
     try:
         limit = min(request.args.get('limit', 50, type=int), 100)
-        logs = AuditLog.get_by_order(order_id, limit=limit)
         
+        # Проверяем существование заказа
+        from app.models import Order
+        order = Order.query.get(order_id)
+        if not order:
+            return jsonify({
+                "status": "error",
+                "message": "Заказ не найден"
+            }), 404
+        
+        logs = AuditLog.get_by_order(order_id, limit)
         logs_data = [log.to_dict() for log in logs]
         
         return jsonify({
             "status": "success",
             "data": {
-                "order_id": order_id,
+                "order": {
+                    "id": order.id,
+                    "table_id": order.table_id,
+                    "table_number": order.table.table_number if order.table else None,
+                    "status": order.status,
+                    "total_amount": float(order.total_amount),
+                    "guest_count": order.guest_count,
+                    "created_at": order.created_at.isoformat()
+                },
                 "logs": logs_data,
                 "count": len(logs_data)
             }
@@ -210,10 +240,65 @@ def get_order_logs(order_id: int):
         current_app.logger.error(f"Error getting order logs: {e}")
         return jsonify({
             "status": "error",
-            "message": "Ошибка при получении логов по заказу"
+            "message": "Ошибка при получении логов заказа"
         }), 500
 
-@audit_api.route('/stats', methods=['GET'])
+@audit_api.route('/logs/date-range', methods=['GET'])
+@login_required
+@admin_required
+@audit_action("view_logs_by_date_range")
+def get_logs_by_date_range():
+    """Получение логов за период."""
+    try:
+        date_from = request.args.get('date_from')
+        date_to = request.args.get('date_to')
+        limit = min(request.args.get('limit', 100, type=int), 500)
+        
+        if not date_from or not date_to:
+            raise ValidationError("Необходимо указать date_from и date_to")
+        
+        # Парсим даты
+        try:
+            start_date = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+            end_date = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+        except ValueError:
+            raise ValidationError("Неверный формат даты. Используйте ISO формат")
+        
+        if start_date >= end_date:
+            raise ValidationError("Дата начала должна быть раньше даты окончания")
+        
+        logs = AuditLog.get_logs_by_date_range(start_date, end_date)
+        
+        # Ограничиваем количество
+        logs = logs[:limit]
+        logs_data = [log.to_dict() for log in logs]
+        
+        return jsonify({
+            "status": "success",
+            "data": {
+                "period": {
+                    "start_date": start_date.isoformat(),
+                    "end_date": end_date.isoformat()
+                },
+                "logs": logs_data,
+                "count": len(logs_data),
+                "limited": len(logs_data) == limit
+            }
+        })
+        
+    except ValidationError as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 400
+    except Exception as e:
+        current_app.logger.error(f"Error getting logs by date range: {e}")
+        return jsonify({
+            "status": "error",
+            "message": "Ошибка при получении логов за период"
+        }), 500
+
+@audit_api.route('/statistics', methods=['GET'])
 @login_required
 @admin_required
 @audit_action("view_audit_stats")

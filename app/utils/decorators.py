@@ -32,6 +32,38 @@ def log_requests(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def admin_required(f):
+    """Декоратор для проверки прав администратора."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            from app.errors import AuthenticationError
+            raise AuthenticationError("Требуется авторизация")
+        
+        if current_user.role != 'admin':
+            from app.errors import AuthorizationError
+            raise AuthorizationError("Недостаточно прав доступа")
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+def role_required(*roles):
+    """Декоратор для проверки ролей пользователя."""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not current_user.is_authenticated:
+                from app.errors import AuthenticationError
+                raise AuthenticationError("Требуется авторизация")
+            
+            if current_user.role not in roles:
+                from app.errors import AuthorizationError
+                raise AuthorizationError("Недостаточно прав доступа")
+            
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
 def audit_action(action: str, table_affected: bool = False, order_affected: bool = False):
     """
     Декоратор для аудита действий персонала.

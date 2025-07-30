@@ -1,84 +1,58 @@
-"""Контроллер аутентификации для веб-интерфейса."""
+"""Контроллер аутентификации."""
 
-from flask import Blueprint, request, render_template, redirect, url_for, flash, current_app
+from flask import Blueprint, request, render_template, redirect, url_for, flash
 from flask_login import login_user, logout_user, login_required, current_user
+from app.forms import LoginForm, RegistrationForm
 from app.models import Staff
-from app.errors import AuthenticationError, AuthorizationError
+from app.errors import ValidationError, AuthenticationError, AuthorizationError
+from app.utils.decorators import audit_action, admin_required
+from app import db
 
 auth_bp = Blueprint('auth', __name__)
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
+@audit_action("user_login_attempt", table_affected=False, order_affected=False)
 def login():
-    """Страница входа для персонала."""
-    if request.method == 'POST':
-        login = request.form.get('login')
-        password = request.form.get('password')
+    """Вход в систему."""
+    if current_user.is_authenticated:
+        return redirect(url_for('main.index'))
+    
+    form = LoginForm()
+    
+    if form.validate_on_submit():
+        staff = Staff.query.filter_by(login=form.username.data).first()
         
-        if not login or not password:
-            flash('Пожалуйста, заполните все поля', 'error')
-            return render_template('auth/login.html')
-        
-        # Поиск пользователя
-        user = Staff.query.filter_by(login=login, is_active=True).first()
-        
-        if user and user.check_password(password):
-            login_user(user)
-            current_app.logger.info(f"User {user.login} logged in successfully")
+        if staff and staff.check_password(form.password.data):
+            if not staff.is_active:
+                flash('Аккаунт деактивирован', 'error')
+                return render_template('auth/login.html', form=form)
+            
+            login_user(staff, remember=form.remember_me.data)
+            flash(f'Добро пожаловать, {staff.name}!', 'success')
             
             # Перенаправление в зависимости от роли
-            if user.role == 'admin':
+            if staff.role == 'admin':
                 return redirect(url_for('admin.dashboard'))
-            elif user.role == 'waiter':
+            elif staff.role == 'waiter':
                 return redirect(url_for('waiter.dashboard'))
             else:
-                return redirect(url_for('auth.login'))
+                return redirect(url_for('main.index'))
         else:
-            flash('Неверный логин или пароль', 'error')
-            current_app.logger.warning(f"Failed login attempt for user: {login}")
+            flash('Неверное имя пользователя или пароль', 'error')
     
-    return render_template('auth/login.html')
+    return render_template('auth/login.html', form=form)
 
 @auth_bp.route('/logout')
 @login_required
+@audit_action("user_logout", table_affected=False, order_affected=False)
 def logout():
     """Выход из системы."""
-    current_app.logger.info(f"User {current_user.login} logged out")
     logout_user()
-    flash('Вы успешно вышли из системы', 'success')
+    flash('Вы вышли из системы', 'info')
     return redirect(url_for('auth.login'))
 
 @auth_bp.route('/profile')
 @login_required
 def profile():
     """Профиль пользователя."""
-    return render_template('auth/profile.html', user=current_user)
-
-def admin_required(f):
-    """Декоратор для проверки прав администратора."""
-    from functools import wraps
-    
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated:
-            raise AuthenticationError("Требуется авторизация")
-        
-        if current_user.role != 'admin':
-            raise AuthorizationError("Недостаточно прав доступа")
-        
-        return f(*args, **kwargs)
-    return decorated_function
-
-def waiter_required(f):
-    """Декоратор для проверки прав официанта."""
-    from functools import wraps
-    
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated:
-            raise AuthenticationError("Требуется авторизация")
-        
-        if current_user.role not in ['waiter', 'admin']:
-            raise AuthorizationError("Недостаточно прав доступа")
-        
-        return f(*args, **kwargs)
-    return decorated_function 
+    return render_template('auth/profile.html', user=current_user) 
