@@ -6,6 +6,12 @@ main
     ├── auth_system (Система авторизации с предустановленными логинами)
     └── logging_audit (Логирование и аудит)
 
+client  
+    1. client_ui
+    2. multi_lang
+    3. cart
+    4. sep_dish (Separation of dishes)
+    5. call_waiter
 
 
 # Обычный запуск
