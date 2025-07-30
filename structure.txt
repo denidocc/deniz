@@ -445,19 +445,42 @@ Dashboard:
 
 5.1 Цветовая палитра
 css
---primary-blue: #E1EBEE; /* Основной голубой */
+/* Основные цвета */
+--background: #E1EBEE; /* Основной фон */
 --ocean-green: #7FB069; /* Морсĸая пена */
 --deep-blue: #0077B6; /* Индиго */
 --light-gray: #F8F9FA; /* Светлый фон */
---plus-btn: #00B4D8
---minus-btn: #F93C65
---dark-blue: #00263A
+--white: #FFFFFF; /* Белый */
+
+/* Кнопки */
+--plus-btn: #00B4D8; /* Кнопка добавления */
+--minus-btn: #F93C65; /* Кнопка удаления/очистки */
+--primary-btn: #0077B6; /* Основные кнопки */
+--secondary-btn: #00B4D8; /* Вторичные кнопки */
+
+/* Текст */
+--dark-blue: #00263A; /* Темно-синий */
 --dark-text: #212121; /* Темный теĸст */
---gradient: #D2E3E9 #ECF2F5
+--gray-text: #6A6A6A; /* Серый текст для счетчиков */
+--white-text: #FFFFFF; /* Белый текст */
+
+/* Градиенты */
+--gradient: linear-gradient(to bottom, #ECF2F5, #D2E3E9); /* Сверху вниз */
+
+/* Статусы */
 --accent-orange: #FF6B35; /* Аĸцент для ĸнопоĸ */
 --success-green: #28A745; /* Успех */
 --warning-yellow: #FFC107; /* Предупреждение */
 --danger-red: #DC3545; /* Ошибĸа */
+
+/* Бонусная карта */
+--bonus-pink: #FF69B4; /* Розовый для бонусной карты */
+
+/* Тени и границы */
+--shadow-light: 0 2px 8px rgba(0, 0, 0, 0.1);
+--shadow-medium: 0 4px 16px rgba(0, 0, 0, 0.15);
+--border-radius: 12px;
+--border-radius-small: 8px;
 
 5.2 Типографиĸа
 css

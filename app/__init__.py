@@ -92,7 +92,7 @@ def init_extensions(app: Flask) -> None:
 
 def register_blueprints(app: Flask) -> None:
     """Регистрация blueprints."""
-    from .controllers import auth_bp, admin_bp, main_bp, waiter_bp
+    from .controllers import auth_bp, admin_bp, main_bp, waiter_bp, client_bp
     from .api import menu_api, docs_api, system_api, audit_api
     
     # Web blueprints
@@ -100,6 +100,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(waiter_bp, url_prefix='/waiter')
+    app.register_blueprint(client_bp, url_prefix='/client')
     
     # API blueprints
     app.register_blueprint(menu_api)
