@@ -433,6 +433,83 @@ class CartManager {
             totalItems: this.getTotalItems()
         };
     }
+
+    // Методы для работы с бонусными картами
+    static applyBonusCard(bonusData) {
+        this.bonusCard = bonusData;
+        this.saveToStorage();
+        this.render();
+        Utils.showToast(`Применена скидка ${bonusData.discount_percent}%!`, 'success');
+    }
+
+    static removeBonusCard() {
+        this.bonusCard = null;
+        this.saveToStorage();
+        this.render();
+        Utils.showToast('Бонусная карта удалена', 'info');
+    }
+
+    // Методы для работы со столами
+    static setTable(tableId) {
+        this.tableId = tableId;
+        StorageManager.set('tableId', tableId);
+        this.saveToStorage();
+        
+        // Обновляем UI
+        const tableBtn = document.getElementById('tableSelectBtn');
+        const tableNumber = document.getElementById('currentTableNumber');
+        if (tableBtn && tableNumber) {
+            tableNumber.textContent = tableId;
+            tableBtn.classList.add('selected');
+        }
+        
+        Utils.showToast(`Выбран стол №${tableId}`, 'success');
+    }
+
+    static getCurrentTableId() {
+        return this.tableId;
+    }
+
+    // Оформление заказа
+    static async placeOrder() {
+        if (!this.tableId) {
+            Utils.showToast('Сначала выберите стол', 'warning');
+            return;
+        }
+
+        if (this.items.size === 0) {
+            Utils.showToast('Корзина пуста', 'warning');
+            return;
+        }
+
+        try {
+            const orderData = {
+                table_id: this.tableId,
+                items: Array.from(this.items.values()),
+                bonus_card: this.bonusCard,
+                subtotal: this.getSubtotal(),
+                service_charge: this.getServiceCharge(),
+                discount: this.getDiscount(),
+                total: this.getTotal()
+            };
+
+            const response = await ClientAPI.createOrder(orderData);
+            
+            if (response.status === 'success') {
+                // Очищаем корзину
+                this.clear();
+                
+                // Показываем модальное окно подтверждения
+                ModalManager.openOrderConfirmation(response.data);
+            } else {
+                throw new Error(response.message || 'Ошибка создания заказа');
+            }
+            
+        } catch (error) {
+            console.error('Order placement error:', error);
+            Utils.showToast('Ошибка оформления заказа', 'error');
+        }
+    }
 }
 
 // Экспортируем в глобальную область

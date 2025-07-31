@@ -181,4 +181,19 @@ def with_transaction(f):
             db.session.rollback()
             current_app.logger.error(f"Error in {f.__name__}: {str(e)}", exc_info=True)
             raise
-    return decorated 
+    return decorated
+
+def waiter_required(f):
+    """Декоратор для проверки прав официанта."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            from app.errors import AuthenticationError
+            raise AuthenticationError("Требуется авторизация")
+        
+        if current_user.role != 'waiter':
+            from app.errors import AuthorizationError
+            raise AuthorizationError("Доступ только для официантов")
+        
+        return f(*args, **kwargs)
+    return decorated_function 

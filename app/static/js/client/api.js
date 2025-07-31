@@ -79,10 +79,27 @@ class ClientAPI {
      * Проверка бонусной карты
      */
     async verifyBonusCard(cardNumber) {
-        return this.request('/bonus-card/verify', {
+        return this.request('/api/bonus-cards/verify', {
             method: 'POST',
             body: JSON.stringify({ card_number: cardNumber })
         });
+    }
+
+    /**
+     * Проверка PIN-кода для столов
+     */
+    async verifyTablePin(pin) {
+        return this.request('/api/tables/pin/verify', {
+            method: 'POST',
+            body: JSON.stringify({ pin: pin })
+        });
+    }
+
+    /**
+     * Получение списка столов
+     */
+    async getTables() {
+        return this.request('/api/tables/tables');
     }
 
     /**
@@ -112,6 +129,20 @@ class ClientAPI {
             method: 'POST',
             body: JSON.stringify({ table_id: tableId })
         });
+    }
+
+    /**
+     * Получение слайдов карусели
+     */
+    async getCarouselSlides() {
+        return this.request('/api/carousel/slides');
+    }
+
+    /**
+     * Получение настроек карусели
+     */
+    async getCarouselSettings() {
+        return this.request('/api/carousel/settings');
     }
 }
 

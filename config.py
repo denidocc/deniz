@@ -40,6 +40,11 @@ class BaseConfig:
     # Шифрование
     ENCRYPTION_KEY: str = os.environ.get('ENCRYPTION_KEY', 'default-encryption-key')
     
+    # Многоязычность
+    LANGUAGES = ['ru', 'tk', 'en']
+    BABEL_DEFAULT_LOCALE = 'ru'
+    BABEL_DEFAULT_TIMEZONE = 'Asia/Ashgabat'
+    
     # Redis и кеширование
     REDIS_URL: str = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
     CACHE_TYPE: str = "redis"

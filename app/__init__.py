@@ -1,6 +1,6 @@
 """Инициализация Flask приложения."""
 
-from flask import Flask, g, request
+from flask import Flask, g, request, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFProtect
@@ -9,6 +9,7 @@ from flask_jwt_extended import JWTManager
 from flask_caching import Cache
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_babel import Babel
 import logging
 from logging.handlers import RotatingFileHandler
 from typing import Optional
@@ -20,6 +21,7 @@ csrf = CSRFProtect()
 login_manager = LoginManager()
 jwt = JWTManager()
 cache = Cache()
+babel = Babel()
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["1000 per hour", "100 per minute"]
@@ -75,9 +77,8 @@ def init_extensions(app: Flask) -> None:
     login_manager.init_app(app)
     jwt.init_app(app)
     cache.init_app(app)
+    babel.init_app(app)
     limiter.init_app(app)
-    
-    # db теперь доступен через from app import db
     
     # Настройка Flask-Login
     login_manager.login_view = 'auth.login'
@@ -93,7 +94,7 @@ def init_extensions(app: Flask) -> None:
 def register_blueprints(app: Flask) -> None:
     """Регистрация blueprints."""
     from .controllers import auth_bp, admin_bp, main_bp, waiter_bp, client_bp
-    from .api import menu_api, docs_api, system_api, audit_api
+    from .api import menu_api, docs_api, system_api, audit_api, bonus_cards_api, table_settings_api, carousel_api
     
     # Web blueprints
     app.register_blueprint(main_bp)
@@ -107,6 +108,9 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(docs_api)
     app.register_blueprint(system_api)
     app.register_blueprint(audit_api, url_prefix='/api/audit')
+    app.register_blueprint(bonus_cards_api, url_prefix='/api/bonus-cards')
+    app.register_blueprint(table_settings_api, url_prefix='/api/tables')
+    app.register_blueprint(carousel_api, url_prefix='/api/carousel')
 
 def register_error_handlers(app: Flask) -> None:
     """Регистрация обработчиков ошибок."""
@@ -242,14 +246,25 @@ def setup_logging(app: Flask) -> None:
     def after_request(response):
         from flask import g, request
         from datetime import datetime
+        import time
         
         if hasattr(g, 'request_id') and hasattr(g, 'start_time'):
-            duration = (datetime.utcnow() - g.start_time).total_seconds()
-            
-            app.logger.info(
-                f"Request completed: {response.status_code} "
-                f"({duration:.4f}s)"
-            )
+            try:
+                # Если start_time это datetime объект
+                if isinstance(g.start_time, datetime):
+                    duration = (datetime.utcnow() - g.start_time).total_seconds()
+                # Если start_time это timestamp (float)
+                elif isinstance(g.start_time, (int, float)):
+                    duration = time.time() - g.start_time
+                else:
+                    duration = 0
+                
+                app.logger.info(
+                    f"Request completed: {response.status_code} "
+                    f"({duration:.4f}s)"
+                )
+            except Exception as e:
+                app.logger.warning(f"Error calculating request duration: {e}")
         
         return response
         

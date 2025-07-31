@@ -2,7 +2,7 @@
 
 from flask import Blueprint, request, render_template, redirect, url_for, flash
 from flask_login import login_user, logout_user, login_required, current_user
-from app.forms import LoginForm, RegistrationForm
+from app.forms import LoginForm
 from app.models import Staff
 from app.errors import ValidationError, AuthenticationError, AuthorizationError
 from app.utils.decorators import audit_action, admin_required
@@ -15,7 +15,13 @@ auth_bp = Blueprint('auth', __name__)
 def login():
     """Вход в систему."""
     if current_user.is_authenticated:
-        return redirect(url_for('main.index'))
+        # Перенаправление в зависимости от роли для авторизованных пользователей
+        if current_user.role == 'admin':
+            return redirect(url_for('admin.dashboard'))
+        elif current_user.role == 'waiter':
+            return redirect(url_for('waiter.dashboard'))
+        else:
+            return redirect(url_for('auth.profile'))
     
     form = LoginForm()
     
@@ -35,8 +41,12 @@ def login():
                 return redirect(url_for('admin.dashboard'))
             elif staff.role == 'waiter':
                 return redirect(url_for('waiter.dashboard'))
+            elif staff.role == 'kitchen':
+                return redirect(url_for('auth.profile'))  # На профиль для кухни
+            elif staff.role == 'bar':
+                return redirect(url_for('auth.profile'))  # На профиль для бара
             else:
-                return redirect(url_for('main.index'))
+                return redirect(url_for('auth.profile'))  # На профиль для остальных
         else:
             flash('Неверное имя пользователя или пароль', 'error')
     

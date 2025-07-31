@@ -12,6 +12,7 @@ from .staff_shift import StaffShift
 from .daily_report import DailyReport
 from .audit_log import AuditLog
 from .system_setting import SystemSetting
+from .bonus_card import BonusCard
 
 __all__ = [
     'BaseModel',
@@ -28,4 +29,5 @@ __all__ = [
     'DailyReport',
     'AuditLog',
     'SystemSetting',
+    'BonusCard',
 ] 

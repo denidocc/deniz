@@ -1,7 +1,7 @@
 """Контроллер интерфейса официанта."""
 
 from flask import Blueprint, render_template, current_app
-from app.controllers.auth import waiter_required
+from app.utils.decorators import waiter_required
 
 waiter_bp = Blueprint('waiter', __name__)
 
