@@ -63,25 +63,43 @@
   width: 32px;
   height: 32px;
   border: none;
-  background: transparent;
   cursor: pointer;
   border-radius: 50%;
   display: flex;
+  background: var(--minus-btn);
   align-items: center;
   justify-content: center;
   transition: var(--transition-fast);
-  color: var(--gray-text);
+  color: var(--white);
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
 }
 
 .modal-close:hover {
-  background: var(--light-gray);
-  color: var(--dark-text);
+  background: #d32f2f;
+  transform: scale(1.1);
 }
 
 .modal-close svg {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   fill: currentColor;
+}
+
+/* Специальные стили для PIN модального окна */
+.pin-modal .modal-close {
+  width: 24px;
+  height: 24px;
+  top: 10px;
+  right: 10px;
+  color: var(--white);
+}
+
+.pin-modal .modal-close svg {
+  width: 12px;
+  height: 12px;
 }
 
 /* Контент модального окна */
@@ -102,6 +120,7 @@
 .pin-modal {
   width: 400px;
   text-align: center;
+  background: var(--gradient);
 }
 
 .pin-display {
@@ -119,7 +138,7 @@
 
 .pin-delete {
   position: absolute;
-  right: -40px;
+  right: -10px;
   top: 50%;
   transform: translateY(-50%);
   width: 32px;
@@ -151,10 +170,10 @@
 .pin-key {
   width: 80px;
   height: 80px;
-  border: 2px solid var(--deep-blue);
-  background: var(--white);
+  border: 1px solid var(--deep-blue);
+  background: var(--gradient);
   color: var(--deep-blue);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-big);
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
@@ -165,7 +184,7 @@
 }
 
 .pin-key:hover {
-  background: var(--light-gray);
+  background: var(--gradient);
   transform: scale(1.05);
 }
 
@@ -176,22 +195,24 @@
 /* Выбор стола */
 .table-modal {
   width: 600px;
+  background: var(--gradient);
 }
 
 .tables-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
   gap: var(--gap-medium);
-  margin: var(--gap-large) 0;
+  max-width: 500px;
+  margin: var(--gap-large) auto;
 }
 
 .table-option {
-  width: 60px;
+  min-width: 60px;
   height: 60px;
-  border: 2px solid var(--deep-blue);
-  background: var(--white);
+  border: 1px solid var(--deep-blue);
+  background: var(--gradient);
   color: var(--deep-blue);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-large);
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
@@ -199,6 +220,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  aspect-ratio: 1;
 }
 
 .table-option:hover {
@@ -212,10 +234,10 @@
 }
 
 .table-option.occupied {
-  background: var(--light-gray);
-  color: var(--gray-text);
+  background: var(--gray-text-light);
+  color: var(--white);
   cursor: not-allowed;
-  border-color: var(--light-gray);
+  border-color: var(--gray-text-light);
 }
 
 .table-option.occupied:hover {
@@ -226,6 +248,7 @@
 .bonus-modal {
   width: 400px;
   text-align: center;
+  background: var(--gradient);
 }
 
 .card-number-display {
@@ -243,7 +266,7 @@
 
 .card-delete {
   position: absolute;
-  right: -40px;
+  right: 10px;
   top: 50%;
   transform: translateY(-50%);
   width: 32px;

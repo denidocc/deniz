@@ -42,12 +42,7 @@ class CartManager {
             });
         }
 
-        // Выбор стола
-        if (this.tableSelectBtn) {
-            this.tableSelectBtn.addEventListener('click', () => {
-                ModalManager.openTableSelection(this.tableId);
-            });
-        }
+        // Выбор стола - обработчик перенесен в base.html для единообразия
 
         // Слушаем события изменения корзины
         document.addEventListener('cartUpdated', () => {
@@ -62,15 +57,19 @@ class CartManager {
     }
 
     static addItem(dishId, quantity = 1) {
+        console.log(`🛒 Adding item: ${dishId}, quantity: ${quantity}`);
+        
         // Получаем данные блюда из меню
         const dish = this.getDishById(dishId);
         if (!dish) {
+            console.error(`❌ Dish not found: ${dishId}`);
             NotificationManager.showError('Блюдо не найдено');
             return;
         }
 
         const currentQuantity = this.items.get(dishId) || 0;
         const newQuantity = currentQuantity + quantity;
+        console.log(`📊 Current: ${currentQuantity}, New: ${newQuantity}`);
         
         if (newQuantity <= 0) {
             this.removeItem(dishId);
@@ -90,8 +89,11 @@ class CartManager {
     }
 
     static removeItem(dishId, quantity = 1) {
+        console.log(`🗑️ Removing item: ${dishId}, quantity: ${quantity}`);
+        
         const currentQuantity = this.items.get(dishId) || 0;
         const newQuantity = currentQuantity - quantity;
+        console.log(`📊 Current: ${currentQuantity}, New: ${newQuantity}`);
         
         if (newQuantity <= 0) {
             this.items.delete(dishId);
@@ -183,7 +185,7 @@ class CartManager {
                     <img src="/static/assets/images/fish.png" alt="Рыба" class="fish-image">
                 </div>
                 <p class="empty-cart-text">
-                    Корзина пуста, но море полное.<br>
+                    <strong>Корзина пуста, но море полное.</strong><br>
                     Загляните в меню — там волны вкуса.
                 </p>
             </div>
@@ -202,21 +204,21 @@ class CartManager {
             
             return `
                 <div class="cart-item" data-dish-id="${dishId}">
-                    <button class="cart-item-remove" onclick="CartManager.removeItem(${dishId}, ${quantity})">×</button>
+                    <button class="cart-item-remove" onclick="CartManager.removeItem(${dishId}, ${quantity})" title="Удалить блюдо">×</button>
                     
                     <img class="cart-item-image" 
                          src="${dish.image_url || '/static/assets/images/fish.png'}" 
                          alt="${this.escapeHTML(dish.name)}">
                     
-                    <div class="cart-item-details">
+                    <div class="cart-item-info">
                         <div class="cart-item-name">${this.escapeHTML(dish.name)}</div>
                         <div class="cart-item-price">${APIUtils.formatPrice(dish.price)}</div>
                     </div>
                     
-                    <div class="cart-item-actions">
-                        <button class="btn-round btn-minus" onclick="CartManager.removeItem(${dishId})">−</button>
+                    <div class="cart-item-controls">
+                        <button class="btn-round btn-minus" onclick="CartManager.removeItem(${dishId})" title="Убрать одно">−</button>
                         <span class="quantity-display">${quantity}</span>
-                        <button class="btn-round btn-plus" onclick="CartManager.addItem(${dishId})">+</button>
+                        <button class="btn-round btn-plus" onclick="CartManager.addItem(${dishId})" title="Добавить еще">+</button>
                     </div>
                 </div>
             `;
@@ -338,7 +340,7 @@ class CartManager {
                     quantity: quantity
                 })),
                 bonus_card: this.bonusCard ? this.bonusCard.card_number : null,
-                language: MenuPage.currentLanguage || 'ru'
+                language: MenuManager.currentLanguage || 'ru'
             };
 
             // Отправляем заказ
@@ -369,8 +371,8 @@ class CartManager {
     }
 
     static getDishById(dishId) {
-        if (!window.MenuPage || !window.MenuPage.menuData) return null;
-        return window.MenuPage.menuData.dishes.find(dish => dish.id === dishId);
+        if (!window.MenuManager || !window.MenuManager.menuData) return null;
+        return window.MenuManager.menuData.dishes.find(dish => dish.id === dishId);
     }
 
     static triggerUpdate() {

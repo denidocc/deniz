@@ -108,11 +108,11 @@ class NotificationManager {
     }
 
     static createContainer() {
-        let container = document.getElementById('notifications-container');
+        let container = document.getElementById('notificationContainer');
         if (!container) {
             container = document.createElement('div');
-            container.id = 'notifications-container';
-            container.className = 'notifications-container';
+            container.id = 'notificationContainer';
+            container.className = 'notification-container';
             document.body.appendChild(container);
         }
         return container;

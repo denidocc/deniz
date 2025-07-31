@@ -4,10 +4,17 @@
 Создает категории и блюда для тестирования API меню.
 """
 
-from app import db
-from app.models import MenuCategory, MenuItem, MenuItemSize
+import sys
+import os
 from typing import Dict, Any
 import logging
+
+# Добавляем путь к корневой директории проекта
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, project_root)
+
+from app import create_app, db
+from app.models import MenuCategory, MenuItem, MenuItemSize
 
 logger = logging.getLogger(__name__)
 
@@ -354,4 +361,19 @@ class MenuSeeder:
             return {
                 "status": "error",
                 "message": f"Ошибка при заполнении меню: {str(e)}"
-            } 
+            }
+
+
+if __name__ == "__main__":
+    """Запуск заполнения меню из командной строки."""
+    app = create_app()
+    
+    with app.app_context():
+        print("Заполнение меню тестовыми данными...")
+        result = MenuSeeder.seed_menu()
+        print(f"Результат: {result['message']}")
+        
+        if result["status"] == "error":
+            sys.exit(1)
+        else:
+            print("✅ Меню успешно заполнено!") 

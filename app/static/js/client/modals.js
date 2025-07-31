@@ -80,17 +80,16 @@ class ModalManager {
     }
 
     static addCloseButton(modal) {
-        const header = modal.querySelector('.modal-header');
-        if (header && !header.querySelector('.modal-close')) {
+        if (!modal.querySelector('.modal-close')) {
             const closeBtn = document.createElement('button');
             closeBtn.className = 'modal-close';
             closeBtn.innerHTML = `
-                <svg viewBox="0 0 24 24">
+                <svg viewBox="0 0 24 24" width="16" height="16">
                     <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
                 </svg>
             `;
             closeBtn.addEventListener('click', () => this.closeActive());
-            header.appendChild(closeBtn);
+            modal.appendChild(closeBtn);
         }
     }
 
@@ -216,13 +215,42 @@ class ModalManager {
 
     static async loadTables(modalId, currentTableId, callback) {
         try {
+            console.log('🏪 Loading tables...');
+            console.log('🔧 ClientAPI available:', typeof window.ClientAPI);
+            console.log('🔧 ClientAPI.getTables available:', typeof window.ClientAPI?.getTables);
+            
+            if (!window.ClientAPI || typeof window.ClientAPI.getTables !== 'function') {
+                throw new Error('ClientAPI.getTables is not available');
+            }
+            
             const modal = document.querySelector(`[data-modal-id="${modalId}"]`);
             const grid = modal.querySelector('#tablesGrid');
             
-            const response = await ClientAPI.getTables();
+            const response = await window.ClientAPI.getTables();
             
             if (response.status === 'success') {
                 const tables = response.data.tables;
+                
+                // Умное вычисление количества колонок для равномерного распределения
+                const totalTables = tables.length;
+                let columns;
+                
+                if (totalTables <= 6) {
+                    columns = 3; // 1-6 столов: 3 колонки
+                } else if (totalTables <= 10) {
+                    columns = 5; // 7-10 столов: 5 колонок (10 = 2 ряда по 5)
+                } else if (totalTables <= 15) {
+                    columns = 5; // 11-15 столов: 5 колонок (12 = 3 ряда: 5+5+2)
+                } else if (totalTables <= 20) {
+                    columns = 5; // 16-20 столов: 5 колонок (20 = 4 ряда по 5)
+                } else if (totalTables <= 28) {
+                    columns = 7; // 21-28 столов: 7 колонок
+                } else {
+                    columns = 8; // >28 столов: 8 колонок
+                }
+                
+                grid.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
+                console.log(`📐 Tables: ${totalTables}, Columns: ${columns}, Layout: ${Math.ceil(totalTables/columns)} rows`);
                 
                 grid.innerHTML = tables.map(table => `
                     <button class="table-option ${table.id === currentTableId ? 'selected' : ''} ${!table.is_available ? 'occupied' : ''}"
@@ -469,12 +497,17 @@ class ModalManager {
     static openTableWithPin(currentTableId) {
         this.openPinEntry((pin) => {
             // Проверяем PIN-код
-            ClientAPI.verifyTablePin(pin).then(response => {
+                            window.ClientAPI.verifyTablePin(pin).then(response => {
                 if (response.status === 'success') {
-                    // Открываем выбор стола
-                    this.openTableSelection(currentTableId, (tableId) => {
-                        CartManager.setTable(tableId);
-                    });
+                    // Закрываем PIN модальное окно
+                    this.closeActive();
+                    
+                    // Небольшая задержка перед открытием модального окна столов
+                    setTimeout(() => {
+                        this.openTableSelection(currentTableId, (tableId) => {
+                            CartManager.setTable(tableId);
+                        });
+                    }, 300);
                 } else {
                     NotificationManager.showError('Неверный PIN-код');
                 }

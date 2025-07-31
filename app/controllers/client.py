@@ -20,7 +20,7 @@ def index():
         
         # Если PIN включен, показываем выбор стола
         if table_pin_enabled:
-            return render_template('client/table_selection.html', settings=settings)
+            return render_template('client/menu.html', settings=settings)
         
         # Иначе сразу показываем меню
         return render_template('client/menu.html', 

@@ -481,6 +481,7 @@ css
 --shadow-medium: 0 4px 16px rgba(0, 0, 0, 0.15);
 --border-radius: 12px;
 --border-radius-small: 8px;
+--border-radius-big: 28px
 
 5.2 Типографиĸа
 css

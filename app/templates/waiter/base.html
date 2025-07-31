@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Официант - DENIZ Restaurant{% endblock %}</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/waiter/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/waiter/components.css') }}">
+    {% block extra_css %}{% endblock %}
+    
+    <!-- Meta для планшетов -->
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+</head>
+<body>
+    <!-- Header -->
+    <header class="waiter-header">
+        <div class="header-left">
+            <img src="{{ url_for('static', filename='assets/images/logo.svg') }}" alt="DENIZ" class="logo">
+            <h1 class="app-title">Официант</h1>
+        </div>
+        
+        <div class="header-center">
+            <div class="shift-info" id="shiftInfo">
+                <span class="shift-status">Смена не начата</span>
+                <span class="shift-time" id="shiftTime"></span>
+            </div>
+        </div>
+        
+        <div class="header-right">
+            <div class="user-info">
+                <span class="user-name">{{ current_user.name }}</span>
+                <span class="user-role">Официант</span>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-icon" id="notificationsBtn" title="Уведомления">
+                    <span class="notification-icon">🔔</span>
+                    <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
+                </button>
+                <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary">Выйти</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="waiter-nav">
+        <div class="nav-item {% if request.endpoint == 'waiter.dashboard' %}active{% endif %}">
+            <a href="{{ url_for('waiter.dashboard') }}">Главная</a>
+        </div>
+        <div class="nav-item {% if request.endpoint == 'waiter.orders' %}active{% endif %}">
+            <a href="{{ url_for('waiter.orders') }}">Заказы</a>
+        </div>
+        <div class="nav-item {% if request.endpoint == 'waiter.tables' %}active{% endif %}">
+            <a href="{{ url_for('waiter.tables') }}">Столы</a>
+        </div>
+        <div class="nav-item {% if request.endpoint == 'waiter.calls' %}active{% endif %}">
+            <a href="{{ url_for('waiter.calls') }}">Вызовы</a>
+        </div>
+        <div class="nav-item {% if request.endpoint == 'waiter.shift' %}active{% endif %}">
+            <a href="{{ url_for('waiter.shift') }}">Смена</a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="waiter-main">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">
+                            {{ message }}
+                            <button class="flash-close">&times;</button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Notifications Panel -->
+    <div class="notifications-panel" id="notificationsPanel">
+        <div class="panel-header">
+            <h3>Уведомления</h3>
+            <button class="btn btn-icon" id="closeNotifications">&times;</button>
+        </div>
+        <div class="panel-content" id="notificationsList">
+            <!-- Уведомления будут загружены динамически -->
+        </div>
+    </div>
+
+    <!-- Modal Overlay -->
+    <div class="modal-overlay" id="modalOverlay"></div>
+
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='js/waiter/api.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/waiter/utils.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/waiter/notifications.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/waiter/shift.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+    
+    <!-- Initialize App -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Инициализация компонентов
+            WaiterAPI.init();
+            NotificationManager.init();
+            ShiftManager.init();
+            
+            // Обновление времени смены
+            setInterval(function() {
+                ShiftManager.updateShiftTime();
+            }, 1000);
+            
+            // Проверка новых уведомлений каждые 10 секунд
+            setInterval(function() {
+                NotificationManager.checkNewNotifications();
+            }, 10000);
+        });
+    </script>
+</body>
+</html>

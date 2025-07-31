@@ -2,7 +2,7 @@
  * Модуль для работы с меню и категориями
  */
 
-class MenuPage {
+class MenuManager {
     static async init() {
         console.log('📱 Initializing Menu Page');
         
@@ -63,6 +63,14 @@ class MenuPage {
 
     static async loadMenu() {
         try {
+            console.log('📱 Loading menu...');
+            console.log('🔧 window.ClientAPI available:', typeof window.ClientAPI);
+            console.log('🔧 window.ClientAPI.getMenu method:', typeof window.ClientAPI?.getMenu);
+            
+            if (!window.ClientAPI || typeof window.ClientAPI.getMenu !== 'function') {
+                throw new Error('window.ClientAPI.getMenu is not available');
+            }
+            
             this.showLoadingState();
             
             const params = {
@@ -77,11 +85,18 @@ class MenuPage {
                 params.search = this.searchTerm;
             }
             
-            const response = await ClientAPI.getMenu(params);
+            // Дополнительная отладка перед вызовом
+            console.log('🔧 About to call getMenu...');
+            console.log('🔧 window.ClientAPI:', window.ClientAPI);
+            console.log('🔧 window.ClientAPI.getMenu:', window.ClientAPI.getMenu);
+            console.log('🔧 typeof window.ClientAPI.getMenu:', typeof window.ClientAPI.getMenu);
+            
+            const response = await window.ClientAPI.getMenu(params);
             
             if (response.status === 'success') {
                 this.menuData = response.data;
                 this.renderMenu();
+                this.hideGlobalPreloader();
             } else {
                 throw new Error(response.message || 'Ошибка загрузки меню');
             }
@@ -89,6 +104,7 @@ class MenuPage {
         } catch (error) {
             console.error('Menu loading error:', error);
             this.showErrorState();
+            this.hideGlobalPreloader();
             APIUtils.handleError(error, 'Не удалось загрузить меню');
         }
     }
@@ -105,7 +121,7 @@ class MenuPage {
         const categoriesHTML = this.menuData.categories.map(category => `
             <div class="category-item ${this.currentCategory === category.id ? 'active' : ''}" 
                  data-category-id="${category.id}"
-                 onclick="MenuPage.selectCategory(${category.id})">
+                 onclick="MenuManager.selectCategory(${category.id})">
                 <div class="category-name">${this.escapeHTML(category.name)}</div>
                 <div class="category-count">${category.count} блюд</div>
             </div>
@@ -115,7 +131,7 @@ class MenuPage {
         const allMenuHTML = `
             <div class="category-item ${!this.currentCategory ? 'active' : ''}" 
                  data-category-id="all"
-                 onclick="MenuPage.selectCategory(null)">
+                 onclick="MenuManager.selectCategory(null)">
                 <div class="category-name">Все меню</div>
                 <div class="category-count">${this.getTotalDishesCount()} блюд</div>
             </div>
@@ -159,7 +175,6 @@ class MenuPage {
                 <div class="dish-type-indicator dish-type-${dish.preparation_type}">
                     ${typeIcon}
                 </div>
-                <div class="dish-prep-time">${dish.estimated_time} мин</div>
                 
                 <img class="dish-image" 
                      src="${dish.image_url || '/static/assets/images/fish.png'}" 
@@ -335,7 +350,15 @@ class MenuPage {
         }
         this.loadMenu();
     }
+
+    static hideGlobalPreloader() {
+        const preloader = document.getElementById('globalPreloader');
+        if (preloader) {
+            preloader.style.display = 'none';
+            console.log('🔧 Global preloader hidden');
+        }
+    }
 }
 
 // Экспортируем в глобальную область
-window.MenuPage = MenuPage;
+window.MenuManager = MenuManager;

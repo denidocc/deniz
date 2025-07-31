@@ -15,8 +15,9 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/client/variables.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/client/base.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/client/components.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/client/modals.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/client/modals.css') }}?v=2">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/client/carousel.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/client/menu.css') }}">
     {% block extra_css %}{% endblock %}
     
     <!-- Meta для планшетов -->
@@ -36,6 +37,12 @@
                 <div class="logo">
                     <img src="{{ url_for('static', filename='assets/images/logo.svg') }}" alt="DENIZ" class="logo-image">
                 </div>
+            </div>
+            
+            <div class="header-left-actions">
+                <button class="call-waiter-btn" id="callWaiterBtn" title="Позвать официанта">
+                    Позвать официанта
+                </button>
             </div>
             
             <div class="header-center">
@@ -61,6 +68,12 @@
                     <button class="lang-btn active" data-lang="ru">РУ</button>
                     <button class="lang-btn" data-lang="en">EN</button>
                 </div>
+                
+                <a href="/admin" class="staff-link" title="Вход для персонала">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 7.5L13.5 7L12 7.5C11.2 7.8 10.7 8.5 10.7 9.3V20C10.7 21.1 11.6 22 12.7 22S14.7 21.1 14.7 20V16L18.2 17L21 15.5V14C21 12.9 20.1 12 19 12H15V11A1 1 0 0 1 16 10H19C20.1 10 21 9.1 21 8V9Z"/>
+                    </svg>
+                </a>
             </div>
         </header>
         
@@ -69,6 +82,12 @@
             <!-- Sidebar -->
             <aside class="sidebar">
                 <div class="categories-menu" id="categoriesMenu">
+                    <!-- Кнопка "Все меню" -->
+                    <div class="category-item active" data-category="all">
+                        <div class="category-name">Все меню</div>
+                        <div class="category-count" id="allMenuCount">0 блюд</div>
+                    </div>
+                    
                     <!-- Категории будут загружены динамически -->
                 </div>
             </aside>
@@ -133,13 +152,26 @@
     <!-- Модальные окна -->
     <div class="modal-overlay" id="modalOverlay"></div>
     
+    <!-- Global Preloader -->
+    <div class="global-preloader" id="globalPreloader">
+        <div class="preloader-content">
+            <div class="preloader-spinner"></div>
+            <div class="preloader-text">Загружаем меню...</div>
+        </div>
+    </div>
+    
+    <!-- Notifications Container -->
+    <div id="notificationContainer" class="notification-container"></div>
+    
     <!-- JavaScript -->
     <script src="{{ url_for('static', filename='js/client/utils.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/client/api.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/client/api.js') }}?v=2"></script>
     <script src="{{ url_for('static', filename='js/client/language.js') }}"></script>
     <script src="{{ url_for('static', filename='js/client/theme.js') }}"></script>
     <script src="{{ url_for('static', filename='js/client/cart.js') }}"></script>
     <script src="{{ url_for('static', filename='js/client/search.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/client/dishes.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/client/menu.js') }}"></script>
     <script src="{{ url_for('static', filename='js/client/modals.js') }}"></script>
     <script src="{{ url_for('static', filename='js/client/carousel.js') }}"></script>
     {% block extra_js %}{% endblock %}
@@ -147,11 +179,25 @@
     <!-- Initialize App -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Инициализация компонентов
-            ModalManager.init();
-            CartManager.init();
-            MenuManager.init();
-            CarouselManager.init();
+            console.log('🚀 DOM loaded, checking ClientAPI...');
+            console.log('🔧 window.ClientAPI exists:', !!window.ClientAPI);
+            console.log('🔧 ClientAPI ready flag:', window.ClientAPI?._ready);
+            
+            // Небольшая задержка для уверенности, что все скрипты загружены
+            setTimeout(() => {
+                console.log('🚀 Starting component initialization...');
+                
+                // Инициализация компонентов
+                NotificationManager.init();
+                ModalManager.init();
+                CartManager.init();
+                MenuManager.init();
+                CarouselManager.init();
+                LanguageManager.init();
+                ThemeManager.init();
+                SearchManager.init();
+                DishManager.init();
+            }, 100);
             
             // Обработчики событий
             document.getElementById('tableSelectBtn').addEventListener('click', function() {

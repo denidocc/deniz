@@ -42,7 +42,28 @@ class CarouselManager {
 
     static async loadSettings() {
         try {
-            const response = await ClientAPI.getCarouselSettings();
+            console.log('🎠 Loading carousel settings...');
+            console.log('🔧 window.ClientAPI available:', typeof window.ClientAPI);
+            console.log('🔧 window.ClientAPI.getCarouselSettings method:', typeof window.ClientAPI?.getCarouselSettings);
+            
+            if (!window.ClientAPI || typeof window.ClientAPI.getCarouselSettings !== 'function') {
+                console.warn('⚠️ ClientAPI.getCarouselSettings not available, using defaults');
+                this.settings = {
+                    ...this.settings,
+                    autoplay: true,
+                    interval: 5000,
+                    showDots: true,
+                    showNavigation: false
+                };
+                return;
+            }
+            
+            // Дополнительная отладка перед вызовом
+            console.log('🔧 About to call getCarouselSettings...');
+            console.log('🔧 window.ClientAPI:', window.ClientAPI);
+            console.log('🔧 window.ClientAPI.getCarouselSettings:', window.ClientAPI.getCarouselSettings);
+            
+            const response = await window.ClientAPI.getCarouselSettings();
             if (response.status === 'success' && response.data) {
                 this.settings = {
                     ...this.settings,
@@ -59,22 +80,60 @@ class CarouselManager {
             // Показываем состояние загрузки
             this.showLoading();
             
-            const response = await ClientAPI.getCarouselSlides();
+            // Временные фейковые слайды для демонстрации
+            const fakeSlides = [
+                {
+                    id: 1,
+                    title: 'НАЧНИТЕ С ФАВОРИТА ШЕФА',
+                    subtitle: 'Свежие устрицы',
+                    description: 'Попробуйте лучшие морепродукты от нашего шеф-повара',
+                    image_url: '/static/assets/images/fish.png',
+                    background_color: '#D2E3E9',
+                    text_color: '#0077B6',
+                    is_active: true
+                },
+                {
+                    id: 2,
+                    title: 'БЛЮДА ИЗ РЫБЫ',
+                    subtitle: 'Свежий улов дня',
+                    description: 'Морская кухня с настоящим вкусом океана',
+                    image_url: '/static/assets/images/fish.png',
+                    background_color: '#ECF2F5',
+                    text_color: '#0077B6',
+                    is_active: true
+                },
+                {
+                    id: 3,
+                    title: 'ОСТРЫЕ БЛЮДА',
+                    subtitle: 'Для любителей остренького',
+                    description: 'Попробуйте наши фирменные острые блюда',
+                    image_url: '/static/assets/images/fish.png',
+                    background_color: '#D2E3E9',
+                    text_color: '#0077B6',
+                    is_active: true
+                },
+                {
+                    id: 4,
+                    title: 'ПАСТА И МОРЕПРОДУКТЫ',
+                    subtitle: 'Итальянская классика',
+                    description: 'Сочетание традиций и свежих морепродуктов',
+                    image_url: '/static/assets/images/fish.png',
+                    background_color: '#ECF2F5',
+                    text_color: '#0077B6',
+                    is_active: true
+                }
+            ];
             
-            if (response.status === 'success' && response.data.slides) {
-                this.slides = response.data.slides.filter(slide => slide.is_active);
-                
-                if (this.slides.length > 0) {
-                    this.render();
-                    this.setupEventListeners();
-                    if (this.settings.enableAutoPlay) {
-                        this.startAutoPlay();
-                    }
-                } else {
-                    this.showEmpty();
+            this.slides = fakeSlides;
+            
+            if (this.slides.length > 0) {
+                this.render();
+                this.setupEventListeners();
+                if (this.settings.enableAutoPlay) {
+                    this.startAutoPlay();
                 }
             } else {
-                throw new Error('No slides data received');
+                this.showEmpty();
             }
             
         } catch (error) {

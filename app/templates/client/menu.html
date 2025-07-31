@@ -3,8 +3,7 @@
 {% block title %}DENIZ - Меню стола #{{ table_id }}{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/client/menu.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/client/carousel.css') }}">
+<!-- CSS уже включен в base.html -->
 {% endblock %}
 
 {% block content %}
@@ -55,23 +54,16 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/client/menu.js') }}"></script>
-<script src="{{ url_for('static', filename='js/client/carousel.js') }}"></script>
-<script src="{{ url_for('static', filename='js/client/dishes.js') }}"></script>
-
-<!-- Initialize page -->
+<!-- JavaScript уже включен в base.html -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Передаем данные в JavaScript
     window.CLIENT_CONFIG = {
-        tableId: {{ table_id }},
-        settings: {{ settings | tojson }},
+        tableId: {{ table_id or 'null' }},
+        settings: {{ settings | tojson if settings else '{}' }},
         apiUrl: '/client/api',
         currentLanguage: 'ru'
     };
-    
-    // Инициализируем страницу меню
-    MenuPage.init();
 });
 </script>
 {% endblock %}

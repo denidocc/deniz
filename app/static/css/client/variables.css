@@ -5,6 +5,7 @@
   --deep-blue: #0077B6; /* Индиго */
   --light-gray: #F8F9FA; /* Светлый фон */
   --white: #FFFFFF; /* Белый */
+  --light-blue: #E8F1F4; /* Светло-синий */
 
   /* Кнопки */
   --plus-btn: #00B4D8; /* Кнопка добавления */
@@ -16,6 +17,7 @@
   --dark-blue: #00263A; /* Темно-синий */
   --dark-text: #212121; /* Темный текст */
   --gray-text: #6A6A6A; /* Серый текст для счетчиков */
+  --gray-text-light: #999999; /* Серый текст для счетчиков */
   --white-text: #FFFFFF; /* Белый текст */
 
   /* Градиенты */
@@ -37,6 +39,7 @@
   --border-radius: 12px;
   --border-radius-small: 8px;
   --border-radius-large: 20px;
+  --border-radius-big: 28px;
 
   /* Размеры и отступы для планшетов */
   --header-height: 80px;
