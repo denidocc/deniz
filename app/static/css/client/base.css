@@ -263,6 +263,7 @@ body {
   flex: 1;
   background-color: var(--background);
   overflow-y: auto;
+  padding: var(--content-padding);
 }
 
 /* Cart Sidebar */
