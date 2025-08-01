@@ -519,7 +519,7 @@ body {
 .sidebar::-webkit-scrollbar,
 .content-area::-webkit-scrollbar,
 .cart-content::-webkit-scrollbar {
-  width: 6px;
+  width: 0;
 }
 
 .sidebar::-webkit-scrollbar-track,
