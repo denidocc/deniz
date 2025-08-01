@@ -172,9 +172,6 @@ class MenuManager {
         
         return `
             <div class="dish-card" data-dish-id="${dish.id}">
-                <div class="dish-type-indicator dish-type-${dish.preparation_type}">
-                    ${typeIcon}
-                </div>
                 
                 <img class="dish-image" 
                      src="${dish.image_url || '/static/assets/images/fish.png'}" 
