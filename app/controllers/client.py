@@ -232,6 +232,212 @@ def get_client_settings():
             "message": "Ошибка получения настроек"
         }), 500
 
+@client_bp.route('/api/carousel')
+def get_carousel():
+    """Получение настроек и слайдов карусели."""
+    try:
+        settings = get_system_settings()
+        
+        # Пока создаем тестовые слайды, позже можно будет добавить модель CarouselSlide
+        slides = [
+            {
+                'id': 1,
+                'title': 'РЫБНЫЙ МИКС ДНЯ',
+                'description': 'Ассорти из лучших сортов рыбы с авторским соусом и свежими овощами',
+                'price': 1250,
+                'image_url': '/static/assets/images/fish.png',
+                'is_active': True,
+                'sort_order': 1
+            },
+            {
+                'id': 2,
+                'title': 'КОРОЛЕВСКИЕ КРЕВЕТКИ',
+                'description': 'Тигровые креветки на гриле с ароматными травами и лимонным маслом',
+                'price': 1850,
+                'image_url': '/static/assets/images/fish.png',
+                'is_active': True,
+                'sort_order': 2
+            },
+            {
+                'id': 3,
+                'title': 'МРАМОРНАЯ ГОВЯДИНА',
+                'description': 'Стейк Рибай из отборной мраморной говядины с трюфельным соусом',
+                'price': 2900,
+                'image_url': '/static/assets/images/fish.png',
+                'is_active': True,
+                'sort_order': 3
+            },
+            {
+                'id': 4,
+                'title': 'ЛОБСТЕР С ПАСТОЙ',
+                'description': 'Домашняя паста с мясом омара в сливочно-коньячном соусе',
+                'price': 2150,
+                'image_url': '/static/assets/images/fish.png',
+                'is_active': True,
+                'sort_order': 4
+            }
+        ]
+        
+        carousel_data = {
+            'autoplay': True,
+            'interval': settings.get('carousel_slide_duration', 5) * 1000,  # в миллисекундах
+            'showDots': True,
+            'showNavigation': False,
+            'slides': slides
+        }
+        
+        return jsonify({
+            "status": "success",
+            "data": carousel_data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting carousel: {e}")
+        return jsonify({
+            "status": "error",
+            "message": "Ошибка получения карусели"
+        }), 500
+
+@client_bp.route('/api/orders', methods=['POST'])
+def create_order():
+    """Создание нового заказа."""
+    try:
+        data = request.get_json()
+        
+        # Валидация обязательных полей
+        required_fields = ['table_id', 'items']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({
+                    "status": "error",
+                    "message": f"Поле '{field}' обязательно"
+                }), 400
+        
+        table_id = data.get('table_id')
+        items = data.get('items', [])
+        notes = data.get('notes', '')
+        bonus_card = data.get('bonus_card')
+        language = data.get('language', 'ru')
+        
+        # Проверяем стол
+        table = Table.query.get(table_id)
+        if not table:
+            return jsonify({
+                "status": "error",
+                "message": "Стол не найден"
+            }), 404
+        
+        if not table.is_available():
+            return jsonify({
+                "status": "error",
+                "message": "Стол недоступен"
+            }), 400
+        
+        # Проверяем блюда
+        if not items:
+            return jsonify({
+                "status": "error",
+                "message": "Список блюд не может быть пустым"
+            }), 400
+        
+        total_amount = 0
+        order_items = []
+        
+        for item in items:
+            dish_id = item.get('dish_id')
+            quantity = item.get('quantity', 1)
+            
+            dish = MenuItem.query.get(dish_id)
+            if not dish or not dish.is_active:
+                return jsonify({
+                    "status": "error",
+                    "message": f"Блюдо с ID {dish_id} не найдено"
+                }), 404
+            
+            item_total = float(dish.price) * quantity
+            total_amount += item_total
+            
+            order_items.append({
+                'dish_id': dish_id,
+                'dish_name': get_localized_name(dish, language),
+                'quantity': quantity,
+                'price': float(dish.price),
+                'total': item_total
+            })
+        
+        # Добавляем сервисный сбор
+        settings = get_system_settings()
+        service_charge_percent = settings.get('service_charge_percent', 5)
+        service_charge = total_amount * (service_charge_percent / 100)
+        final_amount = total_amount + service_charge
+        
+        # TODO: Здесь нужно создать запись в базе данных (модель Order)
+        # Пока возвращаем успешный ответ с деталями заказа
+        
+        order_data = {
+            'order_id': 'ORD' + str(int(table_id) * 1000 + len(items)),  # Временный ID
+            'table_id': table_id,
+            'table_number': table.table_number,
+            'items': order_items,
+            'subtotal': total_amount,
+            'service_charge_percent': service_charge_percent,
+            'service_charge': service_charge,
+            'total_amount': final_amount,
+            'status': 'pending',
+            'notes': notes,
+            'bonus_card': bonus_card,
+            'estimated_time': max([30] + [item.get('estimated_time', 30) for item in items]),  # Максимальное время
+            'created_at': 'now'  # В реальности - datetime.utcnow()
+        }
+        
+        return jsonify({
+            "status": "success",
+            "message": "Заказ успешно создан",
+            "data": order_data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error creating order: {e}")
+        return jsonify({
+            "status": "error",
+            "message": "Ошибка создания заказа"
+        }), 500
+
+@client_bp.route('/api/waiter-call', methods=['POST'])
+def call_waiter():
+    """Вызов официанта к столу."""
+    try:
+        data = request.get_json()
+        table_id = data.get('table_id')
+        
+        if not table_id:
+            return jsonify({
+                "status": "error",
+                "message": "ID стола обязателен"
+            }), 400
+        
+        table = Table.query.get(table_id)
+        if not table:
+            return jsonify({
+                "status": "error",
+                "message": "Стол не найден"
+            }), 404
+        
+        # TODO: Здесь нужно создать запись в таблице WaiterCall
+        # Пока возвращаем успешный ответ
+        
+        return jsonify({
+            "status": "success",
+            "message": f"Официант вызван к столу {table.table_number}"
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error calling waiter: {e}")
+        return jsonify({
+            "status": "error",
+            "message": "Ошибка вызова официанта"
+        }), 500
+
 def get_system_settings():
     """Получение всех системных настроек."""
     try:

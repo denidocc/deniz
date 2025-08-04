@@ -1,463 +1,444 @@
 /**
- * Модуль управления каруселью промо-блюд
+ * Touch-карусель с поддержкой свайпов и перетаскивания
  */
-
 class CarouselManager {
-    static init() {
-        console.log('🎠 Initializing Carousel Manager');
+    constructor() {
+
         
-        this.currentSlide = 0;
+        this.carousel = null;
+        this.track = null;
+        this.dots = null;
         this.slides = [];
-        this.isAutoPlaying = true;
-        this.autoPlayInterval = null;
-        this.settings = {
-            autoPlayDelay: 5000, // 5 секунд по умолчанию
-            maxSlides: 5,
-            enableAutoPlay: true
-        };
+        this.currentSlide = 0;
+        this.slideCount = 0;
         
-        // Инициализируем элементы
-        this.initializeElements();
+        // Touch/Mouse состояние
+        this.isDragging = false;
+        this.startX = 0;
+        this.currentX = 0;
+        this.initialTranslate = 0;
+        this.translateX = 0;
+        this.animationId = null;
         
-        // Загружаем настройки и слайды
-        this.loadSettings();
-        this.loadSlides();
+        // Автопрокрутка
+        this.autoplayInterval = null;
+        this.autoplayDelay = 5000; // 5 секунд
+        this.isPaused = false;
         
-        console.log('✅ Carousel Manager initialized');
+        // Настройки
+        this.swipeThreshold = 50; // Минимальное расстояние для свайпа
+        this.slideWidth = 0;
+        
+        this.init();
     }
 
-    static initializeElements() {
-        this.carousel = document.getElementById('promoCarousel');
-        this.track = null;
-        this.indicators = null;
-        this.prevBtn = null;
-        this.nextBtn = null;
-        this.progressBar = null;
-        
-        if (!this.carousel) {
-            console.warn('Carousel container not found');
-            return;
+    static init() {
+        if (!window.carouselManagerInstance) {
+            window.carouselManagerInstance = new CarouselManager();
+        }
+        return window.carouselManagerInstance;
+    }
+
+    async init() {
+        try {
+            this.setupElements();
+            await this.loadSettings();
+            this.setupEventListeners();
+            this.startAutoplay();
+
+        } catch (error) {
+            console.error('❌ Carousel initialization failed:', error);
         }
     }
 
-    static async loadSettings() {
+    setupElements() {
+        this.carousel = document.getElementById('promoCarousel');
+        this.dotsContainer = document.getElementById('carouselDots');
+        
+        if (!this.carousel || !this.dotsContainer) {
+            throw new Error('Carousel elements not found');
+        }
+    }
+
+    async loadSettings() {
         try {
-            console.log('🎠 Loading carousel settings...');
-            console.log('🔧 window.ClientAPI available:', typeof window.ClientAPI);
-            console.log('🔧 window.ClientAPI.getCarouselSettings method:', typeof window.ClientAPI?.getCarouselSettings);
-            
             if (!window.ClientAPI || typeof window.ClientAPI.getCarouselSettings !== 'function') {
-                console.warn('⚠️ ClientAPI.getCarouselSettings not available, using defaults');
-                this.settings = {
-                    ...this.settings,
-                    autoplay: true,
-                    interval: 5000,
-                    showDots: true,
-                    showNavigation: false
-                };
+                this.createFakeSlides();
                 return;
             }
             
-            // Дополнительная отладка перед вызовом
-            console.log('🔧 About to call getCarouselSettings...');
-            console.log('🔧 window.ClientAPI:', window.ClientAPI);
-            console.log('🔧 window.ClientAPI.getCarouselSettings:', window.ClientAPI.getCarouselSettings);
-            
             const response = await window.ClientAPI.getCarouselSettings();
-            if (response.status === 'success' && response.data) {
-                this.settings = {
-                    ...this.settings,
-                    ...response.data
-                };
-            }
-        } catch (error) {
-            console.warn('Could not load carousel settings:', error);
-        }
-    }
-
-    static async loadSlides() {
-        try {
-            // Показываем состояние загрузки
-            this.showLoading();
             
-            // Временные фейковые слайды для демонстрации
-            const fakeSlides = [
-                {
-                    id: 1,
-                    title: 'НАЧНИТЕ С ФАВОРИТА ШЕФА',
-                    subtitle: 'Свежие устрицы',
-                    description: 'Попробуйте лучшие морепродукты от нашего шеф-повара',
-                    image_url: '/static/assets/images/fish.png',
-                    background_color: '#D2E3E9',
-                    text_color: '#0077B6',
-                    is_active: true
-                },
-                {
-                    id: 2,
-                    title: 'БЛЮДА ИЗ РЫБЫ',
-                    subtitle: 'Свежий улов дня',
-                    description: 'Морская кухня с настоящим вкусом океана',
-                    image_url: '/static/assets/images/fish.png',
-                    background_color: '#ECF2F5',
-                    text_color: '#0077B6',
-                    is_active: true
-                },
-                {
-                    id: 3,
-                    title: 'ОСТРЫЕ БЛЮДА',
-                    subtitle: 'Для любителей остренького',
-                    description: 'Попробуйте наши фирменные острые блюда',
-                    image_url: '/static/assets/images/fish.png',
-                    background_color: '#D2E3E9',
-                    text_color: '#0077B6',
-                    is_active: true
-                },
-                {
-                    id: 4,
-                    title: 'ПАСТА И МОРЕПРОДУКТЫ',
-                    subtitle: 'Итальянская классика',
-                    description: 'Сочетание традиций и свежих морепродуктов',
-                    image_url: '/static/assets/images/fish.png',
-                    background_color: '#ECF2F5',
-                    text_color: '#0077B6',
-                    is_active: true
-                }
-            ];
-            
-            this.slides = fakeSlides;
-            
-            if (this.slides.length > 0) {
-                this.render();
-                this.setupEventListeners();
-                if (this.settings.enableAutoPlay) {
-                    this.startAutoPlay();
-                }
+            if (response.status === 'success' && response.data && response.data.slides) {
+                this.renderSlides(response.data.slides);
             } else {
-                this.showEmpty();
+                this.createFakeSlides();
             }
             
         } catch (error) {
-            console.error('Error loading carousel slides:', error);
-            this.showEmpty();
+            console.error('❌ Error loading carousel settings:', error);
+            this.createFakeSlides();
         }
     }
 
-    static showLoading() {
-        if (!this.carousel) return;
+    createFakeSlides() {
+        const fakeSlides = [
+            {
+                id: 1,
+                title: 'РЫБНЫЙ МИКС ДНЯ',
+                description: 'Ассорти из лучших сортов рыбы с авторским соусом и свежими овощами',
+                price: 1250,
+                image_url: '/static/assets/images/fish.png',
+                is_active: true
+            },
+            {
+                id: 2,
+                title: 'КОРОЛЕВСКИЕ КРЕВЕТКИ',
+                description: 'Тигровые креветки на гриле с ароматными травами и лимонным маслом',
+                price: 1850,
+                image_url: '/static/assets/images/fish.png',
+                is_active: true
+            },
+            {
+                id: 3,
+                title: 'МРАМОРНАЯ ГОВЯДИНА',
+                description: 'Стейк Рибай из отборной мраморной говядины с трюфельным соусом',
+                price: 2900,
+                image_url: '/static/assets/images/fish.png',
+                is_active: true
+            },
+            {
+                id: 4,
+                title: 'ЛОБСТЕР С ПАСТОЙ',
+                description: 'Домашняя паста с мясом омара в сливочно-коньячном соусе',
+                price: 2150,
+                image_url: '/static/assets/images/fish.png',
+                is_active: true
+            }
+        ];
         
-        this.carousel.innerHTML = `
-            <div class="carousel-loading">
-                Загрузка промо-акций...
-            </div>
-        `;
+        this.renderSlides(fakeSlides);
     }
 
-    static showEmpty() {
-        if (!this.carousel) return;
+    renderSlides(slides) {
+        this.slides = slides.filter(slide => slide.is_active);
+        this.slideCount = this.slides.length;
         
-        this.carousel.innerHTML = `
-            <div class="carousel-empty">
-                Нет активных промо-акций
-            </div>
-        `;
+        if (this.slideCount === 0) {
+            this.renderEmptyState();
+            return;
+        }
+        
+        this.createCarouselHTML();
+        this.createDots();
+        this.updateSlideWidth();
+        this.goToSlide(0);
     }
 
-    static render() {
-        if (!this.carousel || this.slides.length === 0) return;
-        
-        const slidesHtml = this.slides.map((slide, index) => `
-            <div class="carousel-slide" data-slide="${index}">
-                <div class="slide-content">
-                    <div class="slide-text">
-                        <h3 class="slide-title">${this.escapeHTML(slide.title)}</h3>
-                        <p class="slide-description">${this.escapeHTML(slide.description)}</p>
-                        ${slide.price ? `<div class="slide-price">${APIUtils.formatPrice(slide.price)}</div>` : ''}
-                        <div class="slide-action">
-                            <button class="slide-btn" onclick="CarouselManager.onSlideAction(${slide.menu_item_id})">
-                                ${slide.action_text || 'Заказать'}
-                            </button>
+    createCarouselHTML() {
+        const trackHTML = `
+            <div class="carousel-track" id="carouselTrack">
+                ${this.slides.map((slide, index) => `
+                    <div class="carousel-slide ${index === 0 ? 'active' : ''}" data-slide="${index}">
+                        <div class="slide-content">
+                            <div class="slide-text">
+                                <div class="slide-title">${this.escapeHTML(slide.title)}</div>
+                                <div class="slide-description">${this.escapeHTML(slide.description)}</div>
+                                <div class="slide-price">${slide.price} ТМТ</div>
+                            </div>
+                            <div class="slide-image">
+                                <img src="${slide.image_url}" alt="${this.escapeHTML(slide.title)}" loading="lazy">
+                            </div>
                         </div>
+                        <div class="slide-pattern"></div>
                     </div>
-                    ${slide.image_url ? `
-                        <div class="slide-image">
-                            <img src="${slide.image_url}" alt="${this.escapeHTML(slide.title)}" loading="lazy">
-                        </div>
-                    ` : ''}
-                    <div class="slide-pattern"></div>
-                </div>
-            </div>
-        `).join('');
-        
-        const indicatorsHtml = this.slides.map((_, index) => `
-            <div class="indicator ${index === 0 ? 'active' : ''}" data-slide="${index}"></div>
-        `).join('');
-        
-        this.carousel.innerHTML = `
-            <div class="carousel-container">
-                <div class="carousel-track" id="carouselTrack">
-                    ${slidesHtml}
-                </div>
-                
-                ${this.slides.length > 1 ? `
-                    <button class="carousel-nav carousel-prev" id="carouselPrev">‹</button>
-                    <button class="carousel-nav carousel-next" id="carouselNext">›</button>
-                    
-                    <div class="carousel-indicators" id="carouselIndicators">
-                        ${indicatorsHtml}
-                    </div>
-                    
-                    <div class="carousel-progress" id="carouselProgress"></div>
-                ` : ''}
+                `).join('')}
             </div>
         `;
         
-        // Обновляем ссылки на элементы
+        this.carousel.innerHTML = trackHTML;
+        
         this.track = document.getElementById('carouselTrack');
-        this.indicators = document.getElementById('carouselIndicators');
-        this.prevBtn = document.getElementById('carouselPrev');
-        this.nextBtn = document.getElementById('carouselNext');
-        this.progressBar = document.getElementById('carouselProgress');
         
-        // Устанавливаем ширину трека
-        if (this.track) {
-            this.track.style.width = `${this.slides.length * 100}%`;
-            this.track.querySelectorAll('.carousel-slide').forEach(slide => {
-                slide.style.width = `${100 / this.slides.length}%`;
-            });
-        }
+        // Установка ширины трека
+        this.track.style.width = `${this.slideCount * 100}%`;
+        
+        // Установка ширины каждого слайда
+        const slideElements = this.track.querySelectorAll('.carousel-slide');
+        slideElements.forEach(slide => {
+            slide.style.width = `${100 / this.slideCount}%`;
+        });
     }
 
-    static setupEventListeners() {
-        // Кнопки навигации
-        if (this.prevBtn) {
-            this.prevBtn.addEventListener('click', () => this.goToPrevSlide());
-        }
+    createDots() {
+        const dotsHTML = this.slides.map((_, index) => 
+            `<div class="carousel-dot ${index === 0 ? 'active' : ''}" data-slide="${index}"></div>`
+        ).join('');
         
-        if (this.nextBtn) {
-            this.nextBtn.addEventListener('click', () => this.goToNextSlide());
-        }
-        
-        // Индикаторы
-        if (this.indicators) {
-            this.indicators.addEventListener('click', (e) => {
-                if (e.target.classList.contains('indicator')) {
-                    const slideIndex = parseInt(e.target.dataset.slide);
-                    this.goToSlide(slideIndex);
-                }
-            });
-        }
-        
-        // Пауза при наведении
-        if (this.carousel) {
-            this.carousel.addEventListener('mouseenter', () => this.pauseAutoPlay());
-            this.carousel.addEventListener('mouseleave', () => this.resumeAutoPlay());
-        }
-        
-        // Свайпы для мобильных устройств
-        this.setupTouchEvents();
+        this.dotsContainer.innerHTML = dotsHTML;
+        this.dots = this.dotsContainer.querySelectorAll('.carousel-dot');
     }
 
-    static setupTouchEvents() {
-        if (!this.carousel) return;
-        
-        let startX = 0;
-        let currentX = 0;
-        let isDragging = false;
-        
-        this.carousel.addEventListener('touchstart', (e) => {
-            startX = e.touches[0].clientX;
-            isDragging = true;
-            this.pauseAutoPlay();
+    updateSlideWidth() {
+        this.slideWidth = this.carousel.offsetWidth;
+    }
+
+    setupEventListeners() {
+        // Изменение размера окна
+        window.addEventListener('resize', () => {
+            this.updateSlideWidth();
+            this.goToSlide(this.currentSlide, false);
         });
         
-        this.carousel.addEventListener('touchmove', (e) => {
-            if (!isDragging) return;
-            currentX = e.touches[0].clientX;
-            e.preventDefault();
+        // Touch события
+        this.carousel.addEventListener('touchstart', this.onTouchStart.bind(this), { passive: false });
+        this.carousel.addEventListener('touchmove', this.onTouchMove.bind(this), { passive: false });
+        this.carousel.addEventListener('touchend', this.onTouchEnd.bind(this));
+        
+        // Mouse события для desktop
+        this.carousel.addEventListener('mousedown', this.onMouseDown.bind(this));
+        this.carousel.addEventListener('mousemove', this.onMouseMove.bind(this));
+        this.carousel.addEventListener('mouseup', this.onMouseUp.bind(this));
+        this.carousel.addEventListener('mouseleave', this.onMouseUp.bind(this));
+        
+        // Предотвращение выделения текста
+        this.carousel.addEventListener('selectstart', e => e.preventDefault());
+        this.carousel.addEventListener('dragstart', e => e.preventDefault());
+        
+        // Клики по точкам
+        this.dotsContainer.addEventListener('click', (e) => {
+            if (e.target.classList.contains('carousel-dot')) {
+                const slideIndex = parseInt(e.target.dataset.slide);
+                this.goToSlide(slideIndex);
+            }
         });
         
-        this.carousel.addEventListener('touchend', () => {
-            if (!isDragging) return;
-            
-            const deltaX = currentX - startX;
-            const threshold = 50;
-            
-            if (Math.abs(deltaX) > threshold) {
-                if (deltaX > 0) {
-                    this.goToPrevSlide();
-                } else {
-                    this.goToNextSlide();
+        // Пауза на hover/focus
+        this.carousel.addEventListener('mouseenter', () => this.pauseAutoplay());
+        this.carousel.addEventListener('mouseleave', () => this.resumeAutoplay());
+        this.carousel.addEventListener('focus', () => this.pauseAutoplay());
+        this.carousel.addEventListener('blur', () => this.resumeAutoplay());
+        
+        // Клавиатурная навигация
+        document.addEventListener('keydown', (e) => {
+            if (e.target.closest('.promo-carousel')) {
+                switch (e.key) {
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        this.previousSlide();
+                        break;
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        this.nextSlide();
+                        break;
                 }
             }
-            
-            isDragging = false;
-            this.resumeAutoPlay();
         });
     }
 
-    static goToSlide(index, direction = 'next') {
-        if (!this.track || index < 0 || index >= this.slides.length) return;
+    // Touch события
+    onTouchStart(e) {
+        this.startDrag(e.touches[0].clientX);
+        this.pauseAutoplay();
+    }
+
+    onTouchMove(e) {
+        if (!this.isDragging) return;
+        e.preventDefault();
+        this.onDragMove(e.touches[0].clientX);
+    }
+
+    onTouchEnd(e) {
+        this.endDrag();
+        this.resumeAutoplay();
+    }
+
+    // Mouse события
+    onMouseDown(e) {
+        e.preventDefault();
+        this.startDrag(e.clientX);
+        this.pauseAutoplay();
+    }
+
+    onMouseMove(e) {
+        if (!this.isDragging) return;
+        e.preventDefault();
+        this.onDragMove(e.clientX);
+    }
+
+    onMouseUp() {
+        this.endDrag();
+        this.resumeAutoplay();
+    }
+
+    // Общая логика перетаскивания
+    startDrag(clientX) {
+        this.isDragging = true;
+        this.startX = clientX;
+        this.initialTranslate = this.translateX;
+        this.track.classList.add('dragging');
+        
+        if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
+        }
+    }
+
+    onDragMove(clientX) {
+        if (!this.isDragging) return;
+        
+        this.currentX = clientX;
+        const deltaX = this.currentX - this.startX;
+        this.translateX = this.initialTranslate + deltaX;
+        
+        // Ограничения
+        const maxTranslate = 0;
+        const minTranslate = -(this.slideCount - 1) * this.slideWidth;
+        
+        // Добавляем резистентность на краях
+        if (this.translateX > maxTranslate) {
+            this.translateX = maxTranslate + (this.translateX - maxTranslate) * 0.3;
+        } else if (this.translateX < minTranslate) {
+            this.translateX = minTranslate + (this.translateX - minTranslate) * 0.3;
+        }
+        
+        this.animationId = requestAnimationFrame(() => {
+            this.track.style.transform = `translateX(${this.translateX}px)`;
+        });
+    }
+
+    endDrag() {
+        if (!this.isDragging) return;
+        
+        this.isDragging = false;
+        this.track.classList.remove('dragging');
+        
+        const deltaX = this.currentX - this.startX;
+        const slideIndex = Math.round(-this.translateX / this.slideWidth);
+        
+        // Определяем направление свайпа
+        if (Math.abs(deltaX) > this.swipeThreshold) {
+            if (deltaX > 0 && this.currentSlide > 0) {
+                this.goToSlide(this.currentSlide - 1);
+            } else if (deltaX < 0 && this.currentSlide < this.slideCount - 1) {
+                this.goToSlide(this.currentSlide + 1);
+            } else {
+                this.goToSlide(this.currentSlide);
+            }
+        } else {
+            // Возвращаемся к ближайшему слайду
+            this.goToSlide(slideIndex);
+        }
+    }
+
+    goToSlide(index, animate = true) {
+        if (index < 0 || index >= this.slideCount) return;
         
         this.currentSlide = index;
+        this.translateX = -index * this.slideWidth;
         
-        // Анимация перехода
-        const translateX = -(index * (100 / this.slides.length));
-        this.track.style.transform = `translateX(${translateX}%)`;
+        if (animate) {
+            this.track.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+        } else {
+            this.track.style.transition = 'none';
+        }
         
-        // Обновляем индикаторы
-        this.updateIndicators();
+        this.track.style.transform = `translateX(${this.translateX}px)`;
         
-        // Сбрасываем прогресс-бар
-        this.resetProgressBar();
+        // Обновляем активные состояния
+        this.updateActiveStates();
         
-        // Логируем просмотр слайда
-        this.logSlideView(index);
+        // Сбрасываем переход после анимации
+        if (animate) {
+            setTimeout(() => {
+                this.track.style.transition = '';
+            }, 300);
+        }
+        
+
     }
 
-    static goToNextSlide() {
-        const nextIndex = (this.currentSlide + 1) % this.slides.length;
-        this.goToSlide(nextIndex, 'next');
-    }
-
-    static goToPrevSlide() {
-        const prevIndex = this.currentSlide === 0 ? this.slides.length - 1 : this.currentSlide - 1;
-        this.goToSlide(prevIndex, 'prev');
-    }
-
-    static updateIndicators() {
-        if (!this.indicators) return;
+    updateActiveStates() {
+        // Обновляем слайды
+        const slideElements = this.track.querySelectorAll('.carousel-slide');
+        slideElements.forEach((slide, index) => {
+            slide.classList.toggle('active', index === this.currentSlide);
+        });
         
-        this.indicators.querySelectorAll('.indicator').forEach((indicator, index) => {
-            indicator.classList.toggle('active', index === this.currentSlide);
+        // Обновляем точки
+        this.dots.forEach((dot, index) => {
+            dot.classList.toggle('active', index === this.currentSlide);
         });
     }
 
-    static startAutoPlay() {
-        if (!this.settings.enableAutoPlay || this.slides.length <= 1) return;
+    nextSlide() {
+        const nextIndex = (this.currentSlide + 1) % this.slideCount;
+        this.goToSlide(nextIndex);
+    }
+
+    previousSlide() {
+        const prevIndex = (this.currentSlide - 1 + this.slideCount) % this.slideCount;
+        this.goToSlide(prevIndex);
+    }
+
+    // Автопрокрутка
+    startAutoplay() {
+        if (this.slideCount <= 1) return;
         
-        this.isAutoPlaying = true;
-        this.autoPlayInterval = setInterval(() => {
-            if (this.isAutoPlaying) {
-                this.goToNextSlide();
+        this.autoplayInterval = setInterval(() => {
+            if (!this.isPaused) {
+                this.nextSlide();
             }
-        }, this.settings.autoPlayDelay);
+        }, this.autoplayDelay);
         
-        this.startProgressBar();
+
     }
 
-    static pauseAutoPlay() {
-        this.isAutoPlaying = false;
-        if (this.progressBar) {
-            this.progressBar.style.animationPlayState = 'paused';
+    pauseAutoplay() {
+        this.isPaused = true;
+        this.carousel.classList.add('paused');
+    }
+
+    resumeAutoplay() {
+        this.isPaused = false;
+        this.carousel.classList.remove('paused');
+
+    }
+
+    stopAutoplay() {
+        if (this.autoplayInterval) {
+            clearInterval(this.autoplayInterval);
+            this.autoplayInterval = null;
         }
     }
 
-    static resumeAutoPlay() {
-        if (this.settings.enableAutoPlay && this.slides.length > 1) {
-            this.isAutoPlaying = true;
-            if (this.progressBar) {
-                this.progressBar.style.animationPlayState = 'running';
-            }
-        }
+    renderEmptyState() {
+        this.carousel.innerHTML = `
+            <div class="carousel-empty">
+                <p>Промо-слайды не настроены</p>
+            </div>
+        `;
+        this.dotsContainer.innerHTML = '';
     }
 
-    static stopAutoPlay() {
-        this.isAutoPlaying = false;
-        if (this.autoPlayInterval) {
-            clearInterval(this.autoPlayInterval);
-            this.autoPlayInterval = null;
-        }
-    }
-
-    static startProgressBar() {
-        if (!this.progressBar) return;
-        
-        this.progressBar.style.width = '0%';
-        this.progressBar.style.transition = `width ${this.settings.autoPlayDelay}ms linear`;
-        
-        // Запускаем анимацию
-        setTimeout(() => {
-            if (this.progressBar && this.isAutoPlaying) {
-                this.progressBar.style.width = '100%';
-            }
-        }, 10);
-    }
-
-    static resetProgressBar() {
-        if (!this.progressBar) return;
-        
-        this.progressBar.style.transition = 'none';
-        this.progressBar.style.width = '0%';
-        
-        setTimeout(() => {
-            if (this.progressBar) {
-                this.startProgressBar();
-            }
-        }, 50);
-    }
-
-    static onSlideAction(menuItemId) {
-        console.log('Slide action clicked:', menuItemId);
-        
-        // Добавляем блюдо в корзину
-        if (menuItemId && MenuManager.dishes) {
-            const dish = MenuManager.dishes.find(d => d.id === menuItemId);
-            if (dish) {
-                CartManager.addItem(dish);
-                Utils.showToast(`${dish.name} добавлено в корзину!`, 'success');
-            }
-        }
-        
-        // Логируем клик
-        this.logSlideClick(this.currentSlide, menuItemId);
-    }
-
-    static logSlideView(slideIndex) {
-        if (this.slides[slideIndex]) {
-            console.log('Slide viewed:', {
-                slideId: this.slides[slideIndex].id,
-                slideIndex: slideIndex,
-                title: this.slides[slideIndex].title
-            });
-        }
-    }
-
-    static logSlideClick(slideIndex, menuItemId) {
-        if (this.slides[slideIndex]) {
-            console.log('Slide clicked:', {
-                slideId: this.slides[slideIndex].id,
-                slideIndex: slideIndex,
-                menuItemId: menuItemId,
-                title: this.slides[slideIndex].title
-            });
-        }
-    }
-
-    static escapeHTML(text) {
-        if (!text) return '';
+    escapeHTML(text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     }
 
-
-
-    // Обновление слайдов без перезагрузки страницы
-    static async refresh() {
-        console.log('🔄 Refreshing carousel...');
-        this.stopAutoPlay();
-        await this.loadSlides();
-    }
-
-    // Уничтожение карусели
-    static destroy() {
-        this.stopAutoPlay();
-        if (this.carousel) {
-            this.carousel.innerHTML = '';
+    // Публичные методы для внешнего управления
+    destroy() {
+        this.stopAutoplay();
+        if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
         }
-        console.log('🗑️ Carousel destroyed');
+        
+        // Удаляем обработчики событий
+        window.removeEventListener('resize', this.updateSlideWidth);
+        
+        console.log('🎠 Carousel destroyed');
     }
 }
 
-// Экспортируем в глобальную область
+// Глобальная инициализация
 window.CarouselManager = CarouselManager;

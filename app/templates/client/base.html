@@ -95,8 +95,13 @@
             <!-- Content Area -->
             <section class="content-area">
                 <!-- Promo Carousel -->
-                <div class="promo-carousel" id="promoCarousel">
-                    <!-- Карусель будет загружена динамически -->
+                <div class="carousel-container">
+                    <div class="promo-carousel" id="promoCarousel">
+                        <!-- Карусель будет загружена динамически -->
+                    </div>
+                    <div class="carousel-dots" id="carouselDots">
+                        <!-- Точки навигации -->
+                    </div>
                 </div>
                 
                 {% block content %}{% endblock %}
@@ -179,14 +184,8 @@
     <!-- Initialize App -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 DOM loaded, checking ClientAPI...');
-            console.log('🔧 window.ClientAPI exists:', !!window.ClientAPI);
-            console.log('🔧 ClientAPI ready flag:', window.ClientAPI?._ready);
-            
             // Небольшая задержка для уверенности, что все скрипты загружены
             setTimeout(() => {
-                console.log('🚀 Starting component initialization...');
-                
                 // Инициализация компонентов
                 NotificationManager.init();
                 ModalManager.init();

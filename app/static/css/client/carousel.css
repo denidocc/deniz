@@ -1,4 +1,9 @@
-/* Карусель промо-блюд */
+/* Touch-карусель промо-блюд */
+
+.carousel-container {
+  position: relative;
+  width: 100%;
+}
 
 .promo-carousel {
   position: relative;
@@ -7,22 +12,25 @@
   background: var(--gradient);
   border-radius: var(--border-radius);
   overflow: hidden;
-  margin-bottom: var(--gap-large);
   box-shadow: var(--shadow-medium);
+  cursor: grab;
+  user-select: none;
 }
 
-.carousel-container {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
+.promo-carousel:active {
+  cursor: grabbing;
 }
 
 .carousel-track {
   display: flex;
   width: 500%; /* Для 5 слайдов максимум */
   height: 100%;
-  transition: transform var(--transition-slow) ease-in-out;
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: transform;
+}
+
+.carousel-track.dragging {
+  transition: none;
 }
 
 .carousel-slide {
@@ -34,6 +42,11 @@
   justify-content: center;
   background: var(--gradient);
   flex-shrink: 0;
+  pointer-events: none; /* Предотвращаем клики по содержимому во время перетаскивания */
+}
+
+.carousel-slide.active {
+  pointer-events: auto;
 }
 
 .slide-content {
@@ -70,30 +83,6 @@
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   color: var(--deep-blue);
-  margin-bottom: var(--gap-medium);
-}
-
-.slide-action {
-  margin-top: var(--gap-medium);
-}
-
-.slide-btn {
-  background: var(--deep-blue);
-  color: var(--white);
-  border: none;
-  padding: var(--gap-medium) var(--gap-large);
-  border-radius: var(--border-radius-small);
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  transition: var(--transition-fast);
-  box-shadow: var(--shadow-light);
-}
-
-.slide-btn:hover {
-  background: var(--plus-btn);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-medium);
 }
 
 .slide-image {
@@ -126,117 +115,91 @@
   pointer-events: none;
 }
 
-/* Индикаторы (точки) */
-.carousel-indicators {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
+/* Точки навигации (вынесены за пределы карусели) */
+.carousel-dots {
   display: flex;
+  justify-content: center;
   gap: var(--gap-small);
-  z-index: 3;
+  margin-top: var(--gap-medium);
+  padding: 0 var(--gap-medium);
 }
 
-.indicator {
+.carousel-dot {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(0, 119, 182, 0.3);
   cursor: pointer;
   transition: var(--transition-fast);
   border: 1px solid var(--deep-blue);
+  position: relative;
 }
 
-.indicator.active {
+.carousel-dot.active {
   background: var(--deep-blue);
   transform: scale(1.2);
 }
 
-.indicator:hover {
+.carousel-dot:hover {
   background: var(--plus-btn);
   transform: scale(1.1);
 }
 
-/* Кнопки навигации */
-.carousel-nav {
+/* Прогресс-бар удален - мешает пользователю */
+
+/* Индикатор перетаскивания */
+.carousel-track::before {
+  content: '';
   position: absolute;
   top: 50%;
-  transform: translateY(-50%);
+  left: 50%;
+  transform: translate(-50%, -50%);
   width: 40px;
-  height: 40px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid var(--deep-blue);
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: var(--transition-fast);
-  z-index: 3;
-  color: var(--deep-blue);
-  font-size: 18px;
-  font-weight: bold;
-}
-
-.carousel-nav:hover {
-  background: var(--deep-blue);
-  color: var(--white);
-  transform: translateY(-50%) scale(1.1);
-}
-
-.carousel-prev {
-  left: 15px;
-}
-
-.carousel-next {
-  right: 15px;
-}
-
-/* Автопрогрессбар */
-.carousel-progress {
-  position: absolute;
-  bottom: 0;
-  left: 0;
   height: 4px;
-  background: var(--deep-blue);
-  transition: width linear;
-  z-index: 3;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 4;
 }
 
-/* Пауза при наведении */
-.promo-carousel:hover .carousel-progress {
-  animation-play-state: paused;
+.carousel-track.dragging::before {
+  opacity: 1;
+}
+
+/* Touch feedback */
+.promo-carousel::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.05);
+  opacity: 0;
+  transition: opacity 0.1s;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.promo-carousel:active::after {
+  opacity: 1;
 }
 
 /* Анимации */
-@keyframes slideInRight {
+@keyframes slideIn {
   from {
-    transform: translateX(100%);
     opacity: 0;
+    transform: scale(0.95);
   }
   to {
-    transform: translateX(0);
     opacity: 1;
+    transform: scale(1);
   }
 }
 
-@keyframes slideInLeft {
-  from {
-    transform: translateX(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-.slide-animate-in-right {
-  animation: slideInRight 0.5s ease-out;
-}
-
-.slide-animate-in-left {
-  animation: slideInLeft 0.5s ease-out;
+.carousel-slide.slide-in {
+  animation: slideIn 0.4s ease-out;
 }
 
 /* Адаптивность */
@@ -284,15 +247,9 @@
     height: 80px;
   }
   
-  .carousel-nav {
-    width: 32px;
-    height: 32px;
-    font-size: 14px;
-  }
-  
-  .indicator {
-    width: 8px;
-    height: 8px;
+  .carousel-dot {
+    width: 10px;
+    height: 10px;
   }
 }
 
@@ -305,6 +262,7 @@
   background: var(--light-gray);
   color: var(--gray-text);
   font-size: var(--font-size-lg);
+  border-radius: var(--border-radius);
 }
 
 .carousel-loading::after {
@@ -347,17 +305,11 @@
   color: var(--white);
 }
 
-[data-theme="dark"] .carousel-nav {
-  background: rgba(0, 0, 0, 0.7);
-  color: var(--white);
-  border-color: var(--plus-btn);
-}
-
-[data-theme="dark"] .indicator {
+[data-theme="dark"] .carousel-dot {
   background: rgba(255, 255, 255, 0.3);
   border-color: var(--plus-btn);
 }
 
-[data-theme="dark"] .indicator.active {
+[data-theme="dark"] .carousel-dot.active {
   background: var(--plus-btn);
 }

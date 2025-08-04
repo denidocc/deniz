@@ -18,7 +18,7 @@ class MenuManager {
         // Загружаем меню
         await this.loadMenu();
         
-        console.log('✅ Menu Page initialized');
+
     }
 
     static initializeElements() {
@@ -63,10 +63,6 @@ class MenuManager {
 
     static async loadMenu() {
         try {
-            console.log('📱 Loading menu...');
-            console.log('🔧 window.ClientAPI available:', typeof window.ClientAPI);
-            console.log('🔧 window.ClientAPI.getMenu method:', typeof window.ClientAPI?.getMenu);
-            
             if (!window.ClientAPI || typeof window.ClientAPI.getMenu !== 'function') {
                 throw new Error('window.ClientAPI.getMenu is not available');
             }
@@ -84,12 +80,6 @@ class MenuManager {
             if (this.searchTerm) {
                 params.search = this.searchTerm;
             }
-            
-            // Дополнительная отладка перед вызовом
-            console.log('🔧 About to call getMenu...');
-            console.log('🔧 window.ClientAPI:', window.ClientAPI);
-            console.log('🔧 window.ClientAPI.getMenu:', window.ClientAPI.getMenu);
-            console.log('🔧 typeof window.ClientAPI.getMenu:', typeof window.ClientAPI.getMenu);
             
             const response = await window.ClientAPI.getMenu(params);
             
