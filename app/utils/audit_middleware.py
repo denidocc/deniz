@@ -22,53 +22,71 @@ class AuditMiddleware:
     
     def before_request(self):
         """Действия перед обработкой запроса."""
-        g.start_time = time.time()
-        g.request_data = {
-            'method': request.method,
-            'url': request.url,
-            'endpoint': request.endpoint,
-            'remote_addr': request.remote_addr,
-            'user_agent': request.headers.get('User-Agent'),
-            'referrer': request.headers.get('Referer'),
-            'content_type': request.content_type,
-            'content_length': request.content_length
-        }
+        try:
+            g.start_time = time.time()
+            g.request_data = {
+                'method': request.method,
+                'url': request.url,
+                'endpoint': request.endpoint,
+                'remote_addr': request.remote_addr,
+                'user_agent': request.headers.get('User-Agent'),
+                'referrer': request.headers.get('Referer'),
+                'content_type': request.content_type,
+                'content_length': request.content_length
+            }
+        except Exception as e:
+            current_app.logger.error(f"Audit before_request error: {e}")
+            # Устанавливаем минимальные данные
+            g.start_time = time.time()
+            g.request_data = {}
         
-        # Логируем параметры запроса (без паролей)
-        if request.args:
-            g.request_data['query_params'] = dict(request.args)
-        
-        # Логируем JSON данные (без паролей)
-        if request.is_json and request.json:
-            json_data = dict(request.json)
-            # Удаляем чувствительные данные
-            for sensitive_field in ['password', 'password_hash', 'token', 'secret']:
-                if sensitive_field in json_data:
-                    json_data[sensitive_field] = '[FILTERED]'
-            g.request_data['json_data'] = json_data
-        
-        # Логируем форм-данные (без паролей)
-        if request.form:
-            form_data = dict(request.form)
-            for sensitive_field in ['password', 'password_hash', 'token', 'secret']:
-                if sensitive_field in form_data:
-                    form_data[sensitive_field] = '[FILTERED]'
-            g.request_data['form_data'] = form_data
+        try:
+            # Логируем параметры запроса (без паролей)
+            if request.args:
+                g.request_data['query_params'] = dict(request.args)
+            
+            # Логируем JSON данные (без паролей)
+            if request.is_json:
+                try:
+                    json_data = request.get_json(silent=True)
+                    if json_data:
+                        json_data = dict(json_data)
+                        # Удаляем чувствительные данные
+                        for sensitive_field in ['password', 'password_hash', 'token', 'secret']:
+                            if sensitive_field in json_data:
+                                json_data[sensitive_field] = '[FILTERED]'
+                        g.request_data['json_data'] = json_data
+                except Exception as e:
+                    # Игнорируем ошибки парсинга JSON
+                    current_app.logger.debug(f"JSON parsing failed: {e}")
+            
+            # Логируем форм-данные (без паролей)
+            if request.form:
+                form_data = dict(request.form)
+                for sensitive_field in ['password', 'password_hash', 'token', 'secret']:
+                    if sensitive_field in form_data:
+                        form_data[sensitive_field] = '[FILTERED]'
+                    g.request_data['form_data'] = form_data
+        except Exception as e:
+            current_app.logger.error(f"Audit data collection error: {e}")
     
     def after_request(self, response):
         """Действия после обработки запроса."""
-        if not hasattr(g, 'start_time'):
-            return response
-        
-        # Вычисляем время выполнения
-        duration = time.time() - g.start_time
-        
-        # Определяем тип действия на основе endpoint и метода
-        action = self.determine_action(request.endpoint, request.method, response.status_code)
-        
-        # Логируем только важные действия
-        if self.should_log_action(action, request.endpoint, response.status_code):
-            self.log_request_action(action, response, duration)
+        try:
+            if not hasattr(g, 'start_time'):
+                return response
+            
+            # Вычисляем время выполнения
+            duration = time.time() - g.start_time
+            
+            # Определяем тип действия на основе endpoint и метода
+            action = self.determine_action(request.endpoint, request.method, response.status_code)
+            
+            # Логируем только важные действия
+            if self.should_log_action(action, request.endpoint, response.status_code):
+                self.log_request_action(action, response, duration)
+        except Exception as e:
+            current_app.logger.error(f"Audit after_request error: {e}")
         
         return response
     
@@ -173,9 +191,10 @@ class AuditMiddleware:
         try:
             from app.models import AuditLog
             
-            # Собираем детали
+            # Собираем детали (безопасно получаем request_data)
+            request_data = getattr(g, 'request_data', {})
             details = {
-                **g.request_data,
+                **request_data,
                 'duration_seconds': round(duration, 4),
                 'response_status': response.status_code,
                 'response_size': len(response.get_data()) if hasattr(response, 'get_data') else None,
@@ -206,15 +225,19 @@ class AuditMiddleware:
             
         except Exception as e:
             # Если не можем записать аудит, логируем в обычный лог
+            import traceback
             current_app.logger.error(f"Failed to log audit action '{action}': {e}")
+            current_app.logger.error(f"Audit error traceback: {traceback.format_exc()}")
     
     def log_exception(self, exception):
         """Логирует исключения."""
         try:
             from app.models import AuditLog
             
+            # Безопасно получаем request_data
+            request_data = getattr(g, 'request_data', {})
             details = {
-                **g.request_data,
+                **request_data,
                 'exception_type': type(exception).__name__,
                 'exception_message': str(exception),
                 'traceback': self.get_traceback_string(exception)

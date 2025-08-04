@@ -46,6 +46,9 @@ class SecurityMiddleware:
     def before_request(self):
         """Проверки перед обработкой запроса."""
         try:
+            current_app.logger.info(f"Security check for: {request.method} {request.path}")
+            current_app.logger.info(f"User-Agent: {request.headers.get('User-Agent', 'None')}")
+            
             # Проверка IP адреса
             if self.enable_ip_blocking and self.is_ip_blocked(request.remote_addr):
                 current_app.logger.warning(f"Blocked IP attempted access: {request.remote_addr}")
@@ -59,7 +62,7 @@ class SecurityMiddleware:
             # Проверка на подозрительные паттерны
             if self.enable_content_filtering and self.has_suspicious_content():
                 current_app.logger.warning(
-                    f"Suspicious request detected from {request.remote_addr}: {request.url}"
+                    f"SECURITY: Suspicious content detected from {request.remote_addr}: {request.url}"
                 )
                 self.block_ip(request.remote_addr, "Suspicious content detected")
                 abort(400)
@@ -67,12 +70,13 @@ class SecurityMiddleware:
             # Проверка размера запроса
             max_content_length = current_app.config.get('MAX_CONTENT_LENGTH', 16 * 1024 * 1024)
             if request.content_length and request.content_length > max_content_length:
-                current_app.logger.warning(f"Request too large from {request.remote_addr}: {request.content_length}")
+                current_app.logger.warning(f"SECURITY: Request too large from {request.remote_addr}: {request.content_length}")
                 abort(413)
             
             # Проверка User-Agent
-            if not self.is_valid_user_agent(request.headers.get('User-Agent', '')):
-                current_app.logger.warning(f"Invalid User-Agent from {request.remote_addr}")
+            user_agent = request.headers.get('User-Agent', '')
+            if not self.is_valid_user_agent(user_agent):
+                current_app.logger.warning(f"SECURITY: Invalid User-Agent from {request.remote_addr}: {user_agent}")
                 abort(400)
             
             # Добавление security headers в g для использования в after_request
@@ -178,6 +182,10 @@ class SecurityMiddleware:
     
     def has_suspicious_content(self) -> bool:
         """Проверка на подозрительный контент."""
+        # Для API endpoints отключаем строгую проверку
+        if request.path.startswith('/api/') or request.path.startswith('/client/api/'):
+            return False
+            
         content_to_check = [
             request.url,
             request.get_data(as_text=True) if request.content_length else '',
@@ -213,7 +221,7 @@ class SecurityMiddleware:
         user_agent_lower = user_agent.lower()
         
         # Для API endpoints разрешаем программные User-Agent
-        if request.path.startswith('/api/'):
+        if request.path.startswith('/api/') or request.path.startswith('/client/api/'):
             return True
         
         # Блокируем известные сканеры для веб-интерфейса

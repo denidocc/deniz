@@ -290,16 +290,7 @@ class CarouselManager {
         const deltaX = this.currentX - this.startX;
         this.translateX = this.initialTranslate + deltaX;
         
-        // Ограничения
-        const maxTranslate = 0;
-        const minTranslate = -(this.slideCount - 1) * this.slideWidth;
-        
-        // Добавляем резистентность на краях
-        if (this.translateX > maxTranslate) {
-            this.translateX = maxTranslate + (this.translateX - maxTranslate) * 0.3;
-        } else if (this.translateX < minTranslate) {
-            this.translateX = minTranslate + (this.translateX - minTranslate) * 0.3;
-        }
+        // Для бесконечной прокрутки не нужны жесткие ограничения
         
         this.animationId = requestAnimationFrame(() => {
             this.track.style.transform = `translateX(${this.translateX}px)`;
@@ -317,9 +308,9 @@ class CarouselManager {
         
         // Определяем направление свайпа
         if (Math.abs(deltaX) > this.swipeThreshold) {
-            if (deltaX > 0 && this.currentSlide > 0) {
+            if (deltaX > 0) {
                 this.goToSlide(this.currentSlide - 1);
-            } else if (deltaX < 0 && this.currentSlide < this.slideCount - 1) {
+            } else if (deltaX < 0) {
                 this.goToSlide(this.currentSlide + 1);
             } else {
                 this.goToSlide(this.currentSlide);
@@ -331,7 +322,12 @@ class CarouselManager {
     }
 
     goToSlide(index, animate = true) {
-        if (index < 0 || index >= this.slideCount) return;
+        // Нормализуем индекс для бесконечной прокрутки
+        if (index >= this.slideCount) {
+            index = 0;
+        } else if (index < 0) {
+            index = this.slideCount - 1;
+        }
         
         this.currentSlide = index;
         this.translateX = -index * this.slideWidth;
@@ -353,8 +349,6 @@ class CarouselManager {
                 this.track.style.transition = '';
             }, 300);
         }
-        
-
     }
 
     updateActiveStates() {

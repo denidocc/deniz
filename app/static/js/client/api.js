@@ -24,13 +24,23 @@ class ClientAPI {
 
         try {
             const response = await fetch(url, config);
-            const data = await response.json();
-
+            
             if (!response.ok) {
-                throw new Error(data.message || `HTTP ${response.status}`);
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-
-            return data;
+            
+            const text = await response.text();
+            if (!text) {
+                throw new Error('Empty response');
+            }
+            
+            try {
+                const data = JSON.parse(text);
+                return data;
+            } catch (jsonError) {
+                throw new Error(`Failed to decode JSON object: ${jsonError.message}`);
+            }
+            
         } catch (error) {
             throw error;
         }

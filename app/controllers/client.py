@@ -121,6 +121,13 @@ def get_tables():
 @client_bp.route('/api/menu')
 def get_menu():
     """Получение меню с категориями и блюдами."""
+    current_app.logger.info("=== MENU API CALLED ===")
+    current_app.logger.info(f"Request URL: {request.url}")
+    current_app.logger.info(f"Request method: {request.method}")
+    current_app.logger.info(f"Request args: {dict(request.args)}")
+    current_app.logger.info(f"Request headers: {dict(request.headers)}")
+    current_app.logger.info("========================")
+    
     try:
         language = request.args.get('lang', 'ru')
         category_id = request.args.get('category_id', type=int)
@@ -176,7 +183,7 @@ def get_menu():
                 'name': get_localized_name(dish, language),
                 'description': get_localized_description(dish, language),
                 'price': float(dish.price),
-                'image_url': dish.image_url,
+                'image_url': dish.image_url.replace('/images/', '/static/images/') if dish.image_url else None,
                 'preparation_type': dish.preparation_type,
                 'estimated_time': dish.estimated_time,
                 'has_size_options': dish.has_size_options,
@@ -236,6 +243,9 @@ def get_client_settings():
 def get_carousel():
     """Получение настроек и слайдов карусели."""
     try:
+        current_app.logger.info(f"Carousel API called with args: {request.args}")
+        current_app.logger.info(f"Request headers: {dict(request.headers)}")
+        
         settings = get_system_settings()
         
         # Пока создаем тестовые слайды, позже можно будет добавить модель CarouselSlide
