@@ -101,29 +101,26 @@
     <div class="modal-overlay" id="modalOverlay"></div>
 
     <!-- JavaScript -->
-    <script src="{{ url_for('static', filename='js/waiter/api.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/waiter/utils.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/waiter/notifications.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/waiter/shift.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/waiter/api.js') }}?v=2.0.9"></script>
+    
+
+    
+    <script src="{{ url_for('static', filename='js/waiter/utils.js') }}?v=2.0.9"></script>
+    <script src="{{ url_for('static', filename='js/waiter/notifications.js') }}?v=2.0.9"></script>
+    <script src="{{ url_for('static', filename='js/waiter/shift.js') }}?v=2.0.9"></script>
     {% block extra_js %}{% endblock %}
     
     <!-- Initialize App -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Инициализация компонентов
-            WaiterAPI.init();
-            NotificationManager.init();
-            ShiftManager.init();
+            console.log('🚀 Waiter interface initialized - v2.0.9');
             
-            // Обновление времени смены
-            setInterval(function() {
-                ShiftManager.updateShiftTime();
-            }, 1000);
-            
-            // Проверка новых уведомлений каждые 10 секунд
-            setInterval(function() {
-                NotificationManager.checkNewNotifications();
-            }, 10000);
+                         // Проверка новых уведомлений каждые 30 секунд
+             setInterval(function() {
+                 if (window.waiterNotifications) {
+                     waiterNotifications.checkForNewCalls();
+                 }
+             }, 30000);
         });
     </script>
 </body>

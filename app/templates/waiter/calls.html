@@ -1,0 +1,278 @@
+{% extends "waiter/base.html" %}
+
+{% block title %}Вызовы - Официант - DENIZ Restaurant{% endblock %}
+
+{% block content %}
+<div class="calls-container">
+    <div class="page-header">
+        <h1>Вызовы официанта</h1>
+        <div class="header-actions">
+            <button class="btn btn-secondary" id="refreshCalls">
+                <i class="fas fa-sync-alt"></i> Обновить
+            </button>
+            <button class="btn btn-success" id="markAllRead">
+                <i class="fas fa-check-double"></i> Отметить все как прочитанные
+            </button>
+        </div>
+    </div>
+
+    <div class="calls-filters">
+        <div class="filter-group">
+            <label>Статус:</label>
+            <select id="statusFilter" class="form-control">
+                <option value="">Все</option>
+                <option value="новый">Новые</option>
+                <option value="обрабатывается">В обработке</option>
+                <option value="выполнен">Выполненные</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Приоритет:</label>
+            <select id="priorityFilter" class="form-control">
+                <option value="">Все</option>
+                <option value="высокий">Высокий</option>
+                <option value="средний">Средний</option>
+                <option value="низкий">Низкий</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="calls-list" id="callsList">
+        <div class="loading-placeholder">
+            <div class="spinner"></div>
+            <p>Загрузка вызовов...</p>
+        </div>
+    </div>
+
+    <!-- Call Response Modal -->
+    <div class="modal modal-overlay" id="callResponseModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Ответ на вызов</h3>
+                <button type="button" class="btn-close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="call-info" id="callInfo">
+                    <!-- Информация о вызове -->
+                </div>
+                <div class="response-form">
+                    <div class="form-group">
+                        <label>Действие:</label>
+                        <select id="responseAction" class="form-control">
+                            <option value="принят">Принять вызов</option>
+                            <option value="выполнен">Отметить как выполненный</option>
+                            <option value="отклонен">Отклонить</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Комментарий:</label>
+                        <textarea id="responseComment" class="form-control" rows="3" placeholder="Дополнительный комментарий..."></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="submitResponse">Отправить ответ</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔔 Calls page initialized');
+    
+    let currentCallId = null;
+    
+    // Функция загрузки вызовов
+    async function loadCalls() {
+        try {
+            const statusFilter = document.getElementById('statusFilter').value;
+            const priorityFilter = document.getElementById('priorityFilter').value;
+            
+            const filters = {};
+            if (statusFilter) filters.status = statusFilter;
+            if (priorityFilter) filters.priority = priorityFilter;
+            
+            const callsList = document.getElementById('callsList');
+            callsList.innerHTML = '<div class="loading-placeholder"><div class="spinner"></div><p>Загрузка вызовов...</p></div>';
+            
+            // Пока используем заглушку
+            setTimeout(() => {
+                const sampleCalls = [
+                    { 
+                        id: 1, 
+                        table_number: 5, 
+                        message: 'Нужна помощь с меню', 
+                        status: 'новый', 
+                        priority: 'средний',
+                        created_at: new Date(Date.now() - 5 * 60000),
+                        customer_name: 'Клиент стола 5'
+                    },
+                    { 
+                        id: 2, 
+                        table_number: 12, 
+                        message: 'Счет, пожалуйста', 
+                        status: 'новый', 
+                        priority: 'высокий',
+                        created_at: new Date(Date.now() - 2 * 60000),
+                        customer_name: 'Клиент стола 12'
+                    },
+                    { 
+                        id: 3, 
+                        table_number: 3, 
+                        message: 'Заказ готов к подаче', 
+                        status: 'выполнен', 
+                        priority: 'высокий',
+                        created_at: new Date(Date.now() - 15 * 60000),
+                        customer_name: 'Кухня'
+                    }
+                ];
+                
+                let filteredCalls = sampleCalls;
+                if (statusFilter) {
+                    filteredCalls = filteredCalls.filter(c => c.status === statusFilter);
+                }
+                if (priorityFilter) {
+                    filteredCalls = filteredCalls.filter(c => c.priority === priorityFilter);
+                }
+                
+                if (filteredCalls.length === 0) {
+                    callsList.innerHTML = `
+                        <div class="no-data">
+                            <i class="fas fa-bell-slash"></i>
+                            <h3>Вызовы не найдены</h3>
+                            <p>Нет вызовов соответствующих выбранным фильтрам</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                const callsHtml = filteredCalls.map(call => `
+                    <div class="call-card call-${call.status} priority-${call.priority}" data-call-id="${call.id}">
+                        <div class="call-header">
+                            <div class="call-table">
+                                <i class="fas fa-utensils"></i>
+                                Стол ${call.table_number}
+                            </div>
+                            <div class="call-time">
+                                ${WaiterUtils.formatTime(call.created_at)}
+                            </div>
+                            <div class="call-priority priority-${call.priority}">
+                                ${getPriorityText(call.priority)}
+                            </div>
+                        </div>
+                        <div class="call-content">
+                            <div class="call-message">${call.message}</div>
+                            <div class="call-from">От: ${call.customer_name}</div>
+                        </div>
+                        <div class="call-status">
+                            <span class="status-badge status-${call.status}">
+                                ${getStatusText(call.status)}
+                            </span>
+                        </div>
+                        <div class="call-actions">
+                            ${call.status === 'новый' ? `
+                                <button class="btn btn-sm btn-primary" onclick="respondToCall(${call.id})">
+                                    Ответить
+                                </button>
+                            ` : ''}
+                            <button class="btn btn-sm btn-secondary" onclick="showCallDetails(${call.id})">
+                                Подробнее
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+                
+                callsList.innerHTML = callsHtml;
+            }, 1000);
+            
+        } catch (error) {
+            console.error('Error loading calls:', error);
+            waiterNotifications.showError('Ошибка загрузки вызовов');
+        }
+    }
+    
+    // Вспомогательные функции
+    function getStatusText(status) {
+        const statusTexts = {
+            'новый': 'Новый',
+            'обрабатывается': 'В обработке',
+            'выполнен': 'Выполнен'
+        };
+        return statusTexts[status] || status;
+    }
+    
+    function getPriorityText(priority) {
+        const priorityTexts = {
+            'высокий': 'Высокий',
+            'средний': 'Средний',
+            'низкий': 'Низкий'
+        };
+        return priorityTexts[priority] || priority;
+    }
+    
+    // Глобальные функции
+    window.respondToCall = function(callId) {
+        currentCallId = callId;
+        console.log('Responding to call:', callId);
+        
+        document.getElementById('callInfo').innerHTML = `
+            <div class="call-summary">
+                <h4>Вызов от стола ${callId}</h4>
+                <p>Подготовка ответа на вызов...</p>
+            </div>
+        `;
+        
+        waiterModals.show('callResponseModal');
+    };
+    
+    window.showCallDetails = function(callId) {
+        console.log('Showing call details:', callId);
+        waiterNotifications.showInfo(`Детали вызова ${callId} (функционал в разработке)`);
+    };
+    
+    // Обработчик отправки ответа
+    document.getElementById('submitResponse').addEventListener('click', async function() {
+        if (!currentCallId) return;
+        
+        const action = document.getElementById('responseAction').value;
+        const comment = document.getElementById('responseComment').value;
+        
+        try {
+            // Здесь будет вызов API
+            console.log('Submitting response:', { callId: currentCallId, action, comment });
+            
+            waiterNotifications.showSuccess('Ответ на вызов отправлен');
+            waiterModals.hide(document.getElementById('callResponseModal'));
+            
+            // Обновляем список
+            loadCalls();
+            
+        } catch (error) {
+            console.error('Error submitting response:', error);
+            waiterNotifications.showError('Ошибка при отправке ответа');
+        }
+    });
+    
+    // Обработчики событий
+    document.getElementById('refreshCalls').addEventListener('click', loadCalls);
+    document.getElementById('statusFilter').addEventListener('change', loadCalls);
+    document.getElementById('priorityFilter').addEventListener('change', loadCalls);
+    
+    document.getElementById('markAllRead').addEventListener('click', function() {
+        waiterNotifications.showSuccess('Все вызовы отмечены как прочитанные');
+        loadCalls();
+    });
+    
+    // Начальная загрузка
+    loadCalls();
+    
+    // Автообновление каждые 30 секунд
+    setInterval(loadCalls, 30000);
+});
+</script>
+
+{% endblock %}

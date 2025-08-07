@@ -62,11 +62,44 @@ def dashboard_stats():
             })
         
         # Получение статистики
-        # TODO: Реализовать подсчет заказов и вызовов для закрепленных столов
-        pending_orders = 0
-        pending_calls = 0
-        assigned_tables = 0
+        # Подсчитываем новые заказы для текущего официанта
+        pending_orders = Order.query.filter_by(
+            waiter_id=current_user.id,
+            status='новый'
+        ).count()
         
+        # Подсчитываем активные вызовы для столов официанта
+        from app.models import TableAssignment
+        assigned_table_ids = db.session.query(TableAssignment.table_id).filter_by(
+            waiter_id=current_user.id
+        ).subquery()
+        
+        pending_calls = WaiterCall.query.filter(
+            WaiterCall.table_id.in_(assigned_table_ids),
+            WaiterCall.status == 'новый'
+        ).count()
+        
+        # Подсчитываем назначенные столы
+        assigned_tables = TableAssignment.query.filter_by(
+            waiter_id=current_user.id
+        ).count()
+        
+        # Подсчитываем статистику за смену
+        from sqlalchemy import func
+        
+        # Общее количество заказов за смену
+        total_orders = Order.query.filter(
+            Order.waiter_id == current_user.id,
+            Order.created_at >= active_shift.shift_start
+        ).count()
+        
+        # Общая выручка за смену (только оплаченные заказы)
+        total_revenue = db.session.query(func.coalesce(func.sum(Order.total_amount), 0)).filter(
+            Order.waiter_id == current_user.id,
+            Order.status == 'оплачен',
+            Order.created_at >= active_shift.shift_start
+        ).scalar() or 0
+
         return jsonify({
             'status': 'success',
             'data': {
@@ -75,8 +108,8 @@ def dashboard_stats():
                 'pending_orders': pending_orders,
                 'pending_calls': pending_calls,
                 'assigned_tables': assigned_tables,
-                'total_orders': active_shift.total_orders,
-                'total_revenue': float(active_shift.total_revenue)
+                'total_orders': total_orders,
+                'total_revenue': float(total_revenue)
             }
         })
         
@@ -85,4 +118,422 @@ def dashboard_stats():
         return jsonify({
             'status': 'error',
             'message': 'Ошибка получения статистики'
+        }), 500
+
+# API endpoints для смен
+@waiter_bp.route('/api/shift')
+@waiter_required
+def shift_info():
+    """Получение информации о текущей смене."""
+    try:
+        # Ищем активную смену
+        active_shift = StaffShift.query.filter_by(
+            staff_id=current_user.id,
+            is_active=True
+        ).first()
+        
+        if not active_shift:
+            return jsonify({
+                'status': 'success',
+                'data': {
+                    'status': 'inactive',
+                    'shift': None
+                }
+            })
+        
+        # Подсчитываем реальную статистику смены
+        from sqlalchemy import func
+        from datetime import datetime
+        
+        # Заказы за текущую смену
+        orders_taken = Order.query.filter(
+            Order.waiter_id == current_user.id,
+            Order.created_at >= active_shift.shift_start
+        ).count()
+        
+        # Столы обслуженные за смену (уникальные table_id из заказов)
+        tables_served = db.session.query(func.count(func.distinct(Order.table_id))).filter(
+            Order.waiter_id == current_user.id,
+            Order.created_at >= active_shift.shift_start
+        ).scalar() or 0
+        
+        # Общая сумма продаж за смену (только оплаченные заказы)
+        total_sales = db.session.query(func.coalesce(func.sum(Order.total_amount), 0)).filter(
+            Order.waiter_id == current_user.id,
+            Order.status == 'оплачен',
+            Order.created_at >= active_shift.shift_start
+        ).scalar() or 0
+
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'status': 'active',
+                'id': active_shift.id,
+                'start_time': active_shift.shift_start.isoformat(),
+                'tables_served': tables_served,
+                'orders_taken': orders_taken,
+                'total_sales': float(total_sales)
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting shift info: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка получения информации о смене'
+        }), 500
+
+@waiter_bp.route('/api/shift/start', methods=['POST'])
+@waiter_required
+def start_shift():
+    """Начать смену."""
+    try:
+        # Проверяем, нет ли уже активной смены
+        existing_shift = StaffShift.query.filter_by(
+            staff_id=current_user.id,
+            is_active=True
+        ).first()
+        
+        if existing_shift:
+            return jsonify({
+                'status': 'error',
+                'message': 'У вас уже есть активная смена'
+            }), 400
+        
+        # Создаем новую смену
+        from datetime import datetime, date
+        now = datetime.utcnow()
+        new_shift = StaffShift(
+            staff_id=current_user.id,
+            shift_date=now.date(),
+            shift_start=now,
+            is_active=True
+        )
+        
+        db.session.add(new_shift)
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Смена успешно начата',
+            'data': {
+                'id': new_shift.id,
+                'start_time': new_shift.shift_start.isoformat(),
+                'status': 'active'
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error starting shift: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка при начале смены'
+        }), 500
+
+@waiter_bp.route('/api/shift/end', methods=['POST'])
+@waiter_required
+def end_shift():
+    """Завершить смену."""
+    try:
+        # Ищем активную смену
+        active_shift = StaffShift.query.filter_by(
+            staff_id=current_user.id,
+            is_active=True
+        ).first()
+        
+        if not active_shift:
+            return jsonify({
+                'status': 'error',
+                'message': 'Нет активной смены для завершения'
+            }), 400
+        
+        # Завершаем смену
+        from datetime import datetime
+        active_shift.shift_end = datetime.utcnow()
+        active_shift.is_active = False
+        
+        db.session.commit()
+        
+        # Считаем статистику (пока заглушки)
+        shift_duration = (active_shift.shift_end - active_shift.shift_start).total_seconds()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Смена успешно завершена',
+            'data': {
+                'id': active_shift.id,
+                'start_time': active_shift.shift_start.isoformat(),
+                'end_time': active_shift.shift_end.isoformat(),
+                'duration': shift_duration,
+                'tables_served': 0,  # TODO: подсчитать реальные данные
+                'orders_taken': 0,   # TODO: подсчитать реальные данные
+                'total_sales': 0     # TODO: подсчитать реальные данные
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error ending shift: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка при завершении смены'
+        }), 500
+
+@waiter_bp.route('/api/calls')
+@waiter_required
+def get_calls():
+    """Получение вызовов официанта."""
+    try:
+        # Получаем фильтры из параметров запроса
+        status_filter = request.args.get('status')
+        
+        # Получаем назначенные столы для текущего официанта
+        from app.models import TableAssignment
+        assigned_table_ids = db.session.query(TableAssignment.table_id).filter_by(
+            waiter_id=current_user.id
+        ).subquery()
+        
+        # Базовый запрос вызовов только для назначенных столов
+        query = WaiterCall.query.filter(
+            WaiterCall.table_id.in_(assigned_table_ids)
+        )
+        
+        # Применяем фильтр по статусу если указан
+        if status_filter:
+            query = query.filter_by(status=status_filter)
+        
+        # Сортируем по времени создания (новые первыми)
+        calls = query.order_by(WaiterCall.created_at.desc()).limit(50).all()
+        
+        # Формируем ответ
+        calls_data = []
+        for call in calls:
+            calls_data.append({
+                'id': call.id,
+                'table_id': call.table_id,
+                'table_number': call.table.table_number if call.table else None,
+                'status': call.status,
+                'created_at': call.created_at.isoformat(),
+                'responded_at': call.responded_at.isoformat() if call.responded_at else None,
+            })
+        
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'calls': calls_data,
+                'total': len(calls_data)
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting calls: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка получения вызовов'
+        }), 500
+
+# API endpoints для заказов
+@waiter_bp.route('/api/orders')
+@waiter_required
+def get_orders():
+    """Получение заказов официанта."""
+    try:
+        current_app.logger.info(f"Getting orders for waiter: {current_user.id} ({current_user.name})")
+        
+        # Получаем параметры фильтрации
+        status_filter = request.args.get('status')
+        table_filter = request.args.get('table')
+        current_app.logger.info(f"Filters - status: {status_filter}, table: {table_filter}")
+        
+        # Базовый запрос заказов для текущего официанта
+        query = Order.query.filter_by(waiter_id=current_user.id)
+        current_app.logger.info(f"Base query for waiter_id: {current_user.id}")
+        
+        # Применяем фильтры
+        if status_filter and status_filter != 'all':
+            query = query.filter_by(status=status_filter)
+        
+        if table_filter and table_filter != 'all':
+            query = query.filter_by(table_id=int(table_filter))
+        
+        # Получаем заказы с join к таблице
+        orders = query.join(Table).all()
+        current_app.logger.info(f"Found {len(orders)} orders for waiter {current_user.id}")
+        
+        # Формируем данные ответа
+        orders_data = []
+        for order in orders:
+            orders_data.append({
+                'id': order.id,
+                'table_id': order.table_id,
+                'table_number': order.table.table_number,
+                'status': order.status,
+                'guest_count': order.guest_count,
+                'subtotal': float(order.subtotal),
+                'service_charge': float(order.service_charge),
+                'total_amount': float(order.total_amount),
+                'comments': order.comments,
+                'language': order.language,
+                'created_at': order.created_at.isoformat(),
+                'confirmed_at': order.confirmed_at.isoformat() if order.confirmed_at else None,
+                'completed_at': order.completed_at.isoformat() if order.completed_at else None,
+            })
+        
+        result = {
+            'status': 'success',
+            'data': {
+                'orders': orders_data,
+                'total': len(orders_data)
+            }
+        }
+        current_app.logger.info(f"Returning {len(orders_data)} orders to waiter {current_user.id}")
+        return jsonify(result)
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting orders: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка получения заказов'
+        }), 500
+
+@waiter_bp.route('/api/tables')
+@waiter_required
+def get_tables():
+    """Получение столов официанта."""
+    try:
+        # Получаем столы, назначенные текущему официанту
+        from app.models import TableAssignment
+        
+        assigned_table_ids = db.session.query(TableAssignment.table_id).filter_by(
+            waiter_id=current_user.id,
+            is_active=True
+        ).subquery()
+        
+        assigned_tables = Table.query.filter(
+            Table.id.in_(assigned_table_ids)
+        ).all()
+        
+        # Также получаем все столы для фильтрации
+        all_tables = Table.query.all()
+        
+        # Формируем данные ответа
+        assigned_data = []
+        for table in assigned_tables:
+            assigned_data.append({
+                'id': table.id,
+                'table_number': table.table_number,
+                'capacity': table.capacity,
+                'status': table.status,
+                'is_active': table.is_active,
+            })
+        
+        all_tables_data = []
+        for table in all_tables:
+            all_tables_data.append({
+                'id': table.id,
+                'table_number': table.table_number,
+                'capacity': table.capacity,
+                'status': table.status,
+                'is_active': table.is_active,
+            })
+        
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'assigned_tables': assigned_data,
+                'all_tables': all_tables_data,
+                'total_assigned': len(assigned_data),
+                'total_all': len(all_tables_data)
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting tables: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка получения столов'
+        }), 500
+
+@waiter_bp.route('/api/orders/<int:order_id>/status', methods=['PUT'])
+@waiter_required
+def update_order_status(order_id):
+    """Обновление статуса заказа."""
+    try:
+        # Получаем данные запроса
+        data = request.get_json()
+        if not data or 'status' not in data:
+            return jsonify({
+                'status': 'error',
+                'message': 'Не указан новый статус'
+            }), 400
+        
+        new_status = data['status']
+        
+        # Проверяем допустимые статусы
+        allowed_statuses = ['новый', 'оплачен']
+        if new_status not in allowed_statuses:
+            return jsonify({
+                'status': 'error',
+                'message': f'Недопустимый статус. Разрешены: {", ".join(allowed_statuses)}'
+            }), 400
+        
+        # Находим заказ
+        order = Order.query.get(order_id)
+        if not order:
+            return jsonify({
+                'status': 'error',
+                'message': 'Заказ не найден'
+            }), 404
+        
+        # Проверяем права доступа (заказ должен быть назначен текущему официанту)
+        if order.waiter_id != current_user.id:
+            current_app.logger.warning(f"Waiter {current_user.id} tried to update order {order_id} assigned to waiter {order.waiter_id}")
+            return jsonify({
+                'status': 'error',
+                'message': 'У вас нет прав для изменения этого заказа'
+            }), 403
+        
+        # Логика изменения статуса
+        old_status = order.status
+        
+        # Только разрешенные переходы статусов
+        if old_status == 'новый' and new_status == 'оплачен':
+            order.status = new_status
+            if new_status == 'оплачен':
+                from datetime import datetime
+                order.completed_at = datetime.utcnow()
+        elif old_status == new_status:
+            return jsonify({
+                'status': 'info',
+                'message': f'Заказ уже имеет статус "{new_status}"'
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': f'Недопустимый переход статуса с "{old_status}" на "{new_status}"'
+            }), 400
+        
+        # Сохраняем изменения
+        db.session.commit()
+        
+        current_app.logger.info(f"Order {order_id} status changed from '{old_status}' to '{new_status}' by waiter {current_user.id}")
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Статус заказа изменен на "{new_status}"',
+            'data': {
+                'order_id': order.id,
+                'old_status': old_status,
+                'new_status': new_status,
+                'updated_at': order.updated_at.isoformat() if order.updated_at else None
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating order status: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка изменения статуса заказа'
         }), 500 

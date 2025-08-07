@@ -1,0 +1,188 @@
+{% extends "waiter/base.html" %}
+
+{% block title %}Столы - Официант - DENIZ Restaurant{% endblock %}
+
+{% block content %}
+<div class="tables-container">
+    <div class="page-header">
+        <h1>Столы</h1>
+        <div class="header-actions">
+            <button class="btn btn-secondary" id="refreshTables">
+                <i class="fas fa-sync-alt"></i> Обновить
+            </button>
+        </div>
+    </div>
+
+    <div class="tables-filters">
+        <div class="filter-group">
+            <label>Статус:</label>
+            <select id="statusFilter" class="form-control">
+                <option value="">Все</option>
+                <option value="free">Свободные</option>
+                <option value="occupied">Занятые</option>
+                <option value="reserved">Забронированные</option>
+                <option value="cleaning">Уборка</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Зона:</label>
+            <select id="zoneFilter" class="form-control">
+                <option value="">Все зоны</option>
+                <option value="main">Основная</option>
+                <option value="terrace">Терраса</option>
+                <option value="vip">VIP</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="tables-grid" id="tablesGrid">
+        <div class="loading-placeholder">
+            <div class="spinner"></div>
+            <p>Загрузка столов...</p>
+        </div>
+    </div>
+
+    <!-- Table Detail Modal -->
+    <div class="modal modal-overlay" id="tableDetailModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Информация о столе</h3>
+                <button type="button" class="btn-close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body" id="tableDetailContent">
+                <!-- Содержимое будет загружено динамически -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Закрыть</button>
+                <button type="button" class="btn btn-primary" id="updateTableStatus">Обновить статус</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🪑 Tables page initialized');
+    
+    // Функция загрузки столов
+    async function loadTables() {
+        try {
+            const statusFilter = document.getElementById('statusFilter').value;
+            const zoneFilter = document.getElementById('zoneFilter').value;
+            
+            const filters = {};
+            if (statusFilter) filters.status = statusFilter;
+            if (zoneFilter) filters.zone = zoneFilter;
+            
+            const tablesGrid = document.getElementById('tablesGrid');
+            tablesGrid.innerHTML = '<div class="loading-placeholder"><div class="spinner"></div><p>Загрузка столов...</p></div>';
+            
+            // Пока используем заглушку
+            setTimeout(() => {
+                const sampleTables = [
+                    { id: 1, number: 1, capacity: 4, status: 'free', zone: 'main' },
+                    { id: 2, number: 2, capacity: 2, status: 'occupied', zone: 'main' },
+                    { id: 3, number: 3, capacity: 6, status: 'reserved', zone: 'terrace' },
+                    { id: 4, number: 4, capacity: 4, status: 'cleaning', zone: 'main' },
+                    { id: 5, number: 5, capacity: 8, status: 'free', zone: 'vip' },
+                    { id: 6, number: 6, capacity: 2, status: 'occupied', zone: 'terrace' }
+                ];
+                
+                let filteredTables = sampleTables;
+                if (statusFilter) {
+                    filteredTables = filteredTables.filter(t => t.status === statusFilter);
+                }
+                if (zoneFilter) {
+                    filteredTables = filteredTables.filter(t => t.zone === zoneFilter);
+                }
+                
+                if (filteredTables.length === 0) {
+                    tablesGrid.innerHTML = `
+                        <div class="no-data">
+                            <i class="fas fa-chair"></i>
+                            <h3>Столы не найдены</h3>
+                            <p>Нет столов соответствующих выбранным фильтрам</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                const tablesHtml = filteredTables.map(table => `
+                    <div class="table-card table-${table.status}" data-table-id="${table.id}">
+                        <div class="table-header">
+                            <div class="table-number">Стол ${table.number}</div>
+                            <div class="table-status status-${table.status}">
+                                ${getStatusText(table.status)}
+                            </div>
+                        </div>
+                        <div class="table-info">
+                            <div class="table-capacity">
+                                <i class="fas fa-users"></i> Мест: <strong>${table.capacity}</strong>
+                            </div>
+                            <div class="table-zone">Зона: <strong>${getZoneText(table.zone)}</strong></div>
+                        </div>
+                        <div class="table-actions">
+                            <button class="btn btn-sm btn-primary" onclick="showTableDetails(${table.id})">
+                                Подробнее
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+                
+                tablesGrid.innerHTML = tablesHtml;
+            }, 1000);
+            
+        } catch (error) {
+            console.error('Error loading tables:', error);
+            waiterNotifications.showError('Ошибка загрузки столов');
+        }
+    }
+    
+    // Вспомогательные функции
+    function getStatusText(status) {
+        const statusTexts = {
+            'free': 'Свободен',
+            'occupied': 'Занят',
+            'reserved': 'Забронирован',
+            'cleaning': 'Уборка'
+        };
+        return statusTexts[status] || status;
+    }
+    
+    function getZoneText(zone) {
+        const zoneTexts = {
+            'main': 'Основная зона',
+            'terrace': 'Терраса',
+            'vip': 'VIP зона'
+        };
+        return zoneTexts[zone] || zone;
+    }
+    
+    // Глобальная функция для показа деталей стола
+    window.showTableDetails = function(tableId) {
+        console.log('Showing details for table:', tableId);
+        waiterModals.show('tableDetailModal');
+        
+        document.getElementById('tableDetailContent').innerHTML = `
+            <div class="table-detail">
+                <h4>Стол ${tableId}</h4>
+                <p>Детальная информация о столе будет здесь...</p>
+                <p><em>Функционал в разработке</em></p>
+            </div>
+        `;
+    };
+    
+    // Обработчики событий
+    document.getElementById('refreshTables').addEventListener('click', loadTables);
+    document.getElementById('statusFilter').addEventListener('change', loadTables);
+    document.getElementById('zoneFilter').addEventListener('change', loadTables);
+    
+    // Начальная загрузка
+    loadTables();
+});
+</script>
+
+
+{% endblock %}

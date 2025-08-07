@@ -163,12 +163,20 @@ class AuditMiddleware:
         if status_code >= 400:
             return True
         
-        # Исключаем статические файлы и healthcheck
+        # Исключаем статические файлы, healthcheck и waiter API
         excluded_endpoints = [
             'static',
             'health',
-            'favicon.ico'
+            'favicon.ico',
+            'waiter.dashboard_stats',
+            'waiter.shift_info',
+            'waiter.start_shift',
+            'waiter.end_shift'
         ]
+        
+        # Также исключаем по URL пути
+        if request.path and any(path in request.path for path in ['/api/dashboard', '/api/shift']):
+            return False
         
         if endpoint and any(excl in endpoint for excl in excluded_endpoints):
             return False
@@ -256,7 +264,7 @@ class AuditMiddleware:
     def extract_table_id(self) -> Optional[int]:
         """Извлекает ID стола из запроса."""
         # Проверяем URL параметры
-        if 'table_id' in request.view_args:
+        if request.view_args and 'table_id' in request.view_args:
             return request.view_args['table_id']
         
         # Проверяем query параметры
@@ -267,11 +275,12 @@ class AuditMiddleware:
                 pass
         
         # Проверяем JSON данные
-        if request.is_json and request.json and 'table_id' in request.json:
-            try:
-                return int(request.json['table_id'])
-            except (ValueError, TypeError):
-                pass
+        try:
+            json_data = request.get_json(silent=True)
+            if json_data and 'table_id' in json_data:
+                return int(json_data['table_id'])
+        except (ValueError, TypeError, AttributeError):
+            pass
         
         # Проверяем форм данные
         if request.form.get('table_id'):
@@ -285,7 +294,7 @@ class AuditMiddleware:
     def extract_order_id(self) -> Optional[int]:
         """Извлекает ID заказа из запроса."""
         # Проверяем URL параметры
-        if 'order_id' in request.view_args:
+        if request.view_args and 'order_id' in request.view_args:
             return request.view_args['order_id']
         
         # Проверяем query параметры
@@ -296,11 +305,12 @@ class AuditMiddleware:
                 pass
         
         # Проверяем JSON данные
-        if request.is_json and request.json and 'order_id' in request.json:
-            try:
-                return int(request.json['order_id'])
-            except (ValueError, TypeError):
-                pass
+        try:
+            json_data = request.get_json(silent=True)
+            if json_data and 'order_id' in json_data:
+                return int(json_data['order_id'])
+        except (ValueError, TypeError, AttributeError):
+            pass
         
         # Проверяем форм данные
         if request.form.get('order_id'):

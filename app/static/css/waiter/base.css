@@ -3,14 +3,24 @@
 :root {
   /* Цвета интерфейса официанта */
   --waiter-primary: #0077B6;
+  --waiter-primary-dark: #005A8B;
   --waiter-secondary: #00B4D8;
+  --waiter-secondary-light: #E2E3E5;
+  --waiter-secondary-dark: #383D41;
   --waiter-success: #28A745;
+  --waiter-success-light: #D4EDDA;
+  --waiter-success-dark: #155724;
   --waiter-warning: #FFC107;
+  --waiter-warning-light: #FFF3CD;
+  --waiter-warning-dark: #856404;
   --waiter-danger: #DC3545;
+  --waiter-danger-light: #F8D7DA;
+  --waiter-danger-dark: #721C24;
   --waiter-info: #17A2B8;
   
   /* Фон и текст */
   --waiter-bg: #F8F9FA;
+  --waiter-background: #F8F9FA;
   --waiter-surface: #FFFFFF;
   --waiter-text: #212529;
   --waiter-text-muted: #6C757D;
@@ -49,7 +59,6 @@ body {
 .waiter-header {
   height: var(--header-height);
   background: var(--waiter-surface);
-  border-bottom: 1px solid var(--waiter-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -59,7 +68,6 @@ body {
   left: 0;
   right: 0;
   z-index: 1000;
-  box-shadow: var(--shadow-sm);
 }
 
 .header-left {
@@ -132,13 +140,12 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-bottom: 10px;
 }
 
 /* Navigation */
 .waiter-nav {
-  height: var(--nav-height);
   background: var(--waiter-surface);
-  border-bottom: 1px solid var(--waiter-border);
   display: flex;
   position: fixed;
   top: var(--header-height);
