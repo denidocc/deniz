@@ -1,0 +1,592 @@
+{% extends "admin/base.html" %}
+
+{% block page_title %}Управление меню{% endblock %}
+
+{% block extra_css %}
+<style>
+    .menu-section {
+        margin-bottom: 2rem;
+    }
+    
+    .category-card {
+        border-left: 4px solid var(--admin-accent);
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 1rem;
+    }
+    
+    .category-header {
+        background: var(--admin-light);
+        padding: 1rem;
+        border-radius: 8px 8px 0 0;
+        cursor: pointer;
+        transition: background 0.3s ease;
+    }
+    
+    .category-header:hover {
+        background: #d5dbdb;
+    }
+    
+    .menu-item {
+        border-bottom: 1px solid #eee;
+        padding: 1rem;
+        transition: background 0.3s ease;
+    }
+    
+    .menu-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .menu-item:last-child {
+        border-bottom: none;
+        border-radius: 0 0 8px 8px;
+    }
+    
+    .item-image {
+        width: 60px;
+        height: 60px;
+        border-radius: 8px;
+        object-fit: cover;
+        background: var(--admin-light);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #7f8c8d;
+    }
+    
+    .price-tag {
+        background: var(--admin-success);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-weight: bold;
+    }
+    
+    .availability-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+    }
+    
+    .available {
+        background: var(--admin-success);
+        color: white;
+    }
+    
+    .unavailable {
+        background: var(--admin-danger);
+        color: white;
+    }
+    
+    .cooking-time {
+        background: var(--admin-warning);
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.8rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-journal-text"></i> Управление меню</h2>
+    <div>
+        <button class="btn btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+            <i class="bi bi-folder-plus"></i> Добавить категорию
+        </button>
+        <button class="btn btn-admin" data-bs-toggle="modal" data-bs-target="#addItemModal">
+            <i class="bi bi-plus-circle"></i> Добавить блюдо
+        </button>
+    </div>
+</div>
+
+<!-- Menu Statistics -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-value">{{ categories|length }}</div>
+            <div class="stat-label">
+                <i class="bi bi-folder"></i> Категорий
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card success">
+            <div class="stat-value">{{ items|selectattr('is_available')|list|length }}</div>
+            <div class="stat-label">
+                <i class="bi bi-check-circle"></i> Доступных блюд
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card warning">
+            <div class="stat-value">{{ items|rejectattr('is_available')|list|length }}</div>
+            <div class="stat-label">
+                <i class="bi bi-x-circle"></i> Недоступных блюд
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card danger">
+            <div class="stat-value">{{ items|length }}</div>
+            <div class="stat-label">
+                <i class="bi bi-list"></i> Всего блюд
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Search and Filters -->
+<div class="admin-card mb-4">
+    <div class="card-body">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <input type="text" 
+                       class="form-control search-box" 
+                       id="menuSearch" 
+                       placeholder="Поиск блюд...">
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="categoryFilter">
+                    <option value="">Все категории</option>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}">{{ category.name_ru }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="availabilityFilter">
+                    <option value="">Все блюда</option>
+                    <option value="available">Доступные</option>
+                    <option value="unavailable">Недоступные</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Menu Categories and Items -->
+<div class="menu-section" id="menuContainer">
+    {% for category in categories %}
+    <div class="category-card" data-category-id="{{ category.id }}">
+        <div class="category-header" onclick="toggleCategory({{ category.id }})">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="mb-1">
+                        <i class="bi bi-folder"></i> {{ category.name_ru }}
+                        <small class="text-muted">({{ category.items|length }} блюд)</small>
+                    </h5>
+                    {% if category.description_ru %}
+                        <p class="mb-0 text-muted">{{ category.description_ru }}</p>
+                    {% endif %}
+                </div>
+                <div>
+                    <span class="badge bg-primary">{{ category.sort_order }}</span>
+                    <button class="btn btn-sm btn-outline-primary ms-2" 
+                            onclick="editCategory({{ category.id }}); event.stopPropagation();">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <i class="bi bi-chevron-down category-arrow ms-2"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="category-items" id="category-{{ category.id }}" style="display: block;">
+            {% for item in category.items|sort(attribute='sort_order') %}
+            <div class="menu-item" 
+                 data-item-id="{{ item.id }}" 
+                 data-category="{{ category.id }}"
+                 data-available="{{ item.is_available|lower }}">
+                <div class="row align-items-center">
+                    <div class="col-md-1">
+                        <div class="item-image">
+                            {% if item.image_url %}
+                                <img src="{{ item.image_url }}" alt="{{ item.name_ru }}" class="item-image">
+                            {% else %}
+                                <i class="bi bi-image"></i>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <h6 class="mb-1">{{ item.name_ru }}</h6>
+                        {% if item.name_en %}
+                            <small class="text-muted">{{ item.name_en }}</small><br>
+                        {% endif %}
+                        {% if item.description_ru %}
+                            <small class="text-muted">{{ item.description_ru[:100] }}{% if item.description_ru|length > 100 %}...{% endif %}</small>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <span class="price-tag">{{ "%.2f"|format(item.price) }} ₽</span>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        {% if item.cooking_time_minutes %}
+                            <span class="cooking-time">
+                                <i class="bi bi-clock"></i> {{ item.cooking_time_minutes }} мин
+                            </span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <span class="availability-badge {{ 'available' if item.is_available else 'unavailable' }}">
+                            {{ 'Доступно' if item.is_available else 'Недоступно' }}
+                        </span>
+                    </div>
+                    
+                    <div class="col-md-1">
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-sm btn-outline-primary" 
+                                    onclick="editItem({{ item.id }})" 
+                                    title="Редактировать">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-{{ 'warning' if item.is_available else 'success' }}" 
+                                    onclick="toggleItemAvailability({{ item.id }}, {{ not item.is_available }})" 
+                                    title="{{ 'Скрыть' if item.is_available else 'Показать' }}">
+                                <i class="bi bi-{{ 'eye-slash' if item.is_available else 'eye' }}"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            
+            {% if not category.items %}
+                <div class="menu-item text-center text-muted">
+                    <i class="bi bi-inbox"></i> В этой категории пока нет блюд
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Add Category Modal -->
+<div class="modal fade" id="addCategoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-folder-plus"></i> Добавить категорию
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addCategoryForm">
+                    <div class="mb-3">
+                        <label for="categoryNameRu" class="form-label">Название (русский)</label>
+                        <input type="text" class="form-control" id="categoryNameRu" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="categoryNameEn" class="form-label">Название (английский)</label>
+                        <input type="text" class="form-control" id="categoryNameEn">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="categoryNameTr" class="form-label">Название (турецкий)</label>
+                        <input type="text" class="form-control" id="categoryNameTr">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="categoryDescRu" class="form-label">Описание (русский)</label>
+                        <textarea class="form-control" id="categoryDescRu" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="categorySortOrder" class="form-label">Порядок сортировки</label>
+                        <input type="number" class="form-control" id="categorySortOrder" value="0">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="categoryActive" checked>
+                            <label class="form-check-label" for="categoryActive">
+                                Активная категория
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-admin" onclick="saveCategory()">
+                    <i class="bi bi-check"></i> Создать
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Item Modal -->
+<div class="modal fade" id="addItemModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-plus-circle"></i> Добавить блюдо
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addItemForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="itemCategory" class="form-label">Категория</label>
+                                <select class="form-select" id="itemCategory" required>
+                                    <option value="">Выберите категорию</option>
+                                    {% for category in categories %}
+                                    <option value="{{ category.id }}">{{ category.name_ru }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="itemNameRu" class="form-label">Название (русский)</label>
+                                <input type="text" class="form-control" id="itemNameRu" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="itemNameEn" class="form-label">Название (английский)</label>
+                                <input type="text" class="form-control" id="itemNameEn">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="itemNameTr" class="form-label">Название (турецкий)</label>
+                                <input type="text" class="form-control" id="itemNameTr">
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="itemPrice" class="form-label">Цена (₽)</label>
+                                <input type="number" class="form-control" id="itemPrice" step="0.01" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="itemCookingTime" class="form-label">Время приготовления (мин)</label>
+                                <input type="number" class="form-control" id="itemCookingTime" value="0">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="itemImageUrl" class="form-label">URL изображения</label>
+                                <input type="url" class="form-control" id="itemImageUrl">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="itemSortOrder" class="form-label">Порядок сортировки</label>
+                                <input type="number" class="form-control" id="itemSortOrder" value="0">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="itemDescRu" class="form-label">Описание (русский)</label>
+                        <textarea class="form-control" id="itemDescRu" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="itemAvailable" checked>
+                            <label class="form-check-label" for="itemAvailable">
+                                Блюдо доступно для заказа
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-admin" onclick="saveItem()">
+                    <i class="bi bi-check"></i> Создать
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Search and filter functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('menuSearch');
+        const categoryFilter = document.getElementById('categoryFilter');
+        const availabilityFilter = document.getElementById('availabilityFilter');
+        
+        function filterMenu() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const selectedCategory = categoryFilter.value;
+            const selectedAvailability = availabilityFilter.value;
+            
+            const items = document.querySelectorAll('.menu-item');
+            const categories = document.querySelectorAll('.category-card');
+            
+            items.forEach(item => {
+                const itemName = item.querySelector('h6').textContent.toLowerCase();
+                const itemCategory = item.dataset.category;
+                const itemAvailable = item.dataset.available;
+                
+                const matchesSearch = itemName.includes(searchTerm);
+                const matchesCategory = !selectedCategory || itemCategory === selectedCategory;
+                const matchesAvailability = !selectedAvailability || 
+                    (selectedAvailability === 'available' && itemAvailable === 'true') ||
+                    (selectedAvailability === 'unavailable' && itemAvailable === 'false');
+                
+                if (matchesSearch && matchesCategory && matchesAvailability) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+            
+            // Hide categories with no visible items
+            categories.forEach(category => {
+                const categoryId = category.dataset.categoryId;
+                const visibleItems = category.querySelectorAll('.menu-item[style=""], .menu-item:not([style])');
+                
+                if (visibleItems.length === 0 && (selectedCategory || searchTerm || selectedAvailability)) {
+                    category.style.display = 'none';
+                } else {
+                    category.style.display = '';
+                }
+            });
+        }
+        
+        searchInput.addEventListener('input', filterMenu);
+        categoryFilter.addEventListener('change', filterMenu);
+        availabilityFilter.addEventListener('change', filterMenu);
+    });
+
+    // Toggle category visibility
+    function toggleCategory(categoryId) {
+        const categoryItems = document.getElementById(`category-${categoryId}`);
+        const arrow = event.currentTarget.querySelector('.category-arrow');
+        
+        if (categoryItems.style.display === 'none') {
+            categoryItems.style.display = 'block';
+            arrow.classList.remove('bi-chevron-right');
+            arrow.classList.add('bi-chevron-down');
+        } else {
+            categoryItems.style.display = 'none';
+            arrow.classList.remove('bi-chevron-down');
+            arrow.classList.add('bi-chevron-right');
+        }
+    }
+
+    // Save new category
+    async function saveCategory() {
+        const button = event.target;
+        const originalText = showLoading(button);
+        
+        const data = {
+            name_ru: document.getElementById('categoryNameRu').value,
+            name_en: document.getElementById('categoryNameEn').value,
+            name_tr: document.getElementById('categoryNameTr').value,
+            description_ru: document.getElementById('categoryDescRu').value,
+            sort_order: parseInt(document.getElementById('categorySortOrder').value),
+            is_active: document.getElementById('categoryActive').checked
+        };
+        
+        try {
+            const response = await apiRequest('{{ url_for("admin.create_category") }}', {
+                method: 'POST',
+                body: JSON.stringify(data)
+            });
+            
+            showAlert('Категория успешно создана', 'success');
+            
+            // Close modal and refresh page
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addCategoryModal'));
+            modal.hide();
+            
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+            
+        } catch (error) {
+            showAlert('Ошибка при создании категории: ' + error.message, 'danger');
+        } finally {
+            hideLoading(button, originalText);
+        }
+    }
+
+    // Save new item
+    async function saveItem() {
+        const button = event.target;
+        const originalText = showLoading(button);
+        
+        const data = {
+            category_id: parseInt(document.getElementById('itemCategory').value),
+            name_ru: document.getElementById('itemNameRu').value,
+            name_en: document.getElementById('itemNameEn').value,
+            name_tr: document.getElementById('itemNameTr').value,
+            description_ru: document.getElementById('itemDescRu').value,
+            price: parseFloat(document.getElementById('itemPrice').value),
+            cooking_time_minutes: parseInt(document.getElementById('itemCookingTime').value),
+            image_url: document.getElementById('itemImageUrl').value,
+            sort_order: parseInt(document.getElementById('itemSortOrder').value),
+            is_available: document.getElementById('itemAvailable').checked
+        };
+        
+        try {
+            const response = await apiRequest('{{ url_for("admin.create_menu_item") }}', {
+                method: 'POST',
+                body: JSON.stringify(data)
+            });
+            
+            showAlert('Блюдо успешно создано', 'success');
+            
+            // Close modal and refresh page
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addItemModal'));
+            modal.hide();
+            
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+            
+        } catch (error) {
+            showAlert('Ошибка при создании блюда: ' + error.message, 'danger');
+        } finally {
+            hideLoading(button, originalText);
+        }
+    }
+
+    // Toggle item availability
+    async function toggleItemAvailability(itemId, newAvailability) {
+        try {
+            const response = await apiRequest(`/admin/menu/item/${itemId}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    is_available: newAvailability
+                })
+            });
+            
+            showAlert(`Блюдо ${newAvailability ? 'доступно' : 'скрыто'}`, 'success');
+            
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+            
+        } catch (error) {
+            showAlert('Ошибка при изменении доступности: ' + error.message, 'danger');
+        }
+    }
+
+    // Edit functions (placeholders)
+    function editCategory(categoryId) {
+        showAlert('Функция редактирования категории в разработке', 'info');
+    }
+
+    function editItem(itemId) {
+        showAlert('Функция редактирования блюда в разработке', 'info');
+    }
+</script>
+{% endblock %}

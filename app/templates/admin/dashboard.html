@@ -1,0 +1,311 @@
+{% extends "admin/base.html" %}
+
+{% block page_title %}Панель управления{% endblock %}
+
+{% block extra_css %}
+<style>
+    .quick-stats {
+        margin-bottom: 2rem;
+    }
+    
+    .chart-container {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .recent-activity {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .activity-item {
+        border-left: 3px solid var(--admin-accent);
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .activity-time {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Quick Stats -->
+<div class="row quick-stats">
+    <div class="col-lg-3 col-md-6 mb-4">
+        <div class="stat-card">
+            <div class="stat-value">{{ stats.total_staff }}</div>
+            <div class="stat-label">
+                <i class="bi bi-people"></i> Всего сотрудников
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-4">
+        <div class="stat-card success">
+            <div class="stat-value">{{ stats.active_waiters }}</div>
+            <div class="stat-label">
+                <i class="bi bi-person-check"></i> Активных официантов
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-4">
+        <div class="stat-card warning">
+            <div class="stat-value">{{ stats.total_tables }}</div>
+            <div class="stat-label">
+                <i class="bi bi-table"></i> Всего столов
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-4">
+        <div class="stat-card danger">
+            <div class="stat-value">{{ stats.total_menu_items }}</div>
+            <div class="stat-label">
+                <i class="bi bi-journal-text"></i> Блюд в меню
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Today's Statistics -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="admin-card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-calendar-day"></i> Статистика за сегодня
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <h3 class="text-primary">{{ today_stats.orders_count }}</h3>
+                            <p class="text-muted">Заказов</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <h3 class="text-success">{{ "%.2f"|format(today_stats.revenue) }} ₽</h3>
+                            <p class="text-muted">Выручка</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <h3 class="text-info">{{ "%.2f"|format(today_stats.avg_order) }} ₽</h3>
+                            <p class="text-muted">Средний чек</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts and Analytics -->
+<div class="row mb-4">
+    <div class="col-lg-8 mb-4">
+        <div class="chart-container">
+            <h5><i class="bi bi-bar-chart"></i> Популярные блюда (неделя)</h5>
+            <canvas id="popularDishesChart" width="400" height="200"></canvas>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 mb-4">
+        <div class="admin-card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-clock"></i> Активные смены
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if active_shifts %}
+                    {% for shift in active_shifts %}
+                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
+                        <div>
+                            <strong>{{ shift.staff.name }}</strong>
+                            <br>
+                            <small class="text-muted">{{ shift.staff.role }}</small>
+                        </div>
+                        <div class="text-end">
+                            <small>
+                                {{ shift.start_time.strftime('%H:%M') }}
+                                <br>
+                                <span class="badge bg-success">Активна</span>
+                            </small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted text-center">Нет активных смен</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="row">
+    <div class="col-12">
+        <div class="admin-card">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-activity"></i> Последние действия в системе
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="recent-activity">
+                    {% if recent_actions %}
+                        {% for action in recent_actions %}
+                        <div class="activity-item">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <strong>{{ action.action }}</strong>
+                                    {% if action.staff %}
+                                        <span class="text-muted">- {{ action.staff.name }}</span>
+                                    {% endif %}
+                                    {% if action.table_affected %}
+                                        <span class="badge bg-info">Стол {{ action.table_affected }}</span>
+                                    {% endif %}
+                                    {% if action.order_affected %}
+                                        <span class="badge bg-warning">Заказ {{ action.order_affected }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="activity-time">
+                                    {{ action.created_at.strftime('%H:%M:%S') }}
+                                </div>
+                            </div>
+                            {% if action.ip_address %}
+                                <small class="text-muted">IP: {{ action.ip_address }}</small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted text-center">Нет записей о действиях</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="admin-card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-lightning"></i> Быстрые действия
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-2">
+                        <a href="{{ url_for('admin.staff') }}" class="btn btn-admin w-100">
+                            <i class="bi bi-person-plus"></i> Добавить сотрудника
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <a href="{{ url_for('admin.menu') }}" class="btn btn-admin w-100">
+                            <i class="bi bi-plus-circle"></i> Добавить блюдо
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <button class="btn btn-admin w-100" onclick="generateZReport()">
+                            <i class="bi bi-receipt"></i> Создать Z-отчет
+                        </button>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <a href="{{ url_for('admin.reports') }}" class="btn btn-admin w-100">
+                            <i class="bi bi-graph-up"></i> Просмотр отчетов
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Popular dishes chart
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('popularDishesChart').getContext('2d');
+        
+        const popularDishes = {{ popular_dishes|safe }};
+        
+        const dishNames = popularDishes.map(dish => dish[0]);
+        const dishSales = popularDishes.map(dish => dish[1]);
+        
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: dishNames,
+                datasets: [{
+                    label: 'Продано порций',
+                    data: dishSales,
+                    backgroundColor: 'rgba(52, 152, 219, 0.8)',
+                    borderColor: 'rgba(52, 152, 219, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+    });
+
+    // Generate Z-Report function
+    async function generateZReport() {
+        const button = event.target;
+        const originalText = showLoading(button);
+        
+        try {
+            const response = await apiRequest('{{ url_for("admin.generate_z_report") }}', {
+                method: 'POST',
+                body: JSON.stringify({
+                    date: new Date().toISOString().split('T')[0]
+                })
+            });
+            
+            showAlert('Z-отчет успешно сгенерирован', 'success');
+            
+            // Redirect to Z-reports page
+            setTimeout(() => {
+                window.location.href = '{{ url_for("admin.z_reports") }}';
+            }, 1000);
+            
+        } catch (error) {
+            showAlert('Ошибка при генерации отчета: ' + error.message, 'danger');
+        } finally {
+            hideLoading(button, originalText);
+        }
+    }
+
+    // Auto-refresh activity every 30 seconds
+    setInterval(function() {
+        location.reload();
+    }, 30000);
+</script>
+{% endblock %}

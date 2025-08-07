@@ -1,0 +1,512 @@
+{% extends "admin/base.html" %}
+
+{% block page_title %}Управление сменами{% endblock %}
+
+{% block extra_css %}
+<style>
+    .shift-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        margin-bottom: 1rem;
+        transition: transform 0.3s ease;
+    }
+    
+    .shift-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .shift-header {
+        padding: 1rem;
+        border-bottom: 1px solid #eee;
+        background: var(--admin-light);
+        border-radius: 12px 12px 0 0;
+    }
+    
+    .shift-body {
+        padding: 1rem;
+    }
+    
+    .shift-active {
+        border-left: 4px solid var(--admin-success);
+    }
+    
+    .shift-ended {
+        border-left: 4px solid var(--admin-secondary);
+        opacity: 0.8;
+    }
+    
+    .table-assignment {
+        display: inline-block;
+        background: var(--admin-accent);
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 15px;
+        font-size: 0.8rem;
+        margin: 0.125rem;
+    }
+    
+    .duration-badge {
+        background: var(--admin-warning);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+    }
+    
+    .staff-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--admin-accent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+    }
+    
+    .quick-start-section {
+        background: linear-gradient(135deg, var(--admin-primary), var(--admin-secondary));
+        color: white;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .table-selector {
+        max-height: 200px;
+        overflow-y: auto;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 1rem;
+        background: #f8f9fa;
+    }
+    
+    .table-checkbox {
+        margin: 0.25rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-calendar-check"></i> Управление сменами</h2>
+    <button class="btn btn-admin" data-bs-toggle="modal" data-bs-target="#startShiftModal">
+        <i class="bi bi-play-circle"></i> Начать смену
+    </button>
+</div>
+
+<!-- Quick Stats -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-value">{{ today_shifts|selectattr('end_time', 'none')|list|length }}</div>
+            <div class="stat-label">
+                <i class="bi bi-clock"></i> Активных смен
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card success">
+            <div class="stat-value">{{ active_waiters|length }}</div>
+            <div class="stat-label">
+                <i class="bi bi-people"></i> Официантов в штате
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card warning">
+            <div class="stat-value">{{ tables|length }}</div>
+            <div class="stat-label">
+                <i class="bi bi-table"></i> Всего столов
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card danger">
+            <div class="stat-value">{{ week_shifts|length }}</div>
+            <div class="stat-label">
+                <i class="bi bi-calendar"></i> Смен за неделю
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Start Section -->
+<div class="quick-start-section">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <h4><i class="bi bi-lightning"></i> Быстрый старт смены</h4>
+            <p class="mb-0">Выберите официанта и назначьте столы для начала новой смены</p>
+        </div>
+        <div class="col-md-4">
+            <select class="form-select mb-2" id="quickWaiterSelect">
+                <option value="">Выберите официанта</option>
+                {% for waiter in active_waiters %}
+                <option value="{{ waiter.id }}">{{ waiter.name }}</option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-light w-100" onclick="quickStartShift()">
+                <i class="bi bi-play"></i> Начать смену
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Active Shifts Today -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h4><i class="bi bi-clock"></i> Активные смены (сегодня)</h4>
+        {% if today_shifts %}
+            {% for shift in today_shifts %}
+                {% if not shift.end_time %}
+                <div class="shift-card shift-active">
+                    <div class="shift-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <div class="staff-avatar me-3">
+                                    {{ shift.staff.name[0].upper() }}
+                                </div>
+                                <div>
+                                    <h6 class="mb-0">{{ shift.staff.name }}</h6>
+                                    <small class="text-muted">{{ shift.staff.role }}</small>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <span class="duration-badge">
+                                    Работает {{ ((moment() - shift.start_time).total_seconds() / 3600)|round(1) }} ч
+                                </span>
+                                <button class="btn btn-sm btn-danger ms-2" 
+                                        onclick="endShift({{ shift.id }})">
+                                    <i class="bi bi-stop-circle"></i> Завершить
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="shift-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Начало смены:</strong> {{ shift.start_time.strftime('%H:%M') }}
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Назначенные столы:</strong>
+                                {% if shift.tables_assigned %}
+                                    {% for table_id in shift.tables_assigned %}
+                                        <span class="table-assignment">Стол {{ table_id }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="text-muted">Столы не назначены</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            <div class="text-center text-muted p-4">
+                <i class="bi bi-clock" style="font-size: 2rem;"></i>
+                <p class="mt-2">Нет активных смен</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Recent Shifts -->
+<div class="row">
+    <div class="col-12">
+        <h4><i class="bi bi-calendar"></i> Недавние смены</h4>
+        
+        <!-- Filter controls -->
+        <div class="admin-card mb-3">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-4">
+                        <select class="form-select" id="staffFilter">
+                            <option value="">Все сотрудники</option>
+                            {% for waiter in active_waiters %}
+                            <option value="{{ waiter.id }}">{{ waiter.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <input type="date" class="form-control" id="dateFilter" 
+                               value="{{ today.isoformat() }}">
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="statusFilter">
+                            <option value="">Все смены</option>
+                            <option value="active">Активные</option>
+                            <option value="ended">Завершенные</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-outline-primary w-100" onclick="filterShifts()">
+                            <i class="bi bi-funnel"></i> Фильтр
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Shifts list -->
+        <div id="shiftsContainer">
+            {% for shift in week_shifts[:10] %}
+            <div class="shift-card {{ 'shift-ended' if shift.end_time else 'shift-active' }}"
+                 data-staff-id="{{ shift.staff.id }}" 
+                 data-date="{{ shift.date.isoformat() }}"
+                 data-status="{{ 'ended' if shift.end_time else 'active' }}">
+                <div class="shift-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center">
+                            <div class="staff-avatar me-3">
+                                {{ shift.staff.name[0].upper() }}
+                            </div>
+                            <div>
+                                <h6 class="mb-0">{{ shift.staff.name }}</h6>
+                                <small class="text-muted">{{ shift.date.strftime('%d.%m.%Y') }}</small>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            {% if shift.end_time %}
+                                <span class="badge bg-secondary">Завершена</span>
+                            {% else %}
+                                <span class="badge bg-success">Активна</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="shift-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <strong>Начало:</strong> {{ shift.start_time.strftime('%H:%M') }}
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Окончание:</strong> 
+                            {{ shift.end_time.strftime('%H:%M') if shift.end_time else 'В работе' }}
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Длительность:</strong>
+                            {% if shift.end_time %}
+                                {{ ((shift.end_time - shift.start_time).total_seconds() / 3600)|round(1) }} ч
+                            {% else %}
+                                {{ ((now - shift.start_time).total_seconds() / 3600)|round(1) }} ч
+                            {% endif %}
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Столы:</strong>
+                            {% if shift.tables_assigned %}
+                                {% for table_id in shift.tables_assigned %}
+                                    <span class="table-assignment">{{ table_id }}</span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Start Shift Modal -->
+<div class="modal fade" id="startShiftModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-play-circle"></i> Начать новую смену
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="startShiftForm">
+                    <div class="mb-3">
+                        <label for="shiftStaff" class="form-label">Выберите сотрудника</label>
+                        <select class="form-select" id="shiftStaff" required>
+                            <option value="">Выберите официанта</option>
+                            {% for waiter in active_waiters %}
+                            <option value="{{ waiter.id }}">{{ waiter.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Назначить столы</label>
+                        <div class="table-selector">
+                            <div class="row">
+                                {% for table in tables %}
+                                <div class="col-md-3 table-checkbox">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" 
+                                               id="table{{ table.id }}" value="{{ table.id }}">
+                                        <label class="form-check-label" for="table{{ table.id }}">
+                                            Стол {{ table.number }}
+                                            <small class="text-muted">({{ table.seats }} мест)</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <small class="text-muted">Можно выбрать несколько столов или оставить пустым</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="autoAssignTables">
+                            <label class="form-check-label" for="autoAssignTables">
+                                Автоматически назначить свободные столы
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-admin" onclick="startShift()">
+                    <i class="bi bi-play"></i> Начать смену
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Quick start shift
+    function quickStartShift() {
+        const waiterId = document.getElementById('quickWaiterSelect').value;
+        if (!waiterId) {
+            showAlert('Выберите официанта', 'warning');
+            return;
+        }
+        
+        // Auto-assign tables and start shift
+        startShiftForWaiter(waiterId, [], true);
+    }
+
+    // Start shift
+    async function startShift() {
+        const button = event.target;
+        const originalText = showLoading(button);
+        
+        const staffId = document.getElementById('shiftStaff').value;
+        const autoAssign = document.getElementById('autoAssignTables').checked;
+        
+        if (!staffId) {
+            showAlert('Выберите сотрудника', 'warning');
+            hideLoading(button, originalText);
+            return;
+        }
+        
+        // Get selected tables
+        const selectedTables = [];
+        document.querySelectorAll('.table-checkbox input:checked').forEach(checkbox => {
+            selectedTables.push(parseInt(checkbox.value));
+        });
+        
+        try {
+            await startShiftForWaiter(staffId, selectedTables, autoAssign);
+            
+            // Close modal and refresh
+            const modal = bootstrap.Modal.getInstance(document.getElementById('startShiftModal'));
+            modal.hide();
+            
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+            
+        } catch (error) {
+            showAlert('Ошибка при начале смены: ' + error.message, 'danger');
+        } finally {
+            hideLoading(button, originalText);
+        }
+    }
+
+    // Start shift for waiter
+    async function startShiftForWaiter(staffId, tableIds, autoAssign) {
+        const data = {
+            staff_id: parseInt(staffId),
+            table_ids: tableIds,
+            auto_assign: autoAssign
+        };
+        
+        const response = await apiRequest('{{ url_for("admin.start_shift") }}', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+        
+        showAlert('Смена успешно начата', 'success');
+        return response;
+    }
+
+    // End shift
+    async function endShift(shiftId) {
+        if (!confirm('Завершить смену? Это действие нельзя отменить.')) {
+            return;
+        }
+        
+        try {
+            const response = await apiRequest(`/admin/shifts/${shiftId}/end`, {
+                method: 'POST'
+            });
+            
+            showAlert('Смена завершена', 'success');
+            
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+            
+        } catch (error) {
+            showAlert('Ошибка при завершении смены: ' + error.message, 'danger');
+        }
+    }
+
+    // Filter shifts
+    function filterShifts() {
+        const staffFilter = document.getElementById('staffFilter').value;
+        const dateFilter = document.getElementById('dateFilter').value;
+        const statusFilter = document.getElementById('statusFilter').value;
+        
+        const shifts = document.querySelectorAll('.shift-card[data-staff-id]');
+        
+        shifts.forEach(shift => {
+            const staffId = shift.dataset.staffId;
+            const shiftDate = shift.dataset.date;
+            const shiftStatus = shift.dataset.status;
+            
+            const matchesStaff = !staffFilter || staffId === staffFilter;
+            const matchesDate = !dateFilter || shiftDate.startsWith(dateFilter);
+            const matchesStatus = !statusFilter || shiftStatus === statusFilter;
+            
+            if (matchesStaff && matchesDate && matchesStatus) {
+                shift.style.display = 'block';
+            } else {
+                shift.style.display = 'none';
+            }
+        });
+    }
+
+    // Auto-refresh active shifts every 30 seconds
+    setInterval(() => {
+        // Update duration badges for active shifts
+        document.querySelectorAll('.shift-active .duration-badge').forEach(badge => {
+            // This would need start time data to calculate current duration
+            // For now, we'll just refresh the page
+        });
+    }, 30000);
+
+    // Update quick waiter select on change
+    document.getElementById('quickWaiterSelect').addEventListener('change', function() {
+        if (this.value) {
+            // Could show additional info about the selected waiter
+        }
+    });
+</script>
+{% endblock %}

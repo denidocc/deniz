@@ -1,0 +1,696 @@
+{% extends "admin/base.html" %}
+
+{% block page_title %}Настройки системы{% endblock %}
+
+{% block extra_css %}
+<style>
+    .settings-section {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .section-header {
+        background: var(--admin-primary);
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 12px 12px 0 0;
+        margin-bottom: 0;
+    }
+    
+    .section-body {
+        padding: 1.5rem;
+    }
+    
+    .setting-item {
+        border-bottom: 1px solid #eee;
+        padding: 1rem 0;
+    }
+    
+    .setting-item:last-child {
+        border-bottom: none;
+    }
+    
+    .setting-label {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+    
+    .setting-description {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-bottom: 1rem;
+    }
+    
+    .currency-input {
+        position: relative;
+    }
+    
+    .currency-input::after {
+        content: '₽';
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+    }
+    
+    .backup-status {
+        background: var(--admin-light);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .status-indicator {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 0.5rem;
+    }
+    
+    .status-online {
+        background: var(--admin-success);
+    }
+    
+    .status-offline {
+        background: var(--admin-danger);
+    }
+    
+    .language-selector {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .language-option {
+        padding: 0.5rem 1rem;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .language-option.active {
+        border-color: var(--admin-accent);
+        background: var(--admin-accent);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-gear"></i> Настройки системы</h2>
+    <button class="btn btn-admin" onclick="saveAllSettings()">
+        <i class="bi bi-check"></i> Сохранить все изменения
+    </button>
+</div>
+
+<!-- General Settings -->
+<div class="settings-section">
+    <div class="section-header">
+        <h5 class="mb-0">
+            <i class="bi bi-sliders"></i> Основные настройки
+        </h5>
+    </div>
+    <div class="section-body">
+        <div class="setting-item">
+            <div class="setting-label">Название ресторана</div>
+            <div class="setting-description">Отображается в интерфейсе и документах</div>
+            <input type="text" class="form-control" id="restaurantName" 
+                   value="{{ settings.get('restaurant_name', 'DENIZ Restaurant') }}">
+        </div>
+        
+        <div class="setting-item">
+            <div class="setting-label">Адрес ресторана</div>
+            <div class="setting-description">Используется в чеках и отчетах</div>
+            <textarea class="form-control" id="restaurantAddress" rows="3">{{ settings.get('restaurant_address', '') }}</textarea>
+        </div>
+        
+        <div class="setting-item">
+            <div class="setting-label">Телефон</div>
+            <div class="setting-description">Контактный номер ресторана</div>
+            <input type="tel" class="form-control" id="restaurantPhone" 
+                   value="{{ settings.get('restaurant_phone', '') }}">
+        </div>
+        
+        <div class="setting-item">
+            <div class="setting-label">Email</div>
+            <div class="setting-description">Электронная почта для отчетов</div>
+            <input type="email" class="form-control" id="restaurantEmail" 
+                   value="{{ settings.get('restaurant_email', '') }}">
+        </div>
+    </div>
+</div>
+
+<!-- Financial Settings -->
+<div class="settings-section">
+    <div class="section-header">
+        <h5 class="mb-0">
+            <i class="bi bi-calculator"></i> Финансовые настройки
+        </h5>
+    </div>
+    <div class="section-body">
+        <div class="setting-item">
+            <div class="setting-label">Сервисный сбор (%)</div>
+            <div class="setting-description">Процент сервисного сбора, добавляемый к счету</div>
+            <div class="row">
+                <div class="col-md-6">
+                    <input type="number" class="form-control" id="serviceCharge" 
+                           min="0" max="50" step="0.1" 
+                           value="{{ settings.get('service_charge', '10') }}">
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" id="serviceChargeEnabled" 
+                               {{ 'checked' if settings.get('service_charge_enabled', 'true') == 'true' else '' }}>
+                        <label class="form-check-label" for="serviceChargeEnabled">
+                            Включить сервисный сбор
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="setting-item">
+            <div class="setting-label">НДС (%)</div>
+            <div class="setting-description">Ставка налога на добавленную стоимость</div>
+            <div class="row">
+                <div class="col-md-6">
+                    <input type="number" class="form-control" id="vatRate" 
+                           min="0" max="50" step="0.1" 
+                           value="{{ settings.get('vat_rate', '20') }}">
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" id="vatEnabled" 
+                               {{ 'checked' if settings.get('vat_enabled', 'true') == 'true' else '' }}>
+                        <label class="form-check-label" for="vatEnabled">
+                            Включить НДС
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="setting-item">
+            <div class="setting-label">Валюта</div>
+            <div class="setting-description">Основная валюта системы</div>
+            <select class="form-select" id="currency">
+                <option value="RUB" {{ 'selected' if settings.get('currency', 'RUB') == 'RUB' else '' }}>Российский рубль (₽)</option>
+                <option value="USD" {{ 'selected' if settings.get('currency') == 'USD' else '' }}>Доллар США ($)</option>
+                <option value="EUR" {{ 'selected' if settings.get('currency') == 'EUR' else '' }}>Евро (€)</option>
+                <option value="TRY" {{ 'selected' if settings.get('currency') == 'TRY' else '' }}>Турецкая лира (₺)</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<!-- Language Settings -->
+<div class="settings-section">
+    <div class="section-header">
+        <h5 class="mb-0">
+            <i class="bi bi-translate"></i> Языковые настройки
+        </h5>
+    </div>
+    <div class="section-body">
+        <div class="setting-item">
+            <div class="setting-label">Язык по умолчанию</div>
+            <div class="setting-description">Основной язык интерфейса</div>
+            <div class="language-selector">
+                <div class="language-option {{ 'active' if settings.get('default_language', 'ru') == 'ru' else '' }}" 
+                     onclick="selectLanguage('ru')">
+                    🇷🇺 Русский
+                </div>
+                <div class="language-option {{ 'active' if settings.get('default_language') == 'en' else '' }}" 
+                     onclick="selectLanguage('en')">
+                    🇬🇧 English
+                </div>
+                <div class="language-option {{ 'active' if settings.get('default_language') == 'tr' else '' }}" 
+                     onclick="selectLanguage('tr')">
+                    🇹🇷 Türkçe
+                </div>
+            </div>
+            <input type="hidden" id="defaultLanguage" value="{{ settings.get('default_language', 'ru') }}">
+        </div>
+        
+        <div class="setting-item">
+            <div class="setting-label">Доступные языки</div>
+            <div class="setting-description">Языки, доступные для клиентов</div>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="langRu" checked disabled>
+                        <label class="form-check-label" for="langRu">🇷🇺 Русский</label>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="langEn" 
+                               {{ 'checked' if 'en' in settings.get('available_languages', 'ru,en').split(',') else '' }}>
+                        <label class="form-check-label" for="langEn">🇬🇧 English</label>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="langTr" 
+                               {{ 'checked' if 'tr' in settings.get('available_languages', 'ru,en').split(',') else '' }}>
+                        <label class="form-check-label" for="langTr">🇹🇷 Türkçe</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Printer Settings -->
+<div class="settings-section">
+    <div class="section-header">
+        <h5 class="mb-0">
+            <i class="bi bi-printer"></i> Настройки печати
+        </h5>
+    </div>
+    <div class="section-body">
+        <div class="setting-item">
+            <div class="setting-label">Принтер чеков</div>
+            <div class="setting-description">IP-адрес или имя принтера для печати чеков</div>
+            <input type="text" class="form-control" id="receiptPrinter" 
+                   value="{{ settings.get('receipt_printer', '') }}" 
+                   placeholder="192.168.1.100 или PRINTER-01">
+        </div>
+        
+        <div class="setting-item">
+            <div class="setting-label">Принтер кухни</div>
+            <div class="setting-description">Принтер для печати заказов на кухне</div>
+            <input type="text" class="form-control" id="kitchenPrinter" 
+                   value="{{ settings.get('kitchen_printer', '') }}" 
+                   placeholder="192.168.1.101 или KITCHEN-PRINTER">
+        </div>
+        
+        <div class="setting-item">
+            <div class="setting-label">Принтер бара</div>
+            <div class="setting-description">Принтер для печати заказов в баре</div>
+            <input type="text" class="form-control" id="barPrinter" 
+                   value="{{ settings.get('bar_printer', '') }}" 
+                   placeholder="192.168.1.102 или BAR-PRINTER">
+        </div>
+        
+        <div class="setting-item">
+            <div class="setting-label">Автоматическая печать</div>
+            <div class="setting-description">Настройки автоматической печати заказов</div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="autoPrintReceipt" 
+                               {{ 'checked' if settings.get('auto_print_receipt', 'true') == 'true' else '' }}>
+                        <label class="form-check-label" for="autoPrintReceipt">
+                            Печатать чеки автоматически
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="autoPrintKitchen" 
+                               {{ 'checked' if settings.get('auto_print_kitchen', 'true') == 'true' else '' }}>
+                        <label class="form-check-label" for="autoPrintKitchen">
+                            Печатать заказы на кухне
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Security Settings -->
+<div class="settings-section">
+    <div class="section-header">
+        <h5 class="mb-0">
+            <i class="bi bi-shield-check"></i> Безопасность
+        </h5>
+    </div>
+    <div class="section-body">
+        <div class="setting-item">
+            <div class="setting-label">Время сессии (минуты)</div>
+            <div class="setting-description">Автоматический выход из системы после неактивности</div>
+            <input type="number" class="form-control" id="sessionTimeout" 
+                   min="5" max="480" 
+                   value="{{ settings.get('session_timeout', '60') }}">
+        </div>
+        
+        <div class="setting-item">
+            <div class="setting-label">Блокировка IP</div>
+            <div class="setting-description">Блокировать IP после неудачных попыток входа</div>
+            <div class="row">
+                <div class="col-md-6">
+                    <input type="number" class="form-control" id="maxLoginAttempts" 
+                           min="3" max="10" 
+                           value="{{ settings.get('max_login_attempts', '5') }}"
+                           placeholder="Количество попыток">
+                </div>
+                <div class="col-md-6">
+                    <input type="number" class="form-control" id="blockDuration" 
+                           min="5" max="1440" 
+                           value="{{ settings.get('block_duration', '30') }}"
+                           placeholder="Время блокировки (мин)">
+                </div>
+            </div>
+        </div>
+        
+        <div class="setting-item">
+            <div class="setting-label">Аудит действий</div>
+            <div class="setting-description">Логирование действий пользователей</div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="auditEnabled" 
+                       {{ 'checked' if settings.get('audit_enabled', 'true') == 'true' else '' }}>
+                <label class="form-check-label" for="auditEnabled">
+                    Включить аудит действий
+                </label>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Backup Settings -->
+<div class="settings-section">
+    <div class="section-header">
+        <h5 class="mb-0">
+            <i class="bi bi-cloud-arrow-up"></i> Резервное копирование
+        </h5>
+    </div>
+    <div class="section-body">
+        <div class="setting-item">
+            <div class="setting-label">Автоматическое резервное копирование</div>
+            <div class="setting-description">Создание резервных копий базы данных</div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="autoBackup" 
+                               {{ 'checked' if settings.get('auto_backup', 'true') == 'true' else '' }}>
+                        <label class="form-check-label" for="autoBackup">
+                            Включить автобэкап
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <select class="form-select" id="backupInterval">
+                        <option value="daily" {{ 'selected' if settings.get('backup_interval', 'daily') == 'daily' else '' }}>Ежедневно</option>
+                        <option value="weekly" {{ 'selected' if settings.get('backup_interval') == 'weekly' else '' }}>Еженедельно</option>
+                        <option value="monthly" {{ 'selected' if settings.get('backup_interval') == 'monthly' else '' }}>Ежемесячно</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <div class="setting-item">
+            <div class="setting-label">Хранение резервных копий</div>
+            <div class="setting-description">Количество копий для хранения</div>
+            <input type="number" class="form-control" id="backupRetention" 
+                   min="1" max="30" 
+                   value="{{ settings.get('backup_retention', '7') }}">
+        </div>
+        
+        <div class="setting-item">
+            <div class="setting-label">Управление резервными копиями</div>
+            <div class="setting-description">Создать резервную копию или восстановить данные</div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary" onclick="createBackup()">
+                    <i class="bi bi-download"></i> Создать резервную копию
+                </button>
+                <button class="btn btn-outline-warning" onclick="showRestoreModal()">
+                    <i class="bi bi-upload"></i> Восстановить из копии
+                </button>
+            </div>
+            
+            <div class="backup-status mt-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="status-indicator status-online"></span>
+                        Последняя резервная копия: <strong>{{ settings.get('last_backup', 'Никогда') }}</strong>
+                    </div>
+                    <div>
+                        <small class="text-muted">Размер: {{ settings.get('backup_size', '—') }}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- System Information -->
+<div class="settings-section">
+    <div class="section-header">
+        <h5 class="mb-0">
+            <i class="bi bi-info-circle"></i> Информация о системе
+        </h5>
+    </div>
+    <div class="section-body">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="setting-item">
+                    <div class="setting-label">Версия системы</div>
+                    <div class="setting-description">DENIZ Restaurant v1.0.0</div>
+                </div>
+                
+                <div class="setting-item">
+                    <div class="setting-label">База данных</div>
+                    <div class="setting-description">
+                        <span class="status-indicator status-online"></span>
+                        PostgreSQL подключена
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="setting-item">
+                    <div class="setting-label">Место на диске</div>
+                    <div class="setting-description">Свободно: {{ settings.get('disk_space', '—') }}</div>
+                </div>
+                
+                <div class="setting-item">
+                    <div class="setting-label">Время работы</div>
+                    <div class="setting-description">{{ settings.get('uptime', '—') }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Restore Modal -->
+<div class="modal fade" id="restoreModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-upload"></i> Восстановление из резервной копии
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>Внимание!</strong> Восстановление из резервной копии удалит все текущие данные.
+                    Эта операция не может быть отменена.
+                </div>
+                
+                <div class="mb-3">
+                    <label for="restoreFile" class="form-label">Выберите файл резервной копии</label>
+                    <input type="file" class="form-control" id="restoreFile" accept=".sql,.backup">
+                </div>
+                
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="confirmRestore">
+                    <label class="form-check-label" for="confirmRestore">
+                        Я понимаю, что все текущие данные будут удалены
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-danger" onclick="performRestore()">
+                    <i class="bi bi-upload"></i> Восстановить
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Language selection
+    function selectLanguage(lang) {
+        // Remove active class from all options
+        document.querySelectorAll('.language-option').forEach(option => {
+            option.classList.remove('active');
+        });
+        
+        // Add active class to selected option
+        event.target.classList.add('active');
+        
+        // Update hidden input
+        document.getElementById('defaultLanguage').value = lang;
+    }
+
+    // Save all settings
+    async function saveAllSettings() {
+        const button = event.target;
+        const originalText = showLoading(button);
+        
+        // Collect all settings
+        const settings = {
+            // General settings
+            restaurant_name: document.getElementById('restaurantName').value,
+            restaurant_address: document.getElementById('restaurantAddress').value,
+            restaurant_phone: document.getElementById('restaurantPhone').value,
+            restaurant_email: document.getElementById('restaurantEmail').value,
+            
+            // Financial settings
+            service_charge: document.getElementById('serviceCharge').value,
+            service_charge_enabled: document.getElementById('serviceChargeEnabled').checked.toString(),
+            vat_rate: document.getElementById('vatRate').value,
+            vat_enabled: document.getElementById('vatEnabled').checked.toString(),
+            currency: document.getElementById('currency').value,
+            
+            // Language settings
+            default_language: document.getElementById('defaultLanguage').value,
+            available_languages: getAvailableLanguages(),
+            
+            // Printer settings
+            receipt_printer: document.getElementById('receiptPrinter').value,
+            kitchen_printer: document.getElementById('kitchenPrinter').value,
+            bar_printer: document.getElementById('barPrinter').value,
+            auto_print_receipt: document.getElementById('autoPrintReceipt').checked.toString(),
+            auto_print_kitchen: document.getElementById('autoPrintKitchen').checked.toString(),
+            
+            // Security settings
+            session_timeout: document.getElementById('sessionTimeout').value,
+            max_login_attempts: document.getElementById('maxLoginAttempts').value,
+            block_duration: document.getElementById('blockDuration').value,
+            audit_enabled: document.getElementById('auditEnabled').checked.toString(),
+            
+            // Backup settings
+            auto_backup: document.getElementById('autoBackup').checked.toString(),
+            backup_interval: document.getElementById('backupInterval').value,
+            backup_retention: document.getElementById('backupRetention').value
+        };
+        
+        try {
+            const response = await apiRequest('{{ url_for("admin.update_settings") }}', {
+                method: 'POST',
+                body: JSON.stringify(settings)
+            });
+            
+            showAlert('Настройки успешно сохранены', 'success');
+            
+        } catch (error) {
+            showAlert('Ошибка при сохранении настроек: ' + error.message, 'danger');
+        } finally {
+            hideLoading(button, originalText);
+        }
+    }
+
+    // Get available languages
+    function getAvailableLanguages() {
+        const languages = ['ru']; // Russian is always available
+        
+        if (document.getElementById('langEn').checked) {
+            languages.push('en');
+        }
+        if (document.getElementById('langTr').checked) {
+            languages.push('tr');
+        }
+        
+        return languages.join(',');
+    }
+
+    // Create backup
+    async function createBackup() {
+        const button = event.target;
+        const originalText = showLoading(button);
+        
+        try {
+            const response = await apiRequest('/admin/backup/create', {
+                method: 'POST'
+            });
+            
+            showAlert('Резервная копия успешно создана', 'success');
+            
+            // Update backup status
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+            
+        } catch (error) {
+            showAlert('Ошибка при создании резервной копии: ' + error.message, 'danger');
+        } finally {
+            hideLoading(button, originalText);
+        }
+    }
+
+    // Show restore modal
+    function showRestoreModal() {
+        const modal = new bootstrap.Modal(document.getElementById('restoreModal'));
+        modal.show();
+    }
+
+    // Perform restore
+    async function performRestore() {
+        const confirmCheckbox = document.getElementById('confirmRestore');
+        const fileInput = document.getElementById('restoreFile');
+        
+        if (!confirmCheckbox.checked) {
+            showAlert('Подтвердите, что понимаете последствия операции', 'warning');
+            return;
+        }
+        
+        if (!fileInput.files[0]) {
+            showAlert('Выберите файл резервной копии', 'warning');
+            return;
+        }
+        
+        const button = event.target;
+        const originalText = showLoading(button);
+        
+        try {
+            const formData = new FormData();
+            formData.append('backup_file', fileInput.files[0]);
+            
+            const response = await fetch('/admin/backup/restore', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (response.ok) {
+                showAlert('Восстановление выполнено успешно. Система будет перезагружена.', 'success');
+                
+                setTimeout(() => {
+                    window.location.href = '{{ url_for("auth.login") }}';
+                }, 3000);
+            } else {
+                throw new Error('Ошибка при восстановлении');
+            }
+            
+        } catch (error) {
+            showAlert('Ошибка при восстановлении: ' + error.message, 'danger');
+        } finally {
+            hideLoading(button, originalText);
+        }
+    }
+
+    // Auto-save on input changes (debounced)
+    let saveTimeout;
+    document.querySelectorAll('input, select, textarea').forEach(element => {
+        element.addEventListener('change', function() {
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                // Auto-save individual setting
+                console.log('Auto-saving setting:', this.id);
+            }, 2000);
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,411 @@
+{% extends "admin/base.html" %}
+
+{% block page_title %}Отчеты и аналитика{% endblock %}
+
+{% block extra_css %}
+<style>
+    .report-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        transition: transform 0.3s ease;
+    }
+    
+    .report-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .report-header {
+        border-bottom: 2px solid var(--admin-light);
+        padding-bottom: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .chart-container {
+        position: relative;
+        height: 400px;
+        margin-bottom: 2rem;
+    }
+    
+    .date-range-picker {
+        background: var(--admin-light);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .metric-box {
+        text-align: center;
+        padding: 1rem;
+        border-radius: 8px;
+        background: linear-gradient(135deg, var(--admin-accent), #5dade2);
+        color: white;
+        margin-bottom: 1rem;
+    }
+    
+    .metric-value {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+    
+    .metric-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    
+    .report-table {
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .export-buttons {
+        text-align: right;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-graph-up"></i> Отчеты и аналитика</h2>
+    <div class="export-buttons">
+        <button class="btn btn-outline-success" onclick="exportReport('excel')">
+            <i class="bi bi-file-earmark-excel"></i> Excel
+        </button>
+        <button class="btn btn-outline-danger" onclick="exportReport('pdf')">
+            <i class="bi bi-file-earmark-pdf"></i> PDF
+        </button>
+    </div>
+</div>
+
+<!-- Date Range Picker -->
+<div class="date-range-picker">
+    <div class="row align-items-center">
+        <div class="col-md-3">
+            <label for="startDate" class="form-label">Дата начала</label>
+            <input type="date" class="form-control" id="startDate">
+        </div>
+        <div class="col-md-3">
+            <label for="endDate" class="form-label">Дата окончания</label>
+            <input type="date" class="form-control" id="endDate">
+        </div>
+        <div class="col-md-3">
+            <label for="reportType" class="form-label">Тип отчета</label>
+            <select class="form-select" id="reportType">
+                <option value="sales">Продажи</option>
+                <option value="menu">Популярность блюд</option>
+                <option value="staff">Производительность персонала</option>
+                <option value="tables">Загрузка столов</option>
+            </select>
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+            <button class="btn btn-admin w-100" onclick="generateReport()">
+                <i class="bi bi-search"></i> Сформировать
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Metrics -->
+<div class="row mb-4" id="quickMetrics">
+    <div class="col-md-3">
+        <div class="metric-box">
+            <div class="metric-value" id="totalRevenue">0 ₽</div>
+            <div class="metric-label">Общая выручка</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="metric-box" style="background: linear-gradient(135deg, var(--admin-success), #58d68d);">
+            <div class="metric-value" id="totalOrders">0</div>
+            <div class="metric-label">Всего заказов</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="metric-box" style="background: linear-gradient(135deg, var(--admin-warning), #f7dc6f);">
+            <div class="metric-value" id="averageCheck">0 ₽</div>
+            <div class="metric-label">Средний чек</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="metric-box" style="background: linear-gradient(135deg, var(--admin-danger), #ec7063);">
+            <div class="metric-value" id="growthRate">0%</div>
+            <div class="metric-label">Рост к пред. периоду</div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Section -->
+<div class="row">
+    <div class="col-lg-8">
+        <div class="report-card">
+            <div class="report-header">
+                <h5><i class="bi bi-bar-chart"></i> Динамика продаж</h5>
+            </div>
+            <div class="chart-container">
+                <canvas id="salesChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="report-card">
+            <div class="report-header">
+                <h5><i class="bi bi-pie-chart"></i> Распределение по категориям</h5>
+            </div>
+            <div class="chart-container">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detailed Reports -->
+<div class="row">
+    <div class="col-12">
+        <div class="report-card">
+            <div class="report-header">
+                <h5><i class="bi bi-table"></i> Детальный отчет</h5>
+            </div>
+            
+            <div class="report-table">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="detailTable">
+                        <thead>
+                            <tr id="tableHeaders">
+                                <!-- Headers will be populated dynamically -->
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <!-- Data will be populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Popular Dishes Report -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="report-card">
+            <div class="report-header">
+                <h5><i class="bi bi-star"></i> Топ блюд по продажам</h5>
+            </div>
+            <div id="topDishes">
+                <!-- Will be populated dynamically -->
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="report-card">
+            <div class="report-header">
+                <h5><i class="bi bi-people"></i> Производительность официантов</h5>
+            </div>
+            <div id="waiterPerformance">
+                <!-- Will be populated dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let salesChart, categoryChart;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set default dates
+        const today = new Date();
+        const monthAgo = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
+        
+        document.getElementById('startDate').value = monthAgo.toISOString().split('T')[0];
+        document.getElementById('endDate').value = today.toISOString().split('T')[0];
+        
+        // Initialize charts
+        initializeCharts();
+        
+        // Load initial data
+        generateReport();
+    });
+
+    function initializeCharts() {
+        // Sales Chart
+        const salesCtx = document.getElementById('salesChart').getContext('2d');
+        salesChart = new Chart(salesCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Выручка',
+                    data: [],
+                    borderColor: 'rgb(52, 152, 219)',
+                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                    tension: 0.1
+                }, {
+                    label: 'Количество заказов',
+                    data: [],
+                    borderColor: 'rgb(46, 204, 113)',
+                    backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                    tension: 0.1,
+                    yAxisID: 'y1'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        grid: {
+                            drawOnChartArea: false,
+                        },
+                    }
+                }
+            }
+        });
+
+        // Category Chart
+        const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+        categoryChart = new Chart(categoryCtx, {
+            type: 'doughnut',
+            data: {
+                labels: [],
+                datasets: [{
+                    data: [],
+                    backgroundColor: [
+                        '#3498db', '#e74c3c', '#f39c12', '#27ae60',
+                        '#9b59b6', '#34495e', '#1abc9c', '#e67e22'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    }
+
+    async function generateReport() {
+        const button = event?.target;
+        let originalText;
+        if (button) {
+            originalText = showLoading(button);
+        }
+        
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+        const reportType = document.getElementById('reportType').value;
+        
+        try {
+            // Get sales data
+            const salesResponse = await apiRequest(`{{ url_for("admin.sales_report") }}?start_date=${startDate}&end_date=${endDate}`);
+            
+            updateMetrics(salesResponse.data.summary);
+            updateSalesChart(salesResponse.data.daily_stats);
+            updateDetailTable(salesResponse.data, reportType);
+            
+            // Get additional data based on report type
+            if (reportType === 'menu') {
+                await updateMenuReport();
+            } else if (reportType === 'staff') {
+                await updateStaffReport();
+            }
+            
+        } catch (error) {
+            showAlert('Ошибка при загрузке отчета: ' + error.message, 'danger');
+        } finally {
+            if (button && originalText) {
+                hideLoading(button, originalText);
+            }
+        }
+    }
+
+    function updateMetrics(summary) {
+        document.getElementById('totalRevenue').textContent = formatCurrency(summary.total_revenue);
+        document.getElementById('totalOrders').textContent = summary.total_orders;
+        document.getElementById('averageCheck').textContent = formatCurrency(summary.avg_order);
+        document.getElementById('growthRate').textContent = '—'; // TODO: Calculate growth rate
+    }
+
+    function updateSalesChart(dailyStats) {
+        const labels = dailyStats.map(stat => new Date(stat.date).toLocaleDateString('ru-RU'));
+        const revenue = dailyStats.map(stat => stat.revenue);
+        const orders = dailyStats.map(stat => stat.orders);
+        
+        salesChart.data.labels = labels;
+        salesChart.data.datasets[0].data = revenue;
+        salesChart.data.datasets[1].data = orders;
+        salesChart.update();
+    }
+
+    function updateDetailTable(data, reportType) {
+        const headers = document.getElementById('tableHeaders');
+        const body = document.getElementById('tableBody');
+        
+        // Clear existing content
+        headers.innerHTML = '';
+        body.innerHTML = '';
+        
+        if (reportType === 'sales') {
+            // Sales report table
+            headers.innerHTML = `
+                <th>Дата</th>
+                <th>Заказов</th>
+                <th>Выручка</th>
+                <th>Средний чек</th>
+            `;
+            
+            data.daily_stats.forEach(stat => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${new Date(stat.date).toLocaleDateString('ru-RU')}</td>
+                    <td>${stat.orders}</td>
+                    <td>${formatCurrency(stat.revenue)}</td>
+                    <td>${formatCurrency(stat.revenue / stat.orders || 0)}</td>
+                `;
+                body.appendChild(row);
+            });
+        }
+    }
+
+    async function updateMenuReport() {
+        // TODO: Implement menu popularity report
+        showAlert('Отчет по меню в разработке', 'info');
+    }
+
+    async function updateStaffReport() {
+        // TODO: Implement staff performance report
+        showAlert('Отчет по персоналу в разработке', 'info');
+    }
+
+    function exportReport(format) {
+        showAlert(`Экспорт в ${format.toUpperCase()} в разработке`, 'info');
+    }
+
+    // Update category chart with sample data
+    setTimeout(() => {
+        categoryChart.data.labels = ['Основные блюда', 'Напитки', 'Десерты', 'Закуски'];
+        categoryChart.data.datasets[0].data = [40, 25, 20, 15];
+        categoryChart.update();
+    }, 1000);
+</script>
+{% endblock %}
