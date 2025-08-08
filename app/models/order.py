@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from .table import Table
     from .staff import Staff
     from .order_item import OrderItem
+    from .bonus_card import BonusCard
 
 class Order(BaseModel):
     """Модель заказа."""
@@ -46,6 +47,14 @@ class Order(BaseModel):
         sa.String(2), default='ru', nullable=False
     )  # ru, tk, en
     
+    # Бонусная карта
+    bonus_card_id: so.Mapped[Optional[int]] = so.mapped_column(
+        sa.Integer, sa.ForeignKey('bonus_cards.id'), nullable=True, index=True
+    )
+    discount_amount: so.Mapped[Decimal] = so.mapped_column(
+        sa.Numeric(10, 2), default=0.00, nullable=False
+    )
+    
     # Временные метки
     confirmed_at: so.Mapped[Optional[datetime]] = so.mapped_column(
         sa.DateTime(timezone=True),
@@ -71,6 +80,11 @@ class Order(BaseModel):
         back_populates="order",
         lazy='selectin',
         order_by="OrderItem.created_at"
+    )
+    
+    bonus_card: so.Mapped[Optional["BonusCard"]] = so.relationship(
+        back_populates="orders",
+        lazy='selectin'
     )
     
     def __repr__(self) -> str:
@@ -116,6 +130,11 @@ class Order(BaseModel):
     def calculate_totals(self) -> None:
         """Пересчет итоговых сумм."""
         subtotal = sum(item.total_price for item in self.items)
+        
+        # Применяем скидку по бонусной карте
+        if self.bonus_card and self.discount_amount > 0:
+            subtotal = subtotal - self.discount_amount
+        
         self.subtotal = subtotal
         
         # Получаем процент сервисного сбора
@@ -169,6 +188,7 @@ class Order(BaseModel):
             'subtotal': float(self.subtotal),
             'service_charge': float(self.service_charge),
             'total_amount': float(self.total_amount),
+            'discount_amount': float(self.discount_amount),
             'comments': self.comments,
             'language': self.language,
             'confirmed_at': self.confirmed_at.isoformat() if self.confirmed_at else None,
@@ -177,6 +197,7 @@ class Order(BaseModel):
                 'id': self.waiter.id,
                 'name': self.waiter.name
             } if self.waiter else None,
+            'bonus_card': self.bonus_card.to_dict() if self.bonus_card else None,
             'can_be_edited': self.can_be_edited(),
             'estimated_time': self.get_estimated_time(),
         })

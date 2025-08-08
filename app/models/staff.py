@@ -12,7 +12,6 @@ if TYPE_CHECKING:
     from .staff_shift import StaffShift
     from .table_assignment import TableAssignment
     from .order import Order
-    from .bonus_card import BonusCard
 
 class Staff(BaseModel, UserMixin):
     """Модель персонала ресторана."""
@@ -55,11 +54,6 @@ class Staff(BaseModel, UserMixin):
     
     orders: so.Mapped[list["Order"]] = so.relationship(
         back_populates="waiter",
-        lazy='selectin'
-    )
-    
-    created_bonus_cards: so.Mapped[list["BonusCard"]] = so.relationship(
-        back_populates="created_by",
         lazy='selectin'
     )
     

@@ -524,6 +524,19 @@
   opacity: 1;
 }
 
+/* Дополнительные классы для программного управления модальными окнами */
+.modal.visible {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  z-index: 1060;
+}
+
+.modal.hidden {
+  display: none;
+  opacity: 0;
+}
 .modal-content {
   background: var(--waiter-surface);
   border-radius: 12px;
@@ -908,7 +921,8 @@
 .order-total {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    width: 100%;
     background: var(--waiter-background);
     border-radius: 8px;
 }
@@ -1175,4 +1189,198 @@
     padding: 10px;
     background: var(--waiter-background);
     border-radius: 5px;
+}
+
+/* Order Details Modal Styles */
+.order-details {
+    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+}
+
+.order-summary {
+    background: var(--waiter-bg);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+    width: 100%;
+}
+
+.order-summary .summary-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--waiter-border);
+    background: transparent;
+}
+
+.order-summary .summary-item:last-child {
+    border-bottom: none;
+}
+
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.status-badge.новый {
+    background: var(--waiter-warning);
+    color: white;
+}
+
+.status-badge.подтвержден {
+    background: var(--waiter-primary);
+    color: white;
+}
+
+.status-badge.завершен {
+    background: var(--waiter-success);
+    color: white;
+}
+
+.order-items {
+    margin-bottom: 20px;
+    width: 100%;
+}
+
+.items-section {
+    margin-bottom: 16px;
+}
+
+.items-section h4 {
+    margin: 0 0 12px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--waiter-text);
+    padding: 8px 12px;
+    background: var(--waiter-bg);
+    border-radius: 6px;
+}
+
+.order-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid var(--waiter-border);
+    gap: 12px;
+}
+
+.item-quantity {
+    font-weight: 600;
+    color: var(--waiter-primary);
+    min-width: 40px;
+}
+
+.item-name {
+    flex: 1;
+    font-weight: 500;
+}
+
+.item-price {
+    font-weight: 600;
+    color: var(--waiter-text);
+}
+
+.item-comments {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--waiter-text-muted);
+    font-style: italic;
+}
+
+.order-total {
+    background: var(--waiter-bg);
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.total-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+}
+
+.total-final {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--waiter-primary);
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 2px solid var(--waiter-primary) !important;
+}
+
+/* Стили для бонусных карт */
+.bonus-card-info {
+    background: linear-gradient(135deg, #FF69B4, #FF8E53);
+    color: white;
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-top: 8px;
+}
+
+.bonus-card-number {
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin: 0 4px;
+}
+
+.bonus-card-discount {
+    color: #FFD700;
+    font-weight: bold;
+}
+
+.discount-item {
+    color: #28A745;
+    font-weight: bold;
+}
+
+.discount-item strong {
+    color: #28A745;
+}
+
+/* Print Status Modal */
+.print-status {
+    padding: 16px;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.status-item.success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.status-item.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.status-summary {
+    margin-top: 16px;
+    padding: 12px;
+    background: var(--waiter-bg);
+    border-radius: 6px;
+}
+
+.status-summary p {
+    margin: 4px 0;
+    font-size: 14px;
+    color: var(--waiter-text-muted);
 }

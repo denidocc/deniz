@@ -58,6 +58,11 @@ class DatabaseManager:
             menu_result = MenuSeeder.seed_menu()
             current_app.logger.info(f"Заполнение меню: {menu_result['message']}")
             
+            # Заполнение бонусных карт
+            from .bonus_card_seeder import BonusCardSeeder
+            bonus_result = BonusCardSeeder.seed_bonus_cards()
+            current_app.logger.info(f"Заполнение бонусных карт: {bonus_result['message']}")
+            
             current_app.logger.info("Начальные данные добавлены")
             return {"status": "success", "message": "Начальные данные добавлены"}
             

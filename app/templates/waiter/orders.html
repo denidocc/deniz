@@ -38,7 +38,7 @@
     </div>
 
     <!-- Order Detail Modal -->
-    <div class="modal modal-overlay" id="orderDetailModal" style="display: none;">
+    <div class="modal modal-overlay hidden" id="orderDetailModal">
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Детали заказа</h3>
@@ -49,7 +49,27 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Закрыть</button>
-                <button type="button" class="btn btn-primary" id="updateOrderStatus">Обновить статус</button>
+                <button type="button" class="btn btn-info" id="applyBonusCard" style="display: none;">Применить карту</button>
+                <button type="button" class="btn btn-primary" id="printOrderReceipts">Отправить на печать</button>
+                <button type="button" class="btn btn-success" id="printFinalReceipt" style="display: none;">Печать финального чека</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Print Status Modal -->
+    <div class="modal modal-overlay hidden" id="printStatusModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Статус печати</h3>
+                <button type="button" class="btn-close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="printStatusContent">
+                    <!-- Статус печати будет загружен динамически -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
             </div>
         </div>
     </div>
@@ -58,6 +78,8 @@
 
 {% block extra_js %}
 <script>
+// CSRF токен для AJAX запросов
+const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 document.addEventListener('DOMContentLoaded', function() {
     console.log('📋 Orders page initialized');
     
@@ -119,11 +141,11 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </div>
                             </div>
                             <div class="order-actions">
-                                <button class="btn btn-primary" onclick="viewOrderDetails(${order.id})">
+                                <button class="btn btn-primary" onclick="window.viewOrderDetails(${order.id})">
                                     <i class="fas fa-eye"></i> Подробности
                                 </button>
                                 <button class="btn ${order.status === 'новый' ? 'btn-success' : 'btn-secondary'}" 
-                                        onclick="${order.status === 'новый' ? `updateOrderStatus(${order.id})` : ''}"
+                                        onclick="${order.status === 'новый' ? `window.updateOrderStatus(${order.id})` : ''}"
                                         ${order.status === 'оплачен' ? 'disabled' : ''}>
                                     <i class="fas fa-check"></i> ${order.status === 'новый' ? 'Отметить оплаченным' : 'Заказ оплачен'}
                                 </button>
@@ -193,7 +215,8 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch(`/waiter/api/orders/${orderId}/status`, {
             method: 'PUT',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
             },
             body: JSON.stringify({ status: newStatus })
         })
@@ -214,17 +237,408 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Функция просмотра деталей заказа
     function viewOrderDetails(orderId) {
-        waiterNotifications.showInfo(`Открытие деталей заказа #${orderId} (в разработке)`);
+        console.log(`🔍 Загружаем детали заказа #${orderId}`);
+        
+        // Загружаем детали заказа
+        fetch(`/waiter/api/orders/${orderId}`)
+            .then(response => {
+                console.log(`📡 Ответ сервера: ${response.status} ${response.statusText}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('📦 Полученные данные:', data);
+                if (data.status === 'success') {
+                    displayOrderDetails(data.data.order);
+                } else {
+                    waiterNotifications.showError(data.message || 'Ошибка загрузки деталей заказа');
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error loading order details:', error);
+                waiterNotifications.showError('Ошибка соединения с сервером');
+            });
+    }
+
+    // Функция отображения деталей заказа
+    function displayOrderDetails(order) {
+        console.log('🎨 Отображаем детали заказа:', order);
+        
+        const modal = document.getElementById('orderDetailModal');
+        const content = document.getElementById('orderDetailContent');
+        const printButton = document.getElementById('printOrderReceipts');
+        const finalReceiptButton = document.getElementById('printFinalReceipt');
+        
+        console.log('🔍 Найденные элементы:', {
+            modal: modal,
+            content: content,
+            printButton: printButton,
+            finalReceiptButton: finalReceiptButton
+        });
+        
+        // Проверяем, что все элементы найдены
+        if (!modal) {
+            console.error('❌ Модальное окно не найдено!');
+            waiterNotifications.showError('Ошибка: модальное окно не найдено');
+            return;
+        }
+        
+        if (!content) {
+            console.error('❌ Контент модального окна не найден!');
+            waiterNotifications.showError('Ошибка: контент модального окна не найден');
+            return;
+        }
+        
+        // Разделяем позиции по типам
+        const kitchenItems = order.items.filter(item => item.preparation_type === 'kitchen');
+        const barItems = order.items.filter(item => item.preparation_type === 'bar');
+        
+        let itemsHtml = '';
+        
+        if (kitchenItems.length > 0) {
+            itemsHtml += '<div class="items-section"><h4>🍽️ КУХНЯ</h4>';
+            kitchenItems.forEach(item => {
+                itemsHtml += `
+                    <div class="order-item">
+                        <span class="item-quantity">${item.quantity}x</span>
+                        <span class="item-name">${item.name}</span>
+                        <span class="item-price">${item.unit_price} ₽</span>
+                        ${item.comments ? `<div class="item-comments">💬 ${item.comments}</div>` : ''}
+                    </div>
+                `;
+            });
+            itemsHtml += '</div>';
+        }
+        
+        if (barItems.length > 0) {
+            itemsHtml += '<div class="items-section"><h4>🍹 БАР</h4>';
+            barItems.forEach(item => {
+                itemsHtml += `
+                    <div class="order-item">
+                        <span class="item-quantity">${item.quantity}x</span>
+                        <span class="item-name">${item.name}</span>
+                        <span class="item-price">${item.unit_price} ₽</span>
+                        ${item.comments ? `<div class="item-comments">💬 ${item.comments}</div>` : ''}
+                    </div>
+                `;
+            });
+            itemsHtml += '</div>';
+        }
+        
+        content.innerHTML = `
+            <div class="order-details">
+                <div class="order-summary">
+                    <div class="summary-item">
+                        <strong>Заказ #${order.id}</strong>
+                        <span class="status-badge ${order.status}">${order.status}</span>
+                    </div>
+                    <div class="summary-item">
+                        <strong>Стол:</strong> ${order.table_number}
+                    </div>
+                    <div class="summary-item">
+                        <strong>Гостей:</strong> ${order.guest_count}
+                    </div>
+                    <div class="summary-item">
+                        <strong>Время:</strong> ${new Date(order.created_at).toLocaleTimeString()}
+                    </div>
+                    ${order.bonus_card ? `
+                    <div class="summary-item bonus-card-info">
+                        <strong>Бонусная карта:</strong> 
+                        <span class="bonus-card-number">${order.bonus_card.card_number}</span>
+                        <span class="bonus-card-discount">(${order.bonus_card.discount_percent}% скидка)</span>
+                    </div>
+                    ` : ''}
+                </div>
+                
+                <div class="order-items">
+                    ${itemsHtml}
+                </div>
+                
+                <div class="order-total">
+                    <div class="total-item">
+                        <strong>Подытог:</strong> ${order.subtotal} ₽
+                    </div>
+                    ${order.discount_amount > 0 ? `
+                    <div class="total-item discount-item">
+                        <strong>Скидка по карте:</strong> -${order.discount_amount} ₽
+                    </div>
+                    ` : ''}
+                    <div class="total-item">
+                        <strong>Сервисный сбор:</strong> ${order.service_charge} ₽
+                    </div>
+                    <div class="total-item total-final">
+                        <strong>ИТОГО:</strong> ${order.total_amount} ₽
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Показываем/скрываем кнопки в зависимости от статуса
+        const applyBonusCardButton = document.getElementById('applyBonusCard');
+        
+        if (order.status === 'новый') {
+            printButton.style.display = 'inline-block';
+            finalReceiptButton.style.display = 'none';
+            applyBonusCardButton.style.display = 'inline-block';
+        } else if (order.status === 'подтвержден') {
+            printButton.style.display = 'none';
+            finalReceiptButton.style.display = 'inline-block';
+            applyBonusCardButton.style.display = 'none';
+        } else {
+            printButton.style.display = 'none';
+            finalReceiptButton.style.display = 'none';
+            applyBonusCardButton.style.display = 'none';
+        }
+        
+        // Сохраняем ID заказа для кнопок
+        modal.dataset.orderId = order.id;
+        
+        console.log('📋 Подготовленный HTML:', content.innerHTML);
+        console.log('🎯 Показываем модальное окно');
+        
+        // Показываем модальное окно
+        modal.classList.add('visible');
+        modal.classList.remove('hidden');
+        
+        console.log('✅ Модальное окно должно быть видимым');
+    }
+
+    // Функция печати чеков заказа
+    function printOrderReceipts() {
+        const modal = document.getElementById('orderDetailModal');
+        const orderId = modal.dataset.orderId;
+        
+        if (!orderId) {
+            waiterNotifications.showError('ID заказа не найден');
+            return;
+        }
+        
+        // Показываем индикатор загрузки
+        const printButton = document.getElementById('printOrderReceipts');
+        const originalText = printButton.textContent;
+        printButton.textContent = 'Печать...';
+        printButton.disabled = true;
+        
+        fetch(`/waiter/api/orders/${orderId}/print`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showPrintStatus(data.data);
+                waiterNotifications.showSuccess('Чеки отправлены на печать!');
+                
+                // Обновляем статус заказа в модальном окне
+                const statusBadge = document.querySelector('.status-badge');
+                if (statusBadge) {
+                    statusBadge.textContent = 'подтвержден';
+                    statusBadge.className = 'status-badge подтвержден';
+                }
+                
+                // Показываем кнопку финального чека
+                document.getElementById('printFinalReceipt').style.display = 'inline-block';
+                printButton.style.display = 'none';
+            } else {
+                waiterNotifications.showError(data.message || 'Ошибка печати');
+            }
+        })
+        .catch(error => {
+            console.error('Error printing receipts:', error);
+            waiterNotifications.showError('Ошибка соединения с сервером');
+        })
+        .finally(() => {
+            // Восстанавливаем кнопку
+            printButton.textContent = originalText;
+            printButton.disabled = false;
+        });
+    }
+
+    // Функция применения бонусной карты
+    function applyBonusCard() {
+        const modal = document.getElementById('orderDetailModal');
+        const orderId = modal.dataset.orderId;
+        
+        if (!orderId) {
+            waiterNotifications.showError('ID заказа не найден');
+            return;
+        }
+        
+        // Запрашиваем номер карты
+        const cardNumber = prompt('Введите номер бонусной карты (6 цифр):');
+        
+        if (!cardNumber) {
+            return;
+        }
+        
+        if (cardNumber.length !== 6 || !/^\d+$/.test(cardNumber)) {
+            waiterNotifications.showError('Номер карты должен содержать 6 цифр');
+            return;
+        }
+        
+        // Показываем индикатор загрузки
+        const applyButton = document.getElementById('applyBonusCard');
+        const originalText = applyButton.textContent;
+        applyButton.textContent = 'Применение...';
+        applyButton.disabled = true;
+        
+        fetch(`/api/bonus-cards/apply/${orderId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                card_number: cardNumber
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                waiterNotifications.showSuccess(data.message);
+                
+                // Обновляем отображение заказа
+                loadOrderDetails(orderId);
+            } else {
+                waiterNotifications.showError(data.message || 'Ошибка применения карты');
+            }
+        })
+        .catch(error => {
+            console.error('Error applying bonus card:', error);
+            waiterNotifications.showError('Ошибка соединения с сервером');
+        })
+        .finally(() => {
+            // Восстанавливаем кнопку
+            applyButton.textContent = originalText;
+            applyButton.disabled = false;
+        });
+    }
+
+    // Функция печати финального чека
+    function printFinalReceipt() {
+        const modal = document.getElementById('orderDetailModal');
+        const orderId = modal.dataset.orderId;
+        
+        if (!orderId) {
+            waiterNotifications.showError('ID заказа не найден');
+            return;
+        }
+        
+        // Показываем индикатор загрузки
+        const printButton = document.getElementById('printFinalReceipt');
+        const originalText = printButton.textContent;
+        printButton.textContent = 'Печать...';
+        printButton.disabled = true;
+        
+        fetch(`/waiter/api/orders/${orderId}/print-final`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                waiterNotifications.showSuccess('Финальный чек напечатан!');
+                
+                // Обновляем статус заказа в модальном окне
+                const statusBadge = document.querySelector('.status-badge');
+                if (statusBadge) {
+                    statusBadge.textContent = 'завершен';
+                    statusBadge.className = 'status-badge завершен';
+                }
+                
+                // Скрываем кнопку печати
+                printButton.style.display = 'none';
+            } else {
+                waiterNotifications.showError(data.message || 'Ошибка печати финального чека');
+            }
+        })
+        .catch(error => {
+            console.error('Error printing final receipt:', error);
+            waiterNotifications.showError('Ошибка соединения с сервером');
+        })
+        .finally(() => {
+            // Восстанавливаем кнопку
+            printButton.textContent = originalText;
+            printButton.disabled = false;
+        });
+    }
+
+    // Функция отображения статуса печати
+    function showPrintStatus(printData) {
+        const modal = document.getElementById('printStatusModal');
+        const content = document.getElementById('printStatusContent');
+        
+        let statusHtml = '<div class="print-status">';
+        
+        if (printData.kitchen_printed) {
+            statusHtml += '<div class="status-item success">✅ Кухонный чек напечатан</div>';
+        } else {
+            statusHtml += '<div class="status-item error">❌ Ошибка печати кухонного чека</div>';
+        }
+        
+        if (printData.bar_printed) {
+            statusHtml += '<div class="status-item success">✅ Барный чек напечатан</div>';
+        } else {
+            statusHtml += '<div class="status-item error">❌ Ошибка печати барного чека</div>';
+        }
+        
+        statusHtml += `<div class="status-summary">
+            <p>Кухонных позиций: ${printData.kitchen_items_count}</p>
+            <p>Барных позиций: ${printData.bar_items_count}</p>
+        </div>`;
+        
+        statusHtml += '</div>';
+        content.innerHTML = statusHtml;
+        
+        modal.style.display = 'block';
     }
     
     // Делаем функции глобальными
     window.updateOrderStatus = updateOrderStatus;
     window.viewOrderDetails = viewOrderDetails;
+    window.printOrderReceipts = printOrderReceipts;
+    window.printFinalReceipt = printFinalReceipt;
 
     // Обработчики событий
     document.getElementById('refreshOrders').addEventListener('click', loadOrders);
     document.getElementById('statusFilter').addEventListener('change', loadOrders);
     document.getElementById('tableFilter').addEventListener('change', loadOrders);
+    
+    // Обработчики печати
+    document.getElementById('printOrderReceipts').addEventListener('click', printOrderReceipts);
+    document.getElementById('printFinalReceipt').addEventListener('click', printFinalReceipt);
+    document.getElementById('applyBonusCard').addEventListener('click', applyBonusCard);
+    
+    // Обработчики закрытия модальных окон
+    document.querySelectorAll('[data-dismiss="modal"]').forEach(button => {
+        button.addEventListener('click', function() {
+            console.log('🔒 Закрываем модальное окно');
+            const modal = this.closest('.modal');
+            if (modal) {
+                modal.classList.remove('visible');
+                modal.classList.add('hidden');
+            }
+        });
+    });
+    
+    // Закрытие модальных окон при клике вне их
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                console.log('🔒 Закрываем модальное окно по клику вне');
+                this.classList.remove('visible');
+                this.classList.add('hidden');
+            }
+        });
+    });
     
     // Начальная загрузка
     loadOrders();

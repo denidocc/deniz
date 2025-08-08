@@ -32,6 +32,17 @@ def log_requests(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def auth_required(f):
+    """Декоратор для проверки аутентификации."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            from app.errors import AuthenticationError
+            raise AuthenticationError("Требуется авторизация")
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
 def admin_required(f):
     """Декоратор для проверки прав администратора."""
     @wraps(f)

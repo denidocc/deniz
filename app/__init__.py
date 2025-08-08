@@ -67,6 +67,11 @@ def create_app(config_name: str = 'development') -> Flask:
     # Инициализация системы безопасности
     init_security_components(app)
     
+    # Добавляем маршрут для favicon
+    @app.route('/favicon.ico')
+    def favicon():
+        return app.send_static_file('favicon.ico')
+    
     return app
 
 def init_extensions(app: Flask) -> None:
@@ -79,6 +84,9 @@ def init_extensions(app: Flask) -> None:
     cache.init_app(app)
     babel.init_app(app)
     limiter.init_app(app)
+    
+    # Отключаем CSRF защиту для API endpoints
+    csrf.exempt(lambda: request.path.startswith('/api/'))
     
     # Настройка Flask-Login
     login_manager.login_view = 'auth.login'
