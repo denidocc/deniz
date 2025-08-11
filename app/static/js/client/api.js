@@ -15,7 +15,8 @@ class ClientAPI {
      * Выполнение HTTP запроса
      */
     async request(endpoint, options = {}) {
-        const url = `${this.baseUrl}${endpoint}`;
+        // Если endpoint начинается с /api/, используем абсолютный путь без baseUrl
+        const url = endpoint.startsWith('/api/') ? endpoint : `${this.baseUrl}${endpoint}`;
         const config = {
             method: 'GET',
             headers: { ...this.defaultHeaders },
@@ -71,6 +72,7 @@ class ClientAPI {
      * Проверка PIN-кода стола
      */
     async verifyTablePin(pin) {
+        // Используем публичный клиентский эндпоинт без авторизации
         return this.request('/verify-table-pin', {
             method: 'POST',
             body: JSON.stringify({ pin })

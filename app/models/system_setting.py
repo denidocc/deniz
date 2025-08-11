@@ -4,6 +4,7 @@ import sqlalchemy as sa
 import sqlalchemy.orm as so
 from typing import TYPE_CHECKING, Dict, Any, Optional
 from .base import BaseModel
+from app import db
 
 if TYPE_CHECKING:
     pass
@@ -63,6 +64,15 @@ class SystemSetting(BaseModel):
         
         db.session.commit()
         return setting
+
+    # Совместимые методы доступа, используемые в API модулях
+    @classmethod
+    def get_value(cls, key: str, default: Optional[str] = None) -> Optional[str]:
+        return cls.get_setting(key, default)
+
+    @classmethod
+    def set_value(cls, key: str, value: str, description: str = None) -> 'SystemSetting':
+        return cls.set_setting(key, value, description)
     
     @classmethod
     def get_all_settings(cls) -> Dict[str, str]:

@@ -2,9 +2,10 @@
 
 from flask import Blueprint, render_template, request, jsonify, current_app
 from app.models import Table, MenuItem, MenuCategory, SystemSetting
-from app import db
+from app import db, csrf
 from sqlalchemy import func
 import json
+import hashlib
 
 client_bp = Blueprint('client', __name__)
 
@@ -55,23 +56,43 @@ def menu():
         return render_template('errors/500.html'), 500
 
 @client_bp.route('/api/verify-table-pin', methods=['POST'])
+@csrf.exempt
 def verify_table_pin():
     """Проверка PIN-кода для доступа к выбору стола."""
     try:
-        data = request.get_json()
+        # Надежно извлекаем данные из запроса
+        data = request.get_json(silent=True) or {}
+        if not data:
+            try:
+                raw = request.get_data(cache=False, as_text=True)
+                if raw:
+                    data = json.loads(raw)
+            except Exception:
+                pass
+        if not data:
+            data = request.form.to_dict() if request.form else {}
+        if not data:
+            data = request.args.to_dict() if request.args else {}
         
-        if not data or 'pin' not in data:
+        if 'pin' not in data or not str(data.get('pin')).strip():
             return jsonify({
                 "status": "error",
                 "message": "PIN-код обязателен"
             }), 400
         
-        entered_pin = data['pin']
-        
-        # Получаем настоящий PIN из настроек системы
-        actual_pin = get_system_setting('table_access_pin', '1234')
-        
-        if entered_pin != actual_pin:
+        entered_pin = data['pin'].strip()
+
+        # Получаем сохраненный PIN-код (хранится как SHA-256)
+        stored_pin_hash = SystemSetting.get_value('table_access_pin')
+
+        # Если PIN не настроен, используем дефолтный 2112 (в хешированном виде)
+        if not stored_pin_hash:
+            stored_pin_hash = hashlib.sha256('2112'.encode()).hexdigest()
+
+        # Хешируем введенный PIN и сравниваем
+        provided_pin_hash = hashlib.sha256(entered_pin.encode()).hexdigest()
+
+        if provided_pin_hash != stored_pin_hash:
             return jsonify({
                 "status": "error",
                 "message": "Неверный PIN-код"

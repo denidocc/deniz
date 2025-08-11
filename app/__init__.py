@@ -85,8 +85,20 @@ def init_extensions(app: Flask) -> None:
     babel.init_app(app)
     limiter.init_app(app)
     
-    # Отключаем CSRF защиту для API endpoints
-    csrf.exempt(lambda: request.path.startswith('/api/'))
+    # Отключаем CSRF защиту для JSON API эндпоинтов: регистрируем after_request exempt по префиксу
+    # Прямое использование lambda в exempt может не работать корректно; явно исключим известные blueprints
+    try:
+        from .api import menu_api, docs_api, system_api, audit_api, bonus_cards_api, table_settings_api, carousel_api
+        csrf.exempt(menu_api)
+        csrf.exempt(docs_api)
+        csrf.exempt(system_api)
+        csrf.exempt(audit_api)
+        csrf.exempt(bonus_cards_api)
+        csrf.exempt(table_settings_api)
+        csrf.exempt(carousel_api)
+    except Exception:
+        # В случае порядка импорта, подстрахуемся проверкой пути запроса
+        csrf.exempt(lambda: request.path.startswith('/api/'))
     
     # Настройка Flask-Login
     login_manager.login_view = 'auth.login'
