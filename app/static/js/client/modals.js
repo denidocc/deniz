@@ -255,6 +255,7 @@ class ModalManager {
                 grid.innerHTML = tables.map(table => `
                     <button class="table-option ${table.id === currentTableId ? 'selected' : ''} ${!table.is_available ? 'occupied' : ''}"
                             data-table-id="${table.id}"
+                            data-table-number="${table.table_number}"
                             ${!table.is_available ? 'disabled' : ''}>
                         ${table.table_number}
                     </button>
@@ -263,7 +264,8 @@ class ModalManager {
                 // Обработчики кликов
                 grid.querySelectorAll('.table-option:not(.occupied)').forEach(btn => {
                     btn.addEventListener('click', () => {
-                        const tableId = parseInt(btn.dataset.tableId);
+                        const tableId = parseInt(btn.dataset.tableId, 10);
+                        const tableNumber = parseInt(btn.dataset.tableNumber, 10);
                         
                         // Обновляем выбранный стол
                         grid.querySelectorAll('.table-option').forEach(b => b.classList.remove('selected'));
@@ -271,7 +273,7 @@ class ModalManager {
                         
                         // Вызываем callback и закрываем модальное окно
                         setTimeout(() => {
-                            if (callback) callback(tableId);
+                            if (callback) callback(tableId, tableNumber);
                             this.closeActive();
                         }, 300);
                     });
@@ -504,8 +506,12 @@ class ModalManager {
                     
                     // Небольшая задержка перед открытием модального окна столов
                     setTimeout(() => {
-                        this.openTableSelection(currentTableId, (tableId) => {
-                            CartManager.setTable(tableId);
+                        this.openTableSelection(currentTableId, (tableId, tableNumber) => {
+                            try {
+                                CartManager.setTable(tableId, tableNumber);
+                            } catch (e) {
+                                NotificationManager.showError('Не удалось выбрать стол');
+                            }
                         });
                     }, 300);
                 } else {

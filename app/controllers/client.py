@@ -6,6 +6,7 @@ from app import db, csrf
 from sqlalchemy import func
 import json
 import hashlib
+import re
 
 client_bp = Blueprint('client', __name__)
 
@@ -88,6 +89,12 @@ def verify_table_pin():
         # Если PIN не настроен, используем дефолтный 2112 (в хешированном виде)
         if not stored_pin_hash:
             stored_pin_hash = hashlib.sha256('2112'.encode()).hexdigest()
+        else:
+            # Совместимость: если в БД хранится не хеш, а plaintext (например "1234"),
+            # конвертируем его в sha256 для корректного сравнения
+            value_str = str(stored_pin_hash)
+            if not re.fullmatch(r'[0-9a-fA-F]{64}', value_str):
+                stored_pin_hash = hashlib.sha256(value_str.encode()).hexdigest()
 
         # Хешируем введенный PIN и сравниваем
         provided_pin_hash = hashlib.sha256(entered_pin.encode()).hexdigest()

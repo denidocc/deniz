@@ -173,11 +173,11 @@
     <script src="{{ url_for('static', filename='js/client/api.js') }}?v=2"></script>
     <script src="{{ url_for('static', filename='js/client/language.js') }}"></script>
     <script src="{{ url_for('static', filename='js/client/theme.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/client/cart.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/client/cart.js') }}?v=3"></script>
     <script src="{{ url_for('static', filename='js/client/search.js') }}"></script>
     <script src="{{ url_for('static', filename='js/client/dishes.js') }}"></script>
     <script src="{{ url_for('static', filename='js/client/menu.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/client/modals.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/client/modals.js') }}?v=3"></script>
     <script src="{{ url_for('static', filename='js/client/carousel.js') }}"></script>
     {% block extra_js %}{% endblock %}
     
@@ -220,15 +220,15 @@
                     if (tableId) {
                         ClientAPI.callWaiter(tableId).then(response => {
                             if (response.status === 'success') {
-                                Utils.showToast('Официант вызван!', 'success');
+                                NotificationManager.showSuccess('Официант вызван!');
                             } else {
-                                Utils.showToast('Ошибка вызова официанта', 'error');
+                                NotificationManager.showError('Ошибка вызова официанта');
                             }
                         }).catch(error => {
-                            Utils.showToast('Ошибка вызова официанта', 'error');
+                            NotificationManager.showError('Ошибка вызова официанта');
                         });
                     } else {
-                        Utils.showToast('Сначала выберите стол', 'warning');
+                        NotificationManager.showWarning('Сначала выберите стол');
                     }
                 }
             });

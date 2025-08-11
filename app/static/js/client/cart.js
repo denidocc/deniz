@@ -8,6 +8,7 @@ class CartManager {
         
         this.items = new Map();
         this.tableId = window.CLIENT_CONFIG?.tableId || 1;
+        this.tableNumber = undefined;
         this.bonusCard = null;
         this.serviceChargePercent = window.CLIENT_SETTINGS?.service_charge_percent || 5;
         
@@ -17,6 +18,9 @@ class CartManager {
         // Инициализируем элементы
         this.initializeElements();
         
+        // Синхронизируем отображаемый номер стола, если сохранён только id
+        this.ensureTableNumberConsistency();
+
         // Устанавливаем обработчики
         this.setupEventListeners();
         
@@ -304,17 +308,23 @@ class CartManager {
         });
     }
 
-    static setTable(tableId) {
+    static setTable(tableId, tableNumber) {
         this.tableId = tableId;
+        this.tableNumber = tableNumber || tableId;
         
         if (this.currentTableNumber) {
-            this.currentTableNumber.textContent = tableId;
+            this.currentTableNumber.textContent = this.tableNumber;
         }
         
         // Сохраняем в localStorage
-        StorageManager.set('tableId', tableId);
+        StorageManager.set('tableId', this.tableId);
+        StorageManager.set('tableNumber', this.tableNumber);
         
-        NotificationManager.showSuccess(`Выбран стол #${tableId}`);
+        NotificationManager.showSuccess(`Выбран стол #${this.tableNumber}`);
+    }
+
+    static getCurrentTableId() {
+        return this.tableId;
     }
 
     static openBonusCard() {
@@ -403,15 +413,52 @@ class CartManager {
             
             if (!isExpired) {
                 this.items = new Map(cartData.items || []);
-                this.tableId = cartData.tableId || this.tableId;
+            this.tableId = cartData.tableId || this.tableId;
+            this.tableNumber = StorageManager.get('tableNumber') || this.tableId;
                 this.bonusCard = cartData.bonusCard || null;
             }
         }
         
         // Загружаем сохраненный стол
         const savedTableId = StorageManager.get('tableId');
+        const savedTableNumber = StorageManager.get('tableNumber');
         if (savedTableId) {
-            this.tableId = savedTableId;
+            this.tableId = parseInt(savedTableId, 10);
+        }
+        if (savedTableNumber) {
+            this.tableNumber = parseInt(savedTableNumber, 10);
+        } else {
+            // Отложенно определим по справочнику столов
+            this.tableNumber = undefined;
+        }
+    }
+
+    static async ensureTableNumberConsistency() {
+        try {
+            // Если номер уже известен, обновим DOM и выйдем
+            if (typeof this.tableNumber === 'number' && !Number.isNaN(this.tableNumber)) {
+                if (this.currentTableNumber) this.currentTableNumber.textContent = this.tableNumber;
+                return;
+            }
+
+            // Если id отсутствует, ничего не делаем
+            if (!this.tableId) return;
+
+            // Получаем таблицы и ищем соответствие id → table_number
+            if (window.ClientAPI && typeof window.ClientAPI.getTables === 'function') {
+                const resp = await window.ClientAPI.getTables();
+                if (resp && resp.status === 'success' && resp.data && Array.isArray(resp.data.tables)) {
+                    const t = resp.data.tables.find(t => t.id === this.tableId);
+                    if (t) {
+                        this.tableNumber = t.table_number;
+                        StorageManager.set('tableNumber', this.tableNumber);
+                        if (this.currentTableNumber) this.currentTableNumber.textContent = this.tableNumber;
+                        NotificationManager.showInfo(`Выбран стол #${this.tableNumber}`);
+                    }
+                }
+            }
+        } catch (e) {
+            // Тихо игнорируем, чтобы не мешать UX
         }
     }
 
@@ -441,77 +488,17 @@ class CartManager {
         this.bonusCard = bonusData;
         this.saveToStorage();
         this.render();
-        Utils.showToast(`Применена скидка ${bonusData.discount_percent}%!`, 'success');
+        NotificationManager.showSuccess(`Применена скидка ${bonusData.discount_percent}%!`);
     }
 
     static removeBonusCard() {
         this.bonusCard = null;
         this.saveToStorage();
         this.render();
-        Utils.showToast('Бонусная карта удалена', 'info');
+        NotificationManager.showInfo('Бонусная карта удалена');
     }
 
-    // Методы для работы со столами
-    static setTable(tableId) {
-        this.tableId = tableId;
-        StorageManager.set('tableId', tableId);
-        this.saveToStorage();
-        
-        // Обновляем UI
-        const tableBtn = document.getElementById('tableSelectBtn');
-        const tableNumber = document.getElementById('currentTableNumber');
-        if (tableBtn && tableNumber) {
-            tableNumber.textContent = tableId;
-            tableBtn.classList.add('selected');
-        }
-        
-        Utils.showToast(`Выбран стол №${tableId}`, 'success');
-    }
-
-    static getCurrentTableId() {
-        return this.tableId;
-    }
-
-    // Оформление заказа
-    static async placeOrder() {
-        if (!this.tableId) {
-            Utils.showToast('Сначала выберите стол', 'warning');
-            return;
-        }
-
-        if (this.items.size === 0) {
-            Utils.showToast('Корзина пуста', 'warning');
-            return;
-        }
-
-        try {
-            const orderData = {
-                table_id: this.tableId,
-                items: Array.from(this.items.values()),
-                bonus_card: this.bonusCard,
-                subtotal: this.getSubtotal(),
-                service_charge: this.getServiceCharge(),
-                discount: this.getDiscount(),
-                total: this.getTotal()
-            };
-
-            const response = await ClientAPI.createOrder(orderData);
-            
-            if (response.status === 'success') {
-                // Очищаем корзину
-                this.clear();
-                
-                // Показываем модальное окно подтверждения
-                ModalManager.openOrderConfirmation(response.data);
-            } else {
-                throw new Error(response.message || 'Ошибка создания заказа');
-            }
-            
-        } catch (error) {
-            console.error('Order placement error:', error);
-            Utils.showToast('Ошибка оформления заказа', 'error');
-        }
-    }
+    // Методы ниже переопределены выше: setTable, getCurrentTableId, placeOrder
 }
 
 // Экспортируем в глобальную область
