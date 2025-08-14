@@ -994,3 +994,171 @@ def export_z_report(report_id):
             'status': 'error',
             'message': 'Ошибка генерации PDF'
         }), 500 
+
+# === УПРАВЛЕНИЕ СТОЛАМИ ===
+
+@admin_bp.route('/tables')
+@admin_required
+@audit_action("view_tables_page")
+def tables_page():
+    """Страница управления столами."""
+    tables = Table.query.order_by(Table.table_number).all()
+    return render_template('admin/tables.html', tables=tables)
+
+@admin_bp.route('/api/tables', methods=['GET'])
+@admin_required
+@audit_action("view_tables")
+def get_tables():
+    """Получение списка всех столов."""
+    tables = Table.query.order_by(Table.table_number).all()
+    return jsonify({
+        'status': 'success',
+        'data': [table.to_dict() for table in tables]
+    })
+
+@admin_bp.route('/api/tables/create', methods=['POST'])
+@admin_required
+@audit_action("create_table")
+@with_transaction
+def create_table():
+    """Создание нового стола."""
+    data = request.get_json() or {}
+    
+    table_number = data.get('table_number')
+    capacity = data.get('capacity')
+    is_active = data.get('is_active', True)
+    
+    if not table_number or not capacity:
+        return jsonify({
+            'status': 'error',
+            'message': 'Номер стола и количество мест обязательны'
+        }), 400
+    
+    # Проверка уникальности номера стола
+    existing_table = Table.query.filter_by(table_number=table_number).first()
+    if existing_table:
+        return jsonify({
+            'status': 'error',
+            'message': f'Стол с номером {table_number} уже существует'
+        }), 400
+    
+    # Создание стола
+    table = Table(
+        table_number=table_number,
+        capacity=capacity,
+        is_active=is_active
+    )
+    
+    db.session.add(table)
+    db.session.commit()
+    
+    return jsonify({
+        'status': 'success',
+        'message': f'Стол {table_number} успешно создан',
+        'data': table.to_dict()
+    })
+
+@admin_bp.route('/api/tables/<int:table_id>', methods=['GET'])
+@admin_required
+@audit_action("view_table")
+def get_table(table_id):
+    """Получение данных конкретного стола."""
+    table = Table.query.get_or_404(table_id)
+    return jsonify({
+        'status': 'success',
+        'data': table.to_dict()
+    })
+
+@admin_bp.route('/api/tables/<int:table_id>/status', methods=['GET'])
+@admin_required
+@audit_action("check_table_status")
+def check_table_status(table_id):
+    """Проверка статуса стола для возможности удаления."""
+    table = Table.query.get_or_404(table_id)
+    
+    # Проверяем, есть ли активные заказы
+    from app.models import Order
+    active_orders = Order.query.filter(
+        Order.table_id == table_id,
+        Order.status.in_(['pending', 'confirmed', 'active'])
+    ).first()
+    
+    can_delete = active_orders is None
+    
+    return jsonify({
+        'status': 'success',
+        'data': {
+            'table_id': table_id,
+            'table_number': table.table_number,
+            'can_delete': can_delete,
+            'has_active_orders': not can_delete
+        }
+    })
+
+@admin_bp.route('/api/tables/<int:table_id>/update', methods=['PUT'])
+@admin_required
+@audit_action("update_table")
+@with_transaction
+def update_table(table_id):
+    """Обновление стола."""
+    table = Table.query.get_or_404(table_id)
+    data = request.get_json() or {}
+    
+    table_number = data.get('table_number')
+    capacity = data.get('capacity')
+    is_active = data.get('is_active')
+    
+    if table_number is not None:
+        # Проверка уникальности номера стола (если изменился)
+        if table_number != table.table_number:
+            existing_table = Table.query.filter_by(table_number=table_number).first()
+            if existing_table:
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Стол с номером {table_number} уже существует'
+                }), 400
+        table.table_number = table_number
+    
+    if capacity is not None:
+        table.capacity = capacity
+    
+    if is_active is not None:
+        table.is_active = is_active
+    
+    db.session.commit()
+    
+    return jsonify({
+        'status': 'success',
+        'message': f'Стол {table.table_number} успешно обновлен',
+        'data': table.to_dict()
+    })
+
+@admin_bp.route('/api/tables/<int:table_id>/delete', methods=['DELETE'])
+@admin_required
+@audit_action("delete_table")
+@with_transaction
+def delete_table(table_id):
+    """Удаление стола."""
+    table = Table.query.get_or_404(table_id)
+    
+    # Проверка, не используется ли стол в активных заказах
+    from app.models import Order
+    # Проверяем заказы со статусами: pending, confirmed, active
+    active_orders = Order.query.filter(
+        Order.table_id == table_id,
+        Order.status.in_(['pending', 'confirmed', 'active'])
+    ).first()
+    if active_orders:
+        return jsonify({
+            'status': 'error',
+            'message': 'Нельзя удалить стол с активными заказами'
+        }), 400
+    
+    table_number = table.table_number
+    db.session.delete(table)
+    db.session.commit()
+    
+    return jsonify({
+        'status': 'success',
+        'message': f'Стол {table_number} успешно удален'
+    }) 

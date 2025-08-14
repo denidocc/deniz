@@ -1,0 +1,577 @@
+{% extends "admin/base.html" %}
+
+{% block page_title %}Управление столами{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tables-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        padding: 2rem;
+    }
+    
+    .table-header {
+        background: var(--admin-primary);
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 12px 12px 0 0;
+        margin: -2rem -2rem 2rem -2rem;
+    }
+    
+    .add-table-form {
+        background: var(--admin-light);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .table-item {
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .table-item:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border-color: var(--admin-accent);
+    }
+    
+    .table-info {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .table-number {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--admin-primary);
+        min-width: 60px;
+    }
+    
+    .table-capacity {
+        background: var(--admin-secondary);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.9rem;
+    }
+    
+    .table-status {
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    
+    .status-active {
+        background: var(--admin-success);
+        color: white;
+    }
+    
+    .status-inactive {
+        background: var(--admin-danger);
+        color: white;
+    }
+    
+    .table-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .btn-edit {
+        background: var(--admin-accent);
+        border: none;
+        color: white;
+    }
+    
+    .btn-edit:hover {
+        background: #2980b9;
+        color: white;
+    }
+    
+    .btn-delete {
+        background: var(--admin-danger);
+        border: none;
+        color: white;
+    }
+    
+    .btn-delete:hover {
+        background: #c0392b;
+        color: white;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    
+    .loading-state {
+        text-align: center;
+        padding: 2rem;
+        color: #6c757d;
+    }
+    
+    .loading-spinner {
+        display: inline-block;
+        width: 2rem;
+        height: 2rem;
+        border: 3px solid rgba(0,0,0,.1);
+        border-radius: 50%;
+        border-top-color: var(--admin-primary);
+        animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tables-container">
+    <div class="table-header">
+        <h3 class="mb-0">
+            <i class="bi bi-table"></i> Управление столами
+        </h3>
+        <p class="mb-0 mt-2">Создание, редактирование и удаление столов ресторана</p>
+    </div>
+    
+    <!-- Форма добавления нового стола -->
+    <div class="add-table-form">
+        <h5 class="mb-3">
+            <i class="bi bi-plus-circle"></i> Добавить новый стол
+        </h5>
+        <form id="addTableForm">
+            <div class="row">
+                <div class="col-md-3">
+                    <label for="newTableNumber" class="form-label">Номер стола</label>
+                    <input type="number" class="form-control" id="newTableNumber" 
+                           placeholder="1" min="1" max="100" required>
+                </div>
+                <div class="col-md-3">
+                    <label for="newTableCapacity" class="form-label">Количество мест</label>
+                    <input type="number" class="form-control" id="newTableCapacity" 
+                           placeholder="4" min="1" max="20" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">&nbsp;</label>
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" id="newTableActive" checked>
+                        <label class="form-check-label" for="newTableActive">
+                            Активный стол
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="bi bi-plus-circle"></i> Добавить стол
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Список существующих столов -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">
+            <i class="bi bi-list-ul"></i> Существующие столы
+        </h5>
+        <button class="btn btn-outline-primary" onclick="loadTables()">
+            <i class="bi bi-arrow-clockwise"></i> Обновить
+        </button>
+    </div>
+    
+    <div id="tablesList">
+        <div class="loading-state">
+            <div class="loading-spinner"></div>
+            <p class="mt-2">Загрузка списка столов...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно редактирования стола -->
+<div class="modal fade" id="editTableModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Редактировать стол</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editTableForm">
+                    <input type="hidden" id="editTableId">
+                    <div class="mb-3">
+                        <label for="editTableNumber" class="form-label">Номер стола</label>
+                        <input type="number" class="form-control" id="editTableNumber" 
+                               min="1" max="100" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editTableCapacity" class="form-label">Количество мест</label>
+                        <input type="number" class="form-control" id="editTableCapacity" 
+                               min="1" max="20" required>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="editTableActive">
+                            <label class="form-check-label" for="editTableActive">
+                                Активный стол
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="saveTableEdit()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Инициализация при загрузке страницы
+    document.addEventListener('DOMContentLoaded', function() {
+        loadTables();
+        setupTableForm();
+        
+        // Автообновление каждые 30 секунд
+        setInterval(loadTables, 30000);
+    });
+
+    // Загрузка списка столов
+    async function loadTables() {
+        const tablesList = document.getElementById('tablesList');
+        tablesList.innerHTML = `
+            <div class="loading-state">
+                <div class="loading-spinner"></div>
+                <p class="mt-2">Загрузка списка столов...</p>
+            </div>
+        `;
+        
+        try {
+            const response = await apiRequest('/admin/api/tables', {
+                method: 'GET'
+            });
+            
+            if (response.status === 'success') {
+                renderTablesList(response.data);
+            } else {
+                throw new Error(response.message || 'Ошибка загрузки данных');
+            }
+        } catch (error) {
+            console.error('Error loading tables:', error);
+            tablesList.innerHTML = `
+                <div class="text-center text-danger">
+                    <i class="bi bi-exclamation-triangle" style="font-size: 2rem;"></i>
+                    <p class="mt-2">Ошибка загрузки столов: ${error.message}</p>
+                    <button class="btn btn-outline-primary" onclick="loadTables()">
+                        <i class="bi bi-arrow-clockwise"></i> Попробовать снова
+                    </button>
+                </div>
+            `;
+        }
+    }
+
+    // Отображение списка столов
+    function renderTablesList(tables) {
+        const tablesList = document.getElementById('tablesList');
+        
+        if (!tables || tables.length === 0) {
+            tablesList.innerHTML = `
+                <div class="empty-state">
+                    <i class="bi bi-table"></i>
+                    <h5>Столы не найдены</h5>
+                    <p class="text-muted">Добавьте первый стол, используя форму выше</p>
+                </div>
+            `;
+            return;
+        }
+
+        const tablesHtml = tables.map(table => `
+            <div class="table-item" data-table-id="${table.id}">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="table-info">
+                        <div class="table-number">${table.table_number}</div>
+                        <div class="table-capacity">${table.capacity} мест</div>
+                        <span class="table-status ${table.is_active ? 'status-active' : 'status-inactive'}">
+                            ${table.is_active ? 'Активен' : 'Неактивен'}
+                        </span>
+                        <small class="text-muted">
+                            Создан: ${new Date(table.created_at).toLocaleDateString('ru-RU')}
+                        </small>
+                    </div>
+                    <div class="table-actions">
+                        <button class="btn btn-sm btn-edit" onclick="editTable(${table.id})">
+                            <i class="bi bi-pencil"></i> Изменить
+                        </button>
+                        <button class="btn btn-sm ${table.is_active ? 'btn-warning' : 'btn-success'}" 
+                                onclick="toggleTableStatus(${table.id}, ${table.is_active})" 
+                                title="${table.is_active ? 'Деактивировать' : 'Активировать'}">
+                            <i class="bi bi-${table.is_active ? 'pause' : 'play'}"></i> 
+                            ${table.is_active ? 'Деактивировать' : 'Активировать'}
+                        </button>
+                        <button class="btn btn-sm btn-delete" onclick="deleteTable(${table.id})" 
+                                title="Удалить стол">
+                            <i class="bi bi-trash"></i> Удалить
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+        tablesList.innerHTML = tablesHtml;
+    }
+
+    // Настройка формы добавления стола
+    function setupTableForm() {
+        document.getElementById('addTableForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            
+            // Показываем загрузку
+            submitBtn.innerHTML = '<span class="loading-spinner"></span> Добавление...';
+            submitBtn.disabled = true;
+            
+            const tableNumber = document.getElementById('newTableNumber').value;
+            const capacity = document.getElementById('newTableCapacity').value;
+            const isActive = document.getElementById('newTableActive').checked;
+            
+            if (!tableNumber || !capacity) {
+                showAlert('Заполните все обязательные поля', 'warning');
+                return;
+            }
+            
+            try {
+                const response = await apiRequest('/admin/api/tables/create', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        table_number: parseInt(tableNumber),
+                        capacity: parseInt(capacity),
+                        is_active: isActive
+                    })
+                });
+                
+                if (response.status === 'success') {
+                    showAlert('Стол успешно добавлен', 'success');
+                    document.getElementById('addTableForm').reset();
+                    document.getElementById('newTableActive').checked = true;
+                    loadTables(); // Перезагружаем список
+                }
+                
+            } catch (error) {
+                showAlert('Ошибка при добавлении стола: ' + error.message, 'danger');
+            } finally {
+                // Восстанавливаем кнопку
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }
+        });
+    }
+
+    // Редактирование стола
+    async function editTable(tableId) {
+        try {
+            // Сначала пытаемся получить данные из существующего списка
+            const tableElement = document.querySelector(`[data-table-id="${tableId}"]`);
+            if (tableElement) {
+                // Получаем данные из DOM (быстрее чем API запрос)
+                const tableNumber = tableElement.querySelector('.table-number').textContent;
+                const capacity = tableElement.querySelector('.table-capacity').textContent.match(/\d+/)[0];
+                const isActive = tableElement.querySelector('.table-status').classList.contains('status-active');
+                
+                // Заполняем форму редактирования
+                document.getElementById('editTableId').value = tableId;
+                document.getElementById('editTableNumber').value = tableNumber;
+                document.getElementById('editTableCapacity').value = capacity;
+                document.getElementById('editTableActive').checked = isActive;
+                
+                // Показываем модальное окно
+                const modal = new bootstrap.Modal(document.getElementById('editTableModal'));
+                modal.show();
+                return;
+            }
+            
+            // Если не нашли в DOM, делаем API запрос
+            const response = await apiRequest(`/admin/api/tables/${tableId}`, {
+                method: 'GET'
+            });
+            
+            if (response.status === 'success') {
+                const table = response.data;
+                
+                // Заполняем форму редактирования
+                document.getElementById('editTableId').value = table.id;
+                document.getElementById('editTableNumber').value = table.table_number;
+                document.getElementById('editTableCapacity').value = table.capacity;
+                document.getElementById('editTableActive').checked = table.is_active;
+                
+                // Показываем модальное окно
+                const modal = new bootstrap.Modal(document.getElementById('editTableModal'));
+                modal.show();
+            }
+        } catch (error) {
+            showAlert('Ошибка при загрузке данных стола: ' + error.message, 'danger');
+        }
+    }
+
+    // Сохранение изменений стола
+    async function saveTableEdit() {
+        const tableId = document.getElementById('editTableId').value;
+        const tableNumber = document.getElementById('editTableNumber').value;
+        const capacity = document.getElementById('editTableCapacity').value;
+        const isActive = document.getElementById('editTableActive').checked;
+        
+        if (!tableNumber || !capacity) {
+            showAlert('Заполните все обязательные поля', 'warning');
+            return;
+        }
+        
+        try {
+            const response = await apiRequest(`/admin/api/tables/${tableId}/update`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    table_number: parseInt(tableNumber),
+                    capacity: parseInt(capacity),
+                    is_active: isActive
+                })
+            });
+            
+            if (response.status === 'success') {
+                showAlert('Стол успешно обновлен', 'success');
+                
+                // Закрываем модальное окно
+                const modal = bootstrap.Modal.getInstance(document.getElementById('editTableModal'));
+                modal.hide();
+                
+                // Перезагружаем список
+                loadTables();
+            }
+            
+        } catch (error) {
+            showAlert('Ошибка при обновлении стола: ' + error.message, 'danger');
+        }
+    }
+
+    // Проверка возможности удаления стола
+    async function checkTableDeletable(tableId) {
+        try {
+            const response = await apiRequest(`/admin/api/tables/${tableId}/status`, {
+                method: 'GET'
+            });
+            
+            if (response.status === 'success') {
+                return response.data.can_delete;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error checking table status:', error);
+            return false;
+        }
+    }
+
+    // Удаление стола
+    async function deleteTable(tableId) {
+        try {
+            // Получаем детали стола для лучшей диагностики
+            const tableDetails = await getTableDetails(tableId);
+            if (!tableDetails) {
+                showAlert('Не удалось получить информацию о столе', 'danger');
+                return;
+            }
+            
+            // Сначала проверяем, можно ли удалить стол
+            const canDelete = await checkTableDeletable(tableId);
+            if (!canDelete) {
+                showAlert(`Нельзя удалить стол ${tableDetails.table_number} с активными заказами. Дождитесь завершения заказов.`, 'warning');
+                return;
+            }
+            
+            if (!confirm(`Вы уверены, что хотите удалить стол ${tableDetails.table_number}? Это действие нельзя отменить.`)) {
+                return;
+            }
+            
+            const response = await apiRequest(`/admin/api/tables/${tableId}/delete`, {
+                method: 'DELETE'
+            });
+            
+            if (response.status === 'success') {
+                showAlert(`Стол ${tableDetails.table_number} успешно удален`, 'success');
+                loadTables(); // Перезагружаем список
+            }
+            
+        } catch (error) {
+            let errorMessage = 'Ошибка при удалении стола';
+            
+            // Детализируем ошибки
+            if (error.message.includes('активными заказами')) {
+                errorMessage = 'Нельзя удалить стол с активными заказами. Дождитесь завершения заказов.';
+            } else if (error.message.includes('конфликта') || error.message.includes('409')) {
+                errorMessage = 'Нельзя удалить стол с активными заказами. Дождитесь завершения заказов.';
+            } else if (error.message.includes('404')) {
+                errorMessage = 'Стол не найден. Возможно, он уже был удален.';
+            } else if (error.message.includes('Данные не могут быть сохранены из-за конфликта')) {
+                errorMessage = 'Нельзя удалить стол с активными заказами. Дождитесь завершения заказов.';
+            } else {
+                errorMessage += ': ' + error.message;
+            }
+            
+            showAlert(errorMessage, 'danger');
+        }
+    }
+
+    // Переключение статуса стола
+    async function toggleTableStatus(tableId, currentStatus) {
+        try {
+            const response = await apiRequest(`/admin/api/tables/${tableId}/update`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    is_active: !currentStatus
+                })
+            });
+            
+            if (response.status === 'success') {
+                const newStatus = !currentStatus;
+                showAlert(`Стол ${newStatus ? 'активирован' : 'деактивирован'}`, 'success');
+                loadTables(); // Перезагружаем список
+            }
+            
+        } catch (error) {
+            showAlert('Ошибка при изменении статуса стола: ' + error.message, 'danger');
+        }
+    }
+
+    // Дополнительная проверка стола перед удалением
+    async function getTableDetails(tableId) {
+        try {
+            const response = await apiRequest(`/admin/api/tables/${tableId}`, {
+                method: 'GET'
+            });
+            
+            if (response.status === 'success') {
+                return response.data;
+            }
+            return null;
+        } catch (error) {
+            console.error('Error getting table details:', error);
+            return null;
+        }
+    }
+</script>
+{% endblock %}

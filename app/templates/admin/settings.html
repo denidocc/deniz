@@ -176,34 +176,13 @@
         </div>
         
         <div class="setting-item">
-            <div class="setting-label">НДС (%)</div>
-            <div class="setting-description">Ставка налога на добавленную стоимость</div>
-            <div class="row">
-                <div class="col-md-6">
-                    <input type="number" class="form-control" id="vatRate" 
-                           min="0" max="50" step="0.1" 
-                           value="{{ settings.get('vat_rate', '20') }}">
-                </div>
-                <div class="col-md-6">
-                    <div class="form-check mt-2">
-                        <input class="form-check-input" type="checkbox" id="vatEnabled" 
-                               {{ 'checked' if settings.get('vat_enabled', 'true') == 'true' else '' }}>
-                        <label class="form-check-label" for="vatEnabled">
-                            Включить НДС
-                        </label>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="setting-item">
             <div class="setting-label">Валюта</div>
             <div class="setting-description">Основная валюта системы</div>
             <select class="form-select" id="currency">
-                <option value="RUB" {{ 'selected' if settings.get('currency', 'RUB') == 'RUB' else '' }}>Российский рубль (₽)</option>
+                <option value="TMT" {{ 'selected' if settings.get('currency', 'TMT') == 'TMT' else '' }}>Туркменский манат (TMT)</option>
+                <option value="RUB" {{ 'selected' if settings.get('currency') == 'RUB' else '' }}>Российский рубль (₽)</option>
                 <option value="USD" {{ 'selected' if settings.get('currency') == 'USD' else '' }}>Доллар США ($)</option>
                 <option value="EUR" {{ 'selected' if settings.get('currency') == 'EUR' else '' }}>Евро (€)</option>
-                <option value="TMT" {{ 'selected' if settings.get('currency') == 'TMT' else '' }}>Туркменский манат (TMT)</option>
             </select>
         </div>
     </div>
@@ -229,10 +208,11 @@
                      onclick="selectLanguage('en')">
                     🇬🇧 English
                 </div>
-                <div class="language-option {{ 'active' if settings.get('default_language') == 'tr' else '' }}" 
-                     onclick="selectLanguage('tr')">
-                    🇹🇷 Türkçe
+                <div class="language-option {{ 'active' if settings.get('default_language') == 'tk' else '' }}" 
+                     onclick="selectLanguage('tk')">
+                    🇹🇲 Türkmençe
                 </div>
+                
             </div>
             <input type="hidden" id="defaultLanguage" value="{{ settings.get('default_language', 'ru') }}">
         </div>
@@ -250,21 +230,23 @@
                 <div class="col-md-4">
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="langEn" 
-                               {{ 'checked' if 'en' in settings.get('available_languages', 'ru,en').split(',') else '' }}>
+                               {{ 'checked' if 'en' in settings.get('available_languages', 'ru,en,tk').split(',') else '' }}>
                         <label class="form-check-label" for="langEn">🇬🇧 English</label>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="langTr" 
-                               {{ 'checked' if 'tr' in settings.get('available_languages', 'ru,en').split(',') else '' }}>
-                        <label class="form-check-label" for="langTr">🇹🇷 Türkçe</label>
+                        <input class="form-check-input" type="checkbox" id="langTk" 
+                               {{ 'checked' if 'tk' in settings.get('available_languages', 'ru,en,tk').split(',') else '' }}>
+                        <label class="form-check-label" for="langTk">🇹🇲 Türkmençe</label>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+
 
 <!-- Printer Settings -->
 <div class="settings-section">
@@ -302,7 +284,7 @@
             <div class="setting-label">Автоматическая печать</div>
             <div class="setting-description">Настройки автоматической печати заказов</div>
             <div class="row">
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="autoPrintReceipt" 
                                {{ 'checked' if settings.get('auto_print_receipt', 'true') == 'true' else '' }}>
@@ -311,12 +293,21 @@
                         </label>
                     </div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="autoPrintKitchen" 
                                {{ 'checked' if settings.get('auto_print_kitchen', 'true') == 'true' else '' }}>
                         <label class="form-check-label" for="autoPrintKitchen">
                             Печатать заказы на кухне
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="autoPrintBar" 
+                               {{ 'checked' if settings.get('auto_print_bar', 'true') == 'true' else '' }}>
+                        <label class="form-check-label" for="autoPrintBar">
+                            Печатать заказы в баре
                         </label>
                     </div>
                 </div>
@@ -553,51 +544,92 @@
         event.target.classList.add('active');
         
         // Update hidden input
-        document.getElementById('defaultLanguage').value = lang;
+        const defaultLanguage = document.getElementById('defaultLanguage');
+        if (defaultLanguage) {
+            defaultLanguage.value = lang;
+        }
     }
 
     // Save all settings
     async function saveAllSettings() {
         const button = event.target;
+        if (!button) return;
+        
         const originalText = showLoading(button);
         
         // Collect all settings
-        const settings = {
-            // General settings
-            restaurant_name: document.getElementById('restaurantName').value,
-            restaurant_address: document.getElementById('restaurantAddress').value,
-            restaurant_phone: document.getElementById('restaurantPhone').value,
-            restaurant_email: document.getElementById('restaurantEmail').value,
-            
-            // Financial settings
-            service_charge: document.getElementById('serviceCharge').value,
-            service_charge_enabled: document.getElementById('serviceChargeEnabled').checked.toString(),
-            vat_rate: document.getElementById('vatRate').value,
-            vat_enabled: document.getElementById('vatEnabled').checked.toString(),
-            currency: document.getElementById('currency').value,
-            
-            // Language settings
-            default_language: document.getElementById('defaultLanguage').value,
-            available_languages: getAvailableLanguages(),
-            
-            // Printer settings
-            receipt_printer: document.getElementById('receiptPrinter').value,
-            kitchen_printer: document.getElementById('kitchenPrinter').value,
-            bar_printer: document.getElementById('barPrinter').value,
-            auto_print_receipt: document.getElementById('autoPrintReceipt').checked.toString(),
-            auto_print_kitchen: document.getElementById('autoPrintKitchen').checked.toString(),
-            
-            // Security settings
-            session_timeout: document.getElementById('sessionTimeout').value,
-            max_login_attempts: document.getElementById('maxLoginAttempts').value,
-            block_duration: document.getElementById('blockDuration').value,
-            audit_enabled: document.getElementById('auditEnabled').checked.toString(),
-            
-            // Backup settings
-            auto_backup: document.getElementById('autoBackup').checked.toString(),
-            backup_interval: document.getElementById('backupInterval').value,
-            backup_retention: document.getElementById('backupRetention').value
-        };
+        const settings = {};
+        
+        // General settings
+        const restaurantName = document.getElementById('restaurantName');
+        if (restaurantName) settings.restaurant_name = restaurantName.value;
+        
+        const restaurantAddress = document.getElementById('restaurantAddress');
+        if (restaurantAddress) settings.restaurant_address = restaurantAddress.value;
+        
+        const restaurantPhone = document.getElementById('restaurantPhone');
+        if (restaurantPhone) settings.restaurant_phone = restaurantPhone.value;
+        
+        const restaurantEmail = document.getElementById('restaurantEmail');
+        if (restaurantEmail) settings.restaurant_email = restaurantEmail.value;
+        
+        // Financial settings
+        const serviceCharge = document.getElementById('serviceCharge');
+        if (serviceCharge) settings.service_charge = serviceCharge.value;
+        
+        const serviceChargeEnabled = document.getElementById('serviceChargeEnabled');
+        if (serviceChargeEnabled) settings.service_charge_enabled = serviceChargeEnabled.checked.toString();
+        
+        const currency = document.getElementById('currency');
+        if (currency) settings.currency = currency.value;
+        
+        // Language settings
+        const defaultLanguage = document.getElementById('defaultLanguage');
+        if (defaultLanguage) settings.default_language = defaultLanguage.value;
+        
+        settings.available_languages = getAvailableLanguages();
+        
+        // Printer settings
+        const receiptPrinter = document.getElementById('receiptPrinter');
+        if (receiptPrinter) settings.receipt_printer = receiptPrinter.value;
+        
+        const kitchenPrinter = document.getElementById('kitchenPrinter');
+        if (kitchenPrinter) settings.kitchen_printer = kitchenPrinter.value;
+        
+        const barPrinter = document.getElementById('barPrinter');
+        if (barPrinter) settings.bar_printer = barPrinter.value;
+        
+        const autoPrintReceipt = document.getElementById('autoPrintReceipt');
+        if (autoPrintReceipt) settings.auto_print_receipt = autoPrintReceipt.checked.toString();
+        
+        const autoPrintKitchen = document.getElementById('autoPrintKitchen');
+        if (autoPrintKitchen) settings.auto_print_kitchen = autoPrintKitchen.checked.toString();
+        
+        const autoPrintBar = document.getElementById('autoPrintBar');
+        if (autoPrintBar) settings.auto_print_bar = autoPrintBar.checked.toString();
+        
+        // Security settings
+        const sessionTimeout = document.getElementById('sessionTimeout');
+        if (sessionTimeout) settings.session_timeout = sessionTimeout.value;
+        
+        const maxLoginAttempts = document.getElementById('maxLoginAttempts');
+        if (maxLoginAttempts) settings.max_login_attempts = maxLoginAttempts.value;
+        
+        const blockDuration = document.getElementById('blockDuration');
+        if (blockDuration) settings.block_duration = blockDuration.value;
+        
+        const auditEnabled = document.getElementById('auditEnabled');
+        if (auditEnabled) settings.audit_enabled = auditEnabled.checked.toString();
+        
+        // Backup settings
+        const autoBackup = document.getElementById('autoBackup');
+        if (autoBackup) settings.auto_backup = autoBackup.checked.toString();
+        
+        const backupInterval = document.getElementById('backupInterval');
+        if (backupInterval) settings.backup_interval = backupInterval.value;
+        
+        const backupRetention = document.getElementById('backupRetention');
+        if (backupRetention) settings.backup_retention = backupRetention.value;
         
         try {
             const response = await apiRequest('{{ url_for("admin.update_settings") }}', {
@@ -618,10 +650,13 @@
     function getAvailableLanguages() {
         const languages = ['ru']; // Russian is always available
         
-        if (document.getElementById('langEn').checked) {
+        const langEn = document.getElementById('langEn');
+        if (langEn && langEn.checked) {
             languages.push('en');
         }
-        if (document.getElementById('langTr').checked) {
+        
+        const langTk = document.getElementById('langTk');
+        if (langTk && langTk.checked) {
             languages.push('tk');
         }
         
@@ -629,37 +664,42 @@
     }
 
     // Обработка формы PIN-кода клиента
-    document.getElementById('clientPinForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const form = e.target;
-        const button = form.querySelector('button[type="submit"]');
-        const originalText = showLoading(button);
-        
-        try {
-            const formData = new FormData(form);
-            const pin = formData.get('pin');
+    const clientPinForm = document.getElementById('clientPinForm');
+    if (clientPinForm) {
+        clientPinForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const form = e.target;
+            const button = form.querySelector('button[type="submit"]');
+            const originalText = showLoading(button);
             
-            if (!pin || pin.length < 4 || pin.length > 6 || !/^\d+$/.test(pin)) {
-                throw new Error('PIN должен содержать 4-6 цифр');
+            try {
+                const formData = new FormData(form);
+                const pin = formData.get('pin');
+                
+                if (!pin || pin.length < 4 || pin.length > 6 || !/^\d+$/.test(pin)) {
+                    throw new Error('PIN должен содержать 4-6 цифр');
+                }
+                
+                const response = await apiRequest('/admin/settings/update', {
+                    method: 'POST',
+                    body: JSON.stringify({ table_access_pin: pin })
+                });
+                
+                showAlert('PIN-код успешно обновлён', 'success');
+                
+            } catch (error) {
+                showAlert('Ошибка при обновлении PIN: ' + error.message, 'danger');
+            } finally {
+                hideLoading(button, originalText);
             }
-            
-            const response = await apiRequest('/admin/settings/update', {
-                method: 'POST',
-                body: JSON.stringify({ table_access_pin: pin })
-            });
-            
-            showAlert('PIN-код успешно обновлён', 'success');
-            
-        } catch (error) {
-            showAlert('Ошибка при обновлении PIN: ' + error.message, 'danger');
-        } finally {
-            hideLoading(button, originalText);
-        }
-    });
+        });
+    }
 
     // Create backup
     async function createBackup() {
         const button = event.target;
+        if (!button) return;
+        
         const originalText = showLoading(button);
         
         try {
@@ -683,8 +723,11 @@
 
     // Show restore modal
     function showRestoreModal() {
-        const modal = new bootstrap.Modal(document.getElementById('restoreModal'));
-        modal.show();
+        const modalElement = document.getElementById('restoreModal');
+        if (modalElement) {
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+        }
     }
 
     // Perform restore
@@ -692,17 +735,19 @@
         const confirmCheckbox = document.getElementById('confirmRestore');
         const fileInput = document.getElementById('restoreFile');
         
-        if (!confirmCheckbox.checked) {
+        if (!confirmCheckbox || !confirmCheckbox.checked) {
             showAlert('Подтвердите, что понимаете последствия операции', 'warning');
             return;
         }
         
-        if (!fileInput.files[0]) {
+        if (!fileInput || !fileInput.files[0]) {
             showAlert('Выберите файл резервной копии', 'warning');
             return;
         }
         
         const button = event.target;
+        if (!button) return;
+        
         const originalText = showLoading(button);
         
         try {
@@ -733,14 +778,19 @@
 
     // Auto-save on input changes (debounced)
     let saveTimeout;
-    document.querySelectorAll('input, select, textarea').forEach(element => {
-        element.addEventListener('change', function() {
-            clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(() => {
-                // Auto-save individual setting
-                console.log('Auto-saving setting:', this.id);
-            }, 2000);
+    const formElements = document.querySelectorAll('input, select, textarea');
+    if (formElements.length > 0) {
+        formElements.forEach(element => {
+            element.addEventListener('change', function() {
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(() => {
+                    // Auto-save individual setting
+                    console.log('Auto-saving setting:', this.id);
+                }, 2000);
+            });
         });
-    });
+    }
+
+    
 </script>
 {% endblock %}

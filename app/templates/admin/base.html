@@ -297,6 +297,14 @@
             </li>
             
             <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'admin.tables_page' %}active{% endif %}" 
+                   href="{{ url_for('admin.tables_page') }}">
+                    <i class="bi bi-table"></i>
+                    <span class="sidebar-text">Столы</span>
+                </a>
+            </li>
+            
+            <li class="nav-item">
                 <a class="nav-link {% if request.endpoint == 'admin.reports' %}active{% endif %}" 
                    href="{{ url_for('admin.reports') }}">
                     <i class="bi bi-graph-up"></i>
@@ -461,7 +469,7 @@
             const defaultOptions = {
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('meta[name=csrf-token]')?.getAttribute('content')
+                    'X-CSRFToken': document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || ''
                 }
             };
 
@@ -469,10 +477,23 @@
             
             try {
                 const response = await fetch(url, finalOptions);
-                const data = await response.json();
+                
+                // Проверяем, является ли ответ JSON
+                const contentType = response.headers.get('content-type');
+                let data;
+                
+                if (contentType && contentType.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    // Если ответ не JSON, создаем базовый объект
+                    data = {
+                        status: response.ok ? 'success' : 'error',
+                        message: response.statusText || 'Произошла ошибка'
+                    };
+                }
                 
                 if (!response.ok) {
-                    throw new Error(data.message || 'Произошла ошибка');
+                    throw new Error(data.message || `HTTP ${response.status}: ${response.statusText}`);
                 }
                 
                 return data;
