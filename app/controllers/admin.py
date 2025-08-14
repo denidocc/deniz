@@ -1,17 +1,23 @@
 """Административные контроллеры."""
 
-from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, make_response
+from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, make_response, current_app
 from flask_login import current_user
 from sqlalchemy import func, desc, extract
+import sqlalchemy.orm as so
 from datetime import datetime, timedelta
 import json
 
 from app import db
 from app.models import (
     Staff, MenuCategory, MenuItem, Table, Order, OrderItem, 
-    StaffShift, BonusCard, AuditLog, SystemSetting, DailyReport
+    StaffShift, BonusCard, AuditLog, SystemSetting, DailyReport, TableAssignment
 )
 from app.utils.decorators import admin_required, audit_action, with_transaction
+from app.forms.admin.menu import MenuCategoryForm, MenuItemForm
+from app.forms.admin.shifts import StartShiftForm, EndShiftForm
+from app.forms.admin.staff import StaffCreateForm, StaffUpdateForm
+from app.forms.admin.settings import SystemSettingForm, ServiceChargeForm, ClientPinForm, PrinterSettingsForm
+from app.forms.admin.reports import ReportFilterForm, ZReportForm, AuditFilterForm
 # from app.forms.auth import RegistrationForm  # Форма регистрации не используется
 
 admin_bp = Blueprint('admin', __name__)
@@ -84,9 +90,15 @@ def menu():
         MenuCategory.sort_order, MenuItem.sort_order
     ).all()
     
+    # Создаем формы для валидации
+    category_form = MenuCategoryForm()
+    item_form = MenuItemForm()
+    
     return render_template('admin/menu.html',
                          categories=categories,
-                         items=items)
+                         items=items,
+                         category_form=category_form,
+                         item_form=item_form)
 
 @admin_bp.route('/menu/category', methods=['POST'])
 @admin_required
@@ -94,17 +106,17 @@ def menu():
 @with_transaction
 def create_category():
     """Создание новой категории меню."""
-    data = request.get_json()
+    data = request.get_json() or {}
+    form = MenuCategoryForm(data=data, meta={'csrf': False})
+    if not form.validate():
+        return jsonify({'status': 'error', 'message': 'Валидация не пройдена', 'errors': form.errors}), 400
     
     category = MenuCategory(
-        name_ru=data['name_ru'],
-        name_en=data.get('name_en', ''),
-        name_tr=data.get('name_tr', ''),
-        description_ru=data.get('description_ru', ''),
-        description_en=data.get('description_en', ''),
-        description_tr=data.get('description_tr', ''),
-        sort_order=data.get('sort_order', 0),
-        is_active=data.get('is_active', True)
+        name_ru=form.name_ru.data,
+        name_en=form.name_en.data or '',
+        name_tk=form.name_tk.data or '',
+        sort_order=form.sort_order.data or 0,
+        is_active=bool(form.is_active.data)
     )
     
     db.session.add(category)
@@ -125,21 +137,27 @@ def create_category():
 @with_transaction
 def create_menu_item():
     """Создание нового блюда."""
-    data = request.get_json()
+    data = request.get_json() or {}
+    form = MenuItemForm(data=data, meta={'csrf': False})
+    if not form.validate():
+        return jsonify({'status': 'error', 'message': 'Валидация не пройдена', 'errors': form.errors}), 400
     
     item = MenuItem(
-        category_id=data['category_id'],
-        name_ru=data['name_ru'],
-        name_en=data.get('name_en', ''),
-        name_tr=data.get('name_tr', ''),
-        description_ru=data.get('description_ru', ''),
-        description_en=data.get('description_en', ''),
-        description_tr=data.get('description_tr', ''),
-        price=float(data['price']),
-        estimated_time=data.get('estimated_time', 15),
-        image_url=data.get('image_url', ''),
-        sort_order=data.get('sort_order', 0),
-        is_active=data.get('is_active', True)
+        category_id=form.category_id.data,
+        name_ru=form.name_ru.data,
+        name_en=form.name_en.data or '',
+        name_tk=form.name_tk.data or '',
+        description_ru=form.description_ru.data or '',
+        description_en=form.description_en.data or '',
+        description_tk=form.description_tk.data or '',
+        price=form.price.data,
+        estimated_time=form.estimated_time.data or 15,
+        image_url=form.image_url.data or '',
+        preparation_type=form.preparation_type.data,
+        has_size_options=bool(form.has_size_options.data),
+        can_modify_ingredients=bool(form.can_modify_ingredients.data),
+        is_active=bool(form.is_active.data),
+        sort_order=form.sort_order.data or 0
     )
     
     db.session.add(item)
@@ -172,10 +190,16 @@ def staff():
             'active': Staff.query.filter_by(role=role, is_active=True).count()
         }
     
+    # Создаем формы для валидации
+    create_form = StaffCreateForm()
+    update_form = StaffUpdateForm()
+    
     return render_template('admin/staff.html',
                          staff_members=staff_members,
                          roles=roles,
-                         role_stats=role_stats)
+                         role_stats=role_stats,
+                         create_form=create_form,
+                         update_form=update_form)
 
 @admin_bp.route('/staff/create', methods=['POST'])
 @admin_required
@@ -183,61 +207,128 @@ def staff():
 @with_transaction
 def create_staff():
     """Создание нового сотрудника."""
-    data = request.get_json()
-    
-    # Проверка уникальности логина
-    if Staff.find_by_login(data['login']):
-        return jsonify({
-            'status': 'error',
-            'message': 'Сотрудник с таким логином уже существует'
-        }), 400
-    
-    staff = Staff(
-        name=data['name'],
-        role=data['role'],
-        login=data['login'],
-        is_active=data.get('is_active', True)
-    )
-    staff.set_password(data['password'])
-    
-    db.session.add(staff)
-    db.session.flush()
-    
-    return jsonify({
-        'status': 'success',
-        'message': 'Сотрудник успешно создан',
-        'data': staff.to_dict()
-    })
-
-@admin_bp.route('/staff/<int:staff_id>', methods=['PUT'])
-@admin_required
-@audit_action("update_staff_member")
-@with_transaction
-def update_staff(staff_id):
-    """Обновление данных сотрудника."""
-    staff = Staff.query.get_or_404(staff_id)
-    data = request.get_json()
-    
-    # Проверка уникальности логина (исключая текущего сотрудника)
-    if data.get('login') and data['login'] != staff.login:
-        existing = Staff.query.filter_by(login=data['login']).first()
-        if existing:
+    try:
+        data = request.get_json() or {}
+        
+        # Логируем входящие данные
+        current_app.logger.info(f"Creating staff with data: {data}")
+        current_app.logger.info(f"is_active value: {data.get('is_active')}")
+        current_app.logger.info(f"is_active type: {type(data.get('is_active'))}")
+        
+        form = StaffCreateForm(data=data, meta={'csrf': False})
+        if not form.validate():
+            current_app.logger.error(f"Form validation failed: {form.errors}")
+            return jsonify({'status': 'error', 'message': 'Валидация не пройдена', 'errors': form.errors}), 400
+        
+        # Проверка уникальности логина
+        if Staff.find_by_login(form.login.data):
             return jsonify({
                 'status': 'error',
                 'message': 'Сотрудник с таким логином уже существует'
             }), 400
+        
+        # Логируем данные формы
+        current_app.logger.info(f"Form is_active.data: {form.is_active.data}")
+        current_app.logger.info(f"Form is_active.data type: {type(form.is_active.data)}")
+        
+        staff = Staff(
+            name=form.name.data,
+            role=form.role.data,
+            login=form.login.data,
+            is_active=bool(form.is_active.data)
+        )
+        
+        # Логируем финальное значение
+        current_app.logger.info(f"Final staff.is_active: {staff.is_active}")
+        
+        try:
+            staff.set_password(form.password.data)
+            current_app.logger.info("Password set successfully")
+        except Exception as e:
+            current_app.logger.error(f"Error setting password: {e}")
+            raise
+        
+        try:
+            db.session.add(staff)
+            current_app.logger.info("Staff added to session")
+            db.session.flush()
+            current_app.logger.info("Staff flushed successfully")
+        except Exception as e:
+            current_app.logger.error(f"Error adding staff to database: {e}")
+            raise
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Сотрудник успешно создан',
+            'data': staff.to_dict()
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Unexpected error in create_staff: {e}", exc_info=True)
+        return jsonify({
+            'status': 'error',
+            'message': f'Внутренняя ошибка сервера: {str(e)}'
+        }), 500
+
+@admin_bp.route('/staff/<int:staff_id>', methods=['PUT', 'DELETE'])
+@admin_required
+@with_transaction
+def update_staff(staff_id):
+    """Обновление или удаление данных сотрудника."""
+    staff = Staff.query.get_or_404(staff_id)
     
-    # Обновление полей
+    if request.method == 'DELETE':
+        # Аудит удаления
+        from app.utils.decorators import audit_action
+        audit_action("delete_staff_member")(lambda: None)()
+        
+        # Удаление сотрудника
+        staff_name = staff.name
+        db.session.delete(staff)
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Сотрудник "{staff_name}" успешно удален'
+        })
+    
+    # Аудит обновления
+    from app.utils.decorators import audit_action
+    audit_action("update_staff_member")(lambda: None)()
+    
+    # Обновление данных сотрудника
+    data = request.get_json() or {}
+    
+    # Если обновляется только статус, используем упрощенную логику
+    if len(data) == 1 and 'is_active' in data:
+        staff.is_active = bool(data['is_active'])
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Сотрудник {"активирован" if staff.is_active else "деактивирован"}',
+            'data': {'is_active': staff.is_active}
+        })
+    
+    # Полное обновление через форму
+    form = StaffUpdateForm(data=data, meta={'csrf': False}, staff_id=staff_id)
+    if not form.validate():
+        return jsonify({'status': 'error', 'message': 'Валидация не пройдена', 'errors': form.errors}), 400
+    
+    # Обновление полей только если они переданы
     if 'name' in data:
-        staff.name = data['name']
+        staff.name = form.name.data
     if 'role' in data:
-        staff.role = data['role']
+        staff.role = form.role.data
     if 'login' in data:
-        staff.login = data['login']
+        staff.login = form.login.data
     if 'is_active' in data:
-        staff.is_active = data['is_active']
-    if 'password' in data and data['password']:
-        staff.set_password(data['password'])
+        staff.is_active = bool(form.is_active.data)
+    
+    if form.password.data:
+        staff.set_password(form.password.data)
+    
+    db.session.commit()
     
     return jsonify({
         'status': 'success',
@@ -254,13 +345,19 @@ def shifts():
     """Управление сменами."""
     today = datetime.now().date()
     
-    # Смены за сегодня
-    today_shifts = StaffShift.query.filter_by(shift_date=today).all()
+    # Смены за сегодня с загрузкой связанных данных
+    today_shifts = StaffShift.query.filter_by(shift_date=today).options(
+        so.joinedload(StaffShift.staff),
+        so.joinedload(StaffShift.table_assignments).joinedload(TableAssignment.table)
+    ).all()
     
-    # Статистика смен за неделю
+    # Статистика смен за неделю с загрузкой связанных данных
     week_ago = today - timedelta(days=7)
     week_shifts = StaffShift.query.filter(
         StaffShift.shift_date >= week_ago
+    ).options(
+        so.joinedload(StaffShift.staff),
+        so.joinedload(StaffShift.table_assignments).joinedload(TableAssignment.table)
     ).order_by(desc(StaffShift.shift_date)).all()
     
     # Активные официанты
@@ -271,13 +368,19 @@ def shifts():
     # Все столы
     tables = Table.query.order_by(Table.table_number).all()
     
+    # Создаем формы для валидации
+    start_shift_form = StartShiftForm()
+    end_shift_form = EndShiftForm()
+    
     return render_template('admin/shifts.html',
                          today_shifts=today_shifts,
                          week_shifts=week_shifts,
                          active_waiters=active_waiters,
                          tables=tables,
                          today=today,
-                         now=datetime.now())
+                         now=datetime.now(),
+                         start_shift_form=start_shift_form,
+                         end_shift_form=end_shift_form)
 
 @admin_bp.route('/shifts/start', methods=['POST'])
 @admin_required
@@ -285,8 +388,12 @@ def shifts():
 @with_transaction
 def start_shift():
     """Начало смены сотрудника."""
-    data = request.get_json()
-    staff_id = data['staff_id']
+    data = request.get_json() or {}
+    form = StartShiftForm(data=data, meta={'csrf': False})
+    if not form.validate():
+        return jsonify({'status': 'error', 'message': 'Валидация не пройдена', 'errors': form.errors}), 400
+    
+    staff_id = form.staff_id.data
     table_ids = data.get('table_ids', [])
     
     # Проверка, что у сотрудника нет активной смены
@@ -415,8 +522,16 @@ def settings():
     settings = SystemSetting.query.all()
     settings_dict = {s.setting_key: s.setting_value for s in settings}
     
+    # Создаем формы для валидации
+    service_charge_form = ServiceChargeForm()
+    client_pin_form = ClientPinForm()
+    printer_settings_form = PrinterSettingsForm()
+    
     return render_template('admin/settings.html',
-                         settings=settings_dict)
+                         settings=settings_dict,
+                         service_charge_form=service_charge_form,
+                         client_pin_form=client_pin_form,
+                         printer_settings_form=printer_settings_form)
 
 @admin_bp.route('/settings/update', methods=['POST'])
 @admin_required
@@ -424,7 +539,19 @@ def settings():
 @with_transaction
 def update_settings():
     """Обновление настроек системы."""
-    data = request.get_json()
+    data = request.get_json() or {}
+    
+    # Определяем тип настройки и валидируем соответствующей формой
+    if 'service_charge_percentage' in data:
+        form = ServiceChargeForm(data={'percentage': data['service_charge_percentage']}, meta={'csrf': False})
+        if not form.validate():
+            return jsonify({'status': 'error', 'message': 'Валидация не пройдена', 'errors': form.errors}), 400
+        data['service_charge_percentage'] = str(form.percentage.data)
+    
+    if 'table_access_pin' in data:
+        form = ClientPinForm(data={'pin': data['table_access_pin']}, meta={'csrf': False})
+        if not form.validate():
+            return jsonify({'status': 'error', 'message': 'Валидация не пройдена', 'errors': form.errors}), 400
     
     for key, value in data.items():
         setting = SystemSetting.query.filter_by(setting_key=key).first()
@@ -473,10 +600,11 @@ def audit_logs():
     )
     
     # Статистика действий
-    actions_stats = db.session.query(
+    actions_stats_rows = db.session.query(
         AuditLog.action,
         func.count(AuditLog.id).label('count')
     ).group_by(AuditLog.action).order_by(desc('count')).limit(10).all()
+    actions_stats = [(row[0], int(row[1])) for row in actions_stats_rows]
     
     def get_log_severity(action):
         """Определение уровня важности действия для стилизации."""
@@ -489,11 +617,15 @@ def audit_logs():
         else:
             return 'info'
     
+    # Создаем форму для валидации
+    audit_filter_form = AuditFilterForm()
+    
     return render_template('admin/audit.html',
                          logs=logs,
                          actions_stats=actions_stats,
                          staff_members=Staff.query.all(),
-                         getLogSeverity=get_log_severity)
+                         getLogSeverity=get_log_severity,
+                         audit_filter_form=audit_filter_form)
 
 # === Z-ОТЧЕТЫ ===
 
@@ -504,8 +636,12 @@ def z_reports():
     """Z-отчеты."""
     reports = DailyReport.query.order_by(desc(DailyReport.report_date)).limit(30).all()
     
+    # Создаем форму для валидации
+    z_report_form = ZReportForm()
+    
     return render_template('admin/z_reports.html',
-                         reports=reports)
+                         reports=reports,
+                         z_report_form=z_report_form)
 
 @admin_bp.route('/z-reports/generate', methods=['POST'])
 @admin_required
@@ -513,11 +649,12 @@ def z_reports():
 @with_transaction
 def generate_z_report():
     """Генерация Z-отчета."""
-    date = request.get_json().get('date')
-    if date:
-        report_date = datetime.strptime(date, '%Y-%m-%d').date()
-    else:
-        report_date = datetime.now().date()
+    data = request.get_json() or {}
+    form = ZReportForm(data=data, meta={'csrf': False})
+    if not form.validate():
+        return jsonify({'status': 'error', 'message': 'Валидация не пройдена', 'errors': form.errors}), 400
+    
+    report_date = form.report_date.data
     
     # Проверка, что отчет еще не создан
     existing_report = DailyReport.query.filter_by(report_date=report_date).first()
@@ -558,21 +695,50 @@ def generate_z_report():
 
 # === ДОПОЛНИТЕЛЬНЫЕ ЭНДПОИНТЫ ===
 
-@admin_bp.route('/menu/item/<int:item_id>', methods=['PUT'])
+@admin_bp.route('/menu/item/<int:item_id>', methods=['GET'])
+@admin_required
+@audit_action("view_menu_item")
+def get_menu_item(item_id):
+    """Получение данных блюда для редактирования."""
+    item = MenuItem.query.get_or_404(item_id)
+    return jsonify({
+        'status': 'success',
+        'data': item.to_dict()
+    })
+
+@admin_bp.route('/menu/item/<int:item_id>', methods=['POST', 'DELETE'])
 @admin_required
 @audit_action("update_menu_item")
 @with_transaction
 def update_menu_item(item_id):
-    """Обновление блюда."""
+    """Обновление или удаление блюда."""
     item = MenuItem.query.get_or_404(item_id)
-    data = request.get_json()
+    
+    if request.method == 'DELETE':
+        # Удаление блюда
+        db.session.delete(item)
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Блюдо удалено'
+        })
+    
+    # Обновление блюда
+    data = request.get_json() or {}
+    
+    # Валидация через форму
+    form = MenuItemForm(data=data, meta={'csrf': False})
+    if not form.validate():
+        return jsonify({'status': 'error', 'message': 'Валидация не пройдена', 'errors': form.errors}), 400
     
     # Обновление полей
-    for field in ['name_ru', 'name_en', 'name_tr', 'description_ru', 'description_en', 
-                  'description_tr', 'price', 'estimated_time', 'image_url', 
+    for field in ['name_ru', 'name_en', 'name_tk', 'description_ru', 'description_en', 
+                  'description_tk', 'price', 'estimated_time', 'image_url', 
+                  'preparation_type', 'has_size_options', 'can_modify_ingredients',
                   'sort_order', 'is_active']:
-        if field in data:
-            setattr(item, field, data[field])
+        if hasattr(form, field) and hasattr(form, field).data is not None:
+            setattr(item, field, getattr(form, field).data)
     
     return jsonify({
         'status': 'success',
@@ -580,26 +746,79 @@ def update_menu_item(item_id):
         'data': item.to_dict()
     })
 
-@admin_bp.route('/menu/category/<int:category_id>', methods=['PUT'])
+@admin_bp.route('/menu/category/<int:category_id>', methods=['GET'])
+@admin_required
+@audit_action("view_menu_category")
+def get_menu_category(category_id):
+    """Получение данных категории для редактирования."""
+    category = MenuCategory.query.get_or_404(category_id)
+    return jsonify({
+        'status': 'success',
+        'data': category.to_dict()
+    })
+
+@admin_bp.route('/menu/category/<int:category_id>', methods=['POST', 'DELETE'])
 @admin_required
 @audit_action("update_menu_category")
 @with_transaction
 def update_menu_category(category_id):
-    """Обновление категории меню."""
+    """Обновление или удаление категории меню."""
     category = MenuCategory.query.get_or_404(category_id)
-    data = request.get_json()
+    
+    if request.method == 'DELETE':
+        # Удаление категории и всех блюд в ней
+        from app.models import MenuItem
+        MenuItem.query.filter_by(category_id=category_id).delete()
+        db.session.delete(category)
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Категория и все блюда в ней удалены'
+        })
+    
+    # Обновление категории
+    data = request.get_json() or {}
+    
+    # Валидация через форму
+    form = MenuCategoryForm(data=data, meta={'csrf': False})
+    if not form.validate():
+        return jsonify({'status': 'error', 'message': 'Валидация не пройдена', 'errors': form.errors}), 400
     
     # Обновление полей
-    for field in ['name_ru', 'name_en', 'name_tr', 'description_ru', 'description_en', 
-                  'description_tr', 'sort_order', 'is_active']:
-        if field in data:
-            setattr(category, field, data[field])
+    for field in ['name_ru', 'name_en', 'name_tk', 'sort_order', 'is_active']:
+        if hasattr(form, field) and getattr(form, field).data is not None:
+            setattr(category, field, getattr(form, field).data)
     
     return jsonify({
         'status': 'success',
         'message': 'Категория обновлена',
         'data': category.to_dict()
     })
+
+@admin_bp.route('/menu/item/<int:item_id>/toggle', methods=['POST'])
+@admin_required
+@audit_action("toggle_menu_item_availability")
+@with_transaction
+def toggle_menu_item_availability(item_id):
+    """Изменение доступности блюда."""
+    item = MenuItem.query.get_or_404(item_id)
+    data = request.get_json() or {}
+    
+    if 'is_available' in data:
+        item.is_active = data['is_available']
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Блюдо {"доступно" if item.is_active else "скрыто"}',
+            'data': {'is_available': item.is_active}
+        })
+    
+    return jsonify({
+        'status': 'error',
+        'message': 'Не указан параметр is_available'
+    }), 400
 
 @admin_bp.route('/shifts/<int:shift_id>/end', methods=['POST'])
 @admin_required
@@ -614,6 +833,15 @@ def end_shift(shift_id):
             'status': 'error',
             'message': 'Смена уже завершена'
         }), 400
+    
+    data = request.get_json() or {}
+    
+    # Если есть заметки, валидируем форму
+    if data.get('notes'):
+        form = EndShiftForm(data=data, meta={'csrf': False})
+        if not form.validate():
+            return jsonify({'status': 'error', 'message': 'Валидация не пройдена', 'errors': form.errors}), 400
+        shift.notes = form.notes.data
     
     shift.shift_end = datetime.now()
     

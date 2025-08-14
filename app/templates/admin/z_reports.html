@@ -283,10 +283,14 @@
                     После создания отчет нельзя изменить.
                 </div>
                 
-                <form id="generateReportForm">
+                <form id="generateReportForm" method="post">
+                    {{ z_report_form.hidden_tag() }}
                     <div class="mb-3">
                         <label for="reportDate" class="form-label">Дата отчета</label>
-                        <input type="date" class="form-control" id="reportDate" required>
+                        {{ z_report_form.report_date(class="form-control", required=true) }}
+                        <div class="invalid-feedback">
+                            {{ z_report_form.report_date.errors[0] if z_report_form.report_date.errors else '' }}
+                        </div>
                     </div>
                     
                     <div class="mb-3">
@@ -309,7 +313,7 @@
                             <input class="form-check-input" type="checkbox" id="autoPrint">
                             <label class="form-check-label" for="autoPrint">
                                 Автоматически распечатать отчет
-                            </label>
+                            </div>
                         </div>
                     </div>
                 </form>

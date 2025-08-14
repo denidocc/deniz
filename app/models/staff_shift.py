@@ -64,11 +64,29 @@ class StaffShift(BaseModel):
         return self.is_active and self.shift_end is None
     
     def get_duration(self) -> Optional[int]:
-        """Получение продолжительности смены в минутах."""
-        if self.shift_end:
-            duration = self.shift_end - self.shift_start
+        """Получение продолжительности смены в минутах.
+        Безопасно нормализует timezone-aware/naive datetime перед вычитанием.
+        """
+        if not self.shift_start:
+            return None
+        from datetime import datetime
+        end_dt = self.shift_end or datetime.utcnow()
+        start_dt = self.shift_start
+        # Нормализация tz: приводим к одному типу (добавляем tzinfo если один aware)
+        if getattr(start_dt, 'tzinfo', None) and not getattr(end_dt, 'tzinfo', None):
+            end_dt = end_dt.replace(tzinfo=start_dt.tzinfo)
+        elif getattr(end_dt, 'tzinfo', None) and not getattr(start_dt, 'tzinfo', None):
+            start_dt = start_dt.replace(tzinfo=end_dt.tzinfo)
+        try:
+            duration = end_dt - start_dt
             return int(duration.total_seconds() / 60)
-        return None
+        except Exception:
+            return None
+    
+    @property
+    def tables_assigned(self) -> list[int]:
+        """Получение списка ID назначенных столов."""
+        return [ta.table_id for ta in self.table_assignments if ta.is_active]
     
     def get_assigned_tables(self) -> list["Table"]:
         """Получение назначенных столов."""

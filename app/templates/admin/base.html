@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}Административная панель - DENIZ Restaurant{% endblock %}</title>
     
     <!-- Bootstrap CSS -->
@@ -249,7 +250,7 @@
     </style>
     
     {% block extra_css %}{% endblock %}
-</head>
+    </head>
 <body>
     <!-- Sidebar Toggle Button -->
     <button class="sidebar-toggle d-md-none" id="sidebarToggle">

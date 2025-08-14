@@ -64,9 +64,9 @@ class Table(BaseModel):
     def get_current_order(self) -> Optional["Order"]:
         """Получение текущего заказа для стола."""
         from .order import Order
-        return Order.query.filter_by(
-            table_id=self.id,
-            status__in=['pending', 'confirmed']
+        return Order.query.filter(
+            Order.table_id == self.id,
+            Order.status.in_(['pending', 'confirmed'])
         ).first()
     
     def get_assigned_waiter(self) -> Optional["Staff"]:

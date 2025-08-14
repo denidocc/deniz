@@ -57,6 +57,35 @@
         background: var(--admin-danger);
         color: white;
     }
+    
+    /* Стили для валидации */
+    .form-control.is-invalid {
+        border-color: #dc3545;
+        box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+    }
+    
+    .form-select.is-invalid {
+        border-color: #dc3545;
+        box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+    }
+    
+    .invalid-feedback {
+        display: none;
+        width: 100%;
+        margin-top: 0.25rem;
+        font-size: 0.875em;
+        color: #dc3545;
+    }
+    
+    .form-control.is-valid {
+        border-color: #198754;
+        box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.25);
+    }
+    
+    .form-select.is-valid {
+        border-color: #198754;
+        box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.25);
+    }
 </style>
 {% endblock %}
 
@@ -198,6 +227,11 @@
                                     <i class="bi bi-play"></i>
                                 </button>
                             {% endif %}
+                            <button class="btn btn-sm btn-outline-danger" 
+                                    onclick="deleteStaff({{ staff_member.id }}, '{{ staff_member.name }}')" 
+                                    title="Удалить">
+                                <i class="bi bi-trash"></i>
+                            </button>
                         </div>
                     </td>
                 </tr>
@@ -218,36 +252,51 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form id="addStaffForm">
+                <form id="addStaffForm" method="post">
+                    {{ create_form.hidden_tag() }}
                     <div class="mb-3">
                         <label for="staffName" class="form-label">Имя сотрудника</label>
-                        <input type="text" class="form-control" id="staffName" required>
+                        {{ create_form.name(class="form-control", id="staffName", required=true) }}
+                        <div class="invalid-feedback">
+                            {{ create_form.name.errors[0] if create_form.name.errors else '' }}
+                        </div>
                     </div>
                     
                     <div class="mb-3">
                         <label for="staffRole" class="form-label">Роль</label>
-                        <select class="form-select" id="staffRole" required>
-                            <option value="">Выберите роль</option>
-                            <option value="admin">Администратор</option>
-                            <option value="waiter">Официант</option>
-                            <option value="kitchen">Кухня</option>
-                            <option value="bar">Бар</option>
-                        </select>
+                        {{ create_form.role(class="form-select", id="staffRole", required=true) }}
+                        <div class="invalid-feedback">
+                            {{ create_form.login.errors[0] if create_form.login.errors else '' }}
+                        </div>
                     </div>
                     
                     <div class="mb-3">
                         <label for="staffLogin" class="form-label">Логин</label>
-                        <input type="text" class="form-control" id="staffLogin" required>
+                        {{ create_form.login(class="form-control", id="staffLogin", required=true) }}
+                        <div class="invalid-feedback">
+                            {{ create_form.login.errors[0] if create_form.login.errors else '' }}
+                        </div>
                     </div>
                     
                     <div class="mb-3">
                         <label for="staffPassword" class="form-label">Пароль</label>
-                        <input type="password" class="form-control" id="staffPassword" required>
+                        {{ create_form.password(class="form-control", id="staffPassword", required=true) }}
+                        <div class="invalid-feedback">
+                            {{ create_form.password.errors[0] if create_form.password.errors else '' }}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="staffPasswordConfirm" class="form-label">Подтверждение пароля</label>
+                        {{ create_form.password_confirm(class="form-control", id="staffPasswordConfirm", required=true) }}
+                        <div class="invalid-feedback">
+                            {{ create_form.password_confirm.errors[0] if create_form.password_confirm.errors else '' }}
+                        </div>
                     </div>
                     
                     <div class="mb-3">
                         <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="staffActive" checked>
+                            <input type="checkbox" class="form-check-input" id="staffActive" name="is_active" checked>
                             <label class="form-check-label" for="staffActive">
                                 Активный сотрудник
                             </label>
@@ -276,7 +325,8 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form id="editStaffForm">
+                <form id="editStaffForm" method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" id="editStaffId">
                     
                     <div class="mb-3">
@@ -327,6 +377,63 @@
 
 {% block extra_js %}
 <script>
+    // Валидация в реальном времени
+    function validateField(fieldId, value, rules) {
+        const field = document.getElementById(fieldId);
+        const feedback = field.parentNode.querySelector('.invalid-feedback');
+        
+        let errors = [];
+        
+        if (rules.required && (!value || value.trim() === '')) {
+            errors.push('Поле обязательно для заполнения');
+        }
+        
+        if (rules.minLength && value && value.length < rules.minLength) {
+            errors.push(`Минимальная длина: ${rules.minLength} символов`);
+        }
+        
+        if (rules.maxLength && value && value.length > rules.maxLength) {
+            errors.push(`Максимальная длина: ${rules.maxLength} символов`);
+        }
+        
+        // Показываем ошибки
+        if (errors.length > 0) {
+            field.classList.add('is-invalid');
+            if (feedback) {
+                feedback.textContent = errors.join('; ');
+                feedback.style.display = 'block';
+            }
+        } else {
+            field.classList.remove('is-invalid');
+            if (feedback) {
+                feedback.style.display = 'none';
+            }
+        }
+        
+        return errors.length === 0;
+    }
+    
+    function validatePasswordMatch() {
+        const password = document.getElementById('staffPassword');
+        const confirmPassword = document.getElementById('staffPasswordConfirm');
+        const feedback = confirmPassword.parentNode.querySelector('.invalid-feedback');
+        
+        if (confirmPassword.value && password.value !== confirmPassword.value) {
+            confirmPassword.classList.add('is-invalid');
+            if (feedback) {
+                feedback.textContent = 'Пароли не совпадают';
+                feedback.style.display = 'block';
+            }
+            return false;
+        } else {
+            confirmPassword.classList.remove('is-invalid');
+            if (feedback) {
+                feedback.style.display = 'none';
+            }
+            return true;
+        }
+    }
+    
     // Search and filter functionality
     document.addEventListener('DOMContentLoaded', function() {
         const searchInput = document.getElementById('staffSearch');
@@ -362,6 +469,126 @@
         searchInput.addEventListener('input', filterTable);
         roleFilter.addEventListener('change', filterTable);
         statusFilter.addEventListener('change', filterTable);
+        
+        // Добавляем валидацию в реальном времени для полей формы
+        const nameField = document.getElementById('staffName');
+        const loginField = document.getElementById('staffLogin');
+        const passwordField = document.getElementById('staffPassword');
+        const confirmPasswordField = document.getElementById('staffPasswordConfirm');
+        
+        if (nameField) {
+            nameField.addEventListener('input', () => validateField('staffName', nameField.value, { required: true, minLength: 1, maxLength: 100 }));
+            nameField.addEventListener('blur', () => validateField('staffName', nameField.value, { required: true, minLength: 1, maxLength: 100 }));
+        }
+        
+        if (loginField) {
+            loginField.addEventListener('input', () => validateField('staffLogin', loginField.value, { required: true, minLength: 3, maxLength: 50 }));
+            loginField.addEventListener('blur', () => validateField('staffLogin', loginField.value, { required: true, minLength: 3, maxLength: 50 }));
+        }
+        
+        if (passwordField) {
+            passwordField.addEventListener('input', () => {
+                validateField('staffPassword', passwordField.value, { required: true, minLength: 6 });
+                validatePasswordMatch();
+            });
+            passwordField.addEventListener('blur', () => {
+                validateField('staffPassword', passwordField.value, { required: true, minLength: 6 });
+                validatePasswordMatch();
+            });
+        }
+        
+        if (confirmPasswordField) {
+            confirmPasswordField.addEventListener('input', validatePasswordMatch);
+            confirmPasswordField.addEventListener('blur', validatePasswordMatch);
+        }
+    });
+
+    // Валидация в реальном времени
+    function validateField(fieldName, value, rules) {
+        const errors = [];
+        
+        if (rules.required && (!value || value.trim() === '')) {
+            errors.push('Поле обязательно для заполнения');
+        }
+        
+        if (rules.minLength && value && value.length < rules.minLength) {
+            errors.push(`Минимальная длина: ${rules.minLength} символов`);
+        }
+        
+        if (rules.maxLength && value && value.length > rules.maxLength) {
+            errors.push(`Максимальная длина: ${rules.maxLength} символов`);
+        }
+        
+        if (rules.pattern && value && !rules.pattern.test(value)) {
+            errors.push(rules.patternMessage || 'Неверный формат');
+        }
+        
+        return errors;
+    }
+    
+    function showFieldError(fieldId, errors) {
+        const field = document.getElementById(fieldId);
+        const feedback = field.parentNode.querySelector('.invalid-feedback');
+        
+        if (errors.length > 0) {
+            field.classList.add('is-invalid');
+            if (feedback) {
+                feedback.textContent = errors.join('; ');
+                feedback.style.display = 'block';
+            }
+        } else {
+            field.classList.remove('is-invalid');
+            if (feedback) {
+                feedback.style.display = 'none';
+            }
+        }
+    }
+    
+    function validatePasswordMatch() {
+        const password = document.getElementById('staffPassword').value;
+        const confirmPassword = document.getElementById('staffPasswordConfirm').value;
+        
+        if (confirmPassword && password !== confirmPassword) {
+            showFieldError('staffPasswordConfirm', ['Пароли не совпадают']);
+            return false;
+        } else {
+            showFieldError('staffPasswordConfirm', []);
+            return true;
+        }
+    }
+    
+    // Добавляем валидацию в реальном времени
+    document.addEventListener('DOMContentLoaded', function() {
+        const fields = {
+            'staffName': { required: true, minLength: 1, maxLength: 100 },
+            'staffLogin': { required: true, minLength: 3, maxLength: 50 },
+            'staffPassword': { required: true, minLength: 6 },
+            'staffPasswordConfirm': { required: true }
+        };
+        
+        Object.keys(fields).forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.addEventListener('input', function() {
+                    const errors = validateField(fieldId, this.value, fields[fieldId]);
+                    showFieldError(fieldId, errors);
+                    
+                    // Специальная валидация для подтверждения пароля
+                    if (fieldId === 'staffPasswordConfirm') {
+                        validatePasswordMatch();
+                    }
+                });
+                
+                field.addEventListener('blur', function() {
+                    const errors = validateField(fieldId, this.value, fields[fieldId]);
+                    showFieldError(fieldId, errors);
+                    
+                    if (fieldId === 'staffPasswordConfirm') {
+                        validatePasswordMatch();
+                    }
+                });
+            }
+        });
     });
 
     // Save new staff member
@@ -370,13 +597,21 @@
         const button = event.target;
         const originalText = showLoading(button);
         
+        // Получаем значения из WTForms полей
+        const formData = new FormData(form);
+        
         const data = {
-            name: document.getElementById('staffName').value,
-            role: document.getElementById('staffRole').value,
-            login: document.getElementById('staffLogin').value,
-            password: document.getElementById('staffPassword').value,
-            is_active: document.getElementById('staffActive').checked
+            name: formData.get('name'),
+            role: formData.get('role'),
+            login: formData.get('login'),
+            password: formData.get('password'),
+            password_confirm: formData.get('password_confirm'),
+            is_active: formData.get('is_active') === 'on' || formData.get('is_active') === 'y'
         };
+        
+        console.log('Sending data:', data);
+        console.log('Checkbox value:', formData.get('is_active'));
+        console.log('is_active boolean:', data.is_active);
         
         try {
             const response = await apiRequest('{{ url_for("admin.create_staff") }}', {
@@ -395,7 +630,26 @@
             }, 1000);
             
         } catch (error) {
-            showAlert('Ошибка при создании сотрудника: ' + error.message, 'danger');
+            console.error('Error details:', error);
+            
+            // Пытаемся получить детали ошибки из ответа
+            let errorMessage = 'Ошибка при создании сотрудника: ' + error.message;
+            
+            if (error.response) {
+                try {
+                    const errorData = await error.response.json();
+                    if (errorData.errors) {
+                        const errorDetails = Object.entries(errorData.errors)
+                            .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
+                            .join('; ');
+                        errorMessage = `Ошибки валидации: ${errorDetails}`;
+                    }
+                } catch (e) {
+                    console.error('Failed to parse error response:', e);
+                }
+            }
+            
+            showAlert(errorMessage, 'danger');
         } finally {
             hideLoading(button, originalText);
         }
@@ -482,6 +736,28 @@
             
         } catch (error) {
             showAlert('Ошибка при изменении статуса: ' + error.message, 'danger');
+        }
+    }
+
+    // Delete staff member
+    async function deleteStaff(staffId, staffName) {
+        if (!confirm(`Вы уверены, что хотите удалить сотрудника "${staffName}"? Это действие нельзя отменить.`)) {
+            return;
+        }
+        
+        try {
+            const response = await apiRequest(`{{ url_for("admin.update_staff", staff_id=0) }}`.replace('0', staffId), {
+                method: 'DELETE'
+            });
+            
+            showAlert('Сотрудник успешно удален', 'success');
+            
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+            
+        } catch (error) {
+            showAlert('Ошибка при удалении: ' + error.message, 'danger');
         }
     }
 </script>

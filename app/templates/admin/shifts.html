@@ -102,7 +102,7 @@
 <div class="row mb-4">
     <div class="col-md-3">
         <div class="stat-card">
-            <div class="stat-value">{{ today_shifts|selectattr('end_time', 'none')|list|length }}</div>
+            <div class="stat-value">{{ today_shifts|selectattr('shift_end', 'none')|list|length }}</div>
             <div class="stat-label">
                 <i class="bi bi-clock"></i> Активных смен
             </div>
@@ -137,20 +137,46 @@
 <!-- Quick Start Section -->
 <div class="quick-start-section">
     <div class="row align-items-center">
-        <div class="col-md-8">
+        <div class="col-md-6">
             <h4><i class="bi bi-lightning"></i> Быстрый старт смены</h4>
-            <p class="mb-0">Выберите официанта и назначьте столы для начала новой смены</p>
+            <p class="mb-3">Выберите официанта и назначьте столы для начала новой смены</p>
+            
+            <div class="mb-3">
+                <label for="quickWaiterSelect" class="form-label text-white">Выберите официанта</label>
+                <select class="form-select mb-2" id="quickWaiterSelect">
+                    <option value="">Выберите официанта</option>
+                    {% for waiter in active_waiters %}
+                    <option value="{{ waiter.id }}">{{ waiter.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label text-white">Выберите столы (необязательно)</label>
+                <div class="table-selector bg-white rounded p-2" style="max-height: 150px; overflow-y: auto;">
+                    <div class="row">
+                        {% for table in tables %}
+                        <div class="col-md-4 mb-2">
+                            <div class="form-check">
+                                <input class="form-check-input quick-table-checkbox" type="checkbox" 
+                                       id="quickTable{{ table.id }}" value="{{ table.id }}">
+                                <label class="form-check-label text-dark" for="quickTable{{ table.id }}">
+                                    Стол {{ table.table_number }}
+                                    <small class="text-muted">({{ table.capacity }} мест)</small>
+                                </label>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="col-md-4">
-            <select class="form-select mb-2" id="quickWaiterSelect">
-                <option value="">Выберите официанта</option>
-                {% for waiter in active_waiters %}
-                <option value="{{ waiter.id }}">{{ waiter.name }}</option>
-                {% endfor %}
-            </select>
-            <button class="btn btn-light w-100" onclick="quickStartShift()">
-                <i class="bi bi-play"></i> Начать смену
+        
+        <div class="col-md-6 text-center">
+            <button class="btn btn-light btn-lg px-4" onclick="quickStartShift()">
+                <i class="bi bi-play-circle"></i> Начать смену
             </button>
+            <p class="text-white-50 mt-2 small">Столы можно назначить позже или оставить пустыми</p>
         </div>
     </div>
 </div>
@@ -161,7 +187,7 @@
         <h4><i class="bi bi-clock"></i> Активные смены (сегодня)</h4>
         {% if today_shifts %}
             {% for shift in today_shifts %}
-                {% if not shift.end_time %}
+                {% if not shift.shift_end %}
                 <div class="shift-card shift-active">
                     <div class="shift-header">
                         <div class="d-flex justify-content-between align-items-center">
@@ -175,9 +201,7 @@
                                 </div>
                             </div>
                             <div class="text-end">
-                                <span class="duration-badge">
-                                    Работает {{ ((moment() - shift.start_time).total_seconds() / 3600)|round(1) }} ч
-                                </span>
+                                <span class="duration-badge">Работает</span>
                                 <button class="btn btn-sm btn-danger ms-2" 
                                         onclick="endShift({{ shift.id }})">
                                     <i class="bi bi-stop-circle"></i> Завершить
@@ -188,13 +212,15 @@
                     <div class="shift-body">
                         <div class="row">
                             <div class="col-md-6">
-                                <strong>Начало смены:</strong> {{ shift.start_time.strftime('%H:%M') }}
+                                <strong>Начало смены:</strong> {{ shift.shift_start.strftime('%H:%M') }}
                             </div>
                             <div class="col-md-6">
                                 <strong>Назначенные столы:</strong>
-                                {% if shift.tables_assigned %}
-                                    {% for table_id in shift.tables_assigned %}
-                                        <span class="table-assignment">Стол {{ table_id }}</span>
+                                {% if shift.table_assignments %}
+                                    {% for assignment in shift.table_assignments %}
+                                        {% if assignment.is_active and assignment.table %}
+                                            <span class="table-assignment">Стол {{ assignment.table.table_number }}</span>
+                                        {% endif %}
                                     {% endfor %}
                                 {% else %}
                                     <span class="text-muted">Столы не назначены</span>
@@ -254,10 +280,10 @@
         <!-- Shifts list -->
         <div id="shiftsContainer">
             {% for shift in week_shifts[:10] %}
-            <div class="shift-card {{ 'shift-ended' if shift.end_time else 'shift-active' }}"
+            <div class="shift-card {{ 'shift-ended' if shift.shift_end else 'shift-active' }}"
                  data-staff-id="{{ shift.staff.id }}" 
-                 data-date="{{ shift.date.isoformat() }}"
-                 data-status="{{ 'ended' if shift.end_time else 'active' }}">
+                 data-date="{{ shift.shift_date.isoformat() }}"
+                 data-status="{{ 'ended' if shift.shift_end else 'active' }}">
                 <div class="shift-header">
                     <div class="d-flex justify-content-between align-items-center">
                         <div class="d-flex align-items-center">
@@ -266,11 +292,11 @@
                             </div>
                             <div>
                                 <h6 class="mb-0">{{ shift.staff.name }}</h6>
-                                <small class="text-muted">{{ shift.date.strftime('%d.%m.%Y') }}</small>
+                                <small class="text-muted">{{ shift.shift_date.strftime('%d.%m.%Y') }}</small>
                             </div>
                         </div>
                         <div class="text-end">
-                            {% if shift.end_time %}
+                            {% if shift.shift_end %}
                                 <span class="badge bg-secondary">Завершена</span>
                             {% else %}
                                 <span class="badge bg-success">Активна</span>
@@ -281,25 +307,27 @@
                 <div class="shift-body">
                     <div class="row">
                         <div class="col-md-3">
-                            <strong>Начало:</strong> {{ shift.start_time.strftime('%H:%M') }}
+                            <strong>Начало:</strong> {{ shift.shift_start.strftime('%H:%M') }}
                         </div>
                         <div class="col-md-3">
                             <strong>Окончание:</strong> 
-                            {{ shift.end_time.strftime('%H:%M') if shift.end_time else 'В работе' }}
+                            {{ shift.shift_end.strftime('%H:%M') if shift.shift_end else 'В работе' }}
                         </div>
                         <div class="col-md-3">
                             <strong>Длительность:</strong>
-                            {% if shift.end_time %}
-                                {{ ((shift.end_time - shift.start_time).total_seconds() / 3600)|round(1) }} ч
+                            {% if shift.shift_end %}
+                                {{ ((shift.shift_end - shift.shift_start).total_seconds() / 3600)|round(1) }} ч
                             {% else %}
-                                {{ ((now - shift.start_time).total_seconds() / 3600)|round(1) }} ч
+                                В работе
                             {% endif %}
                         </div>
                         <div class="col-md-3">
                             <strong>Столы:</strong>
-                            {% if shift.tables_assigned %}
-                                {% for table_id in shift.tables_assigned %}
-                                    <span class="table-assignment">{{ table_id }}</span>
+                            {% if shift.table_assignments %}
+                                {% for assignment in shift.table_assignments %}
+                                    {% if assignment.is_active and assignment.table %}
+                                        <span class="table-assignment">{{ assignment.table.table_number }}</span>
+                                    {% endif %}
                                 {% endfor %}
                             {% else %}
                                 <span class="text-muted">—</span>
@@ -324,15 +352,14 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form id="startShiftForm">
+                <form id="startShiftForm" method="post">
+                    {{ start_shift_form.hidden_tag() }}
                     <div class="mb-3">
                         <label for="shiftStaff" class="form-label">Выберите сотрудника</label>
-                        <select class="form-select" id="shiftStaff" required>
-                            <option value="">Выберите официанта</option>
-                            {% for waiter in active_waiters %}
-                            <option value="{{ waiter.id }}">{{ waiter.name }}</option>
-                            {% endfor %}
-                        </select>
+                        {{ start_shift_form.staff_id(class="form-select", required=true, id="shiftStaff") }}
+                        <div class="invalid-feedback">
+                            {{ start_shift_form.staff_id.errors[0] if start_shift_form.staff_id.errors else '' }}
+                        </div>
                     </div>
                     
                     <div class="mb-3">
@@ -345,8 +372,8 @@
                                         <input class="form-check-input" type="checkbox" 
                                                id="table{{ table.id }}" value="{{ table.id }}">
                                         <label class="form-check-label" for="table{{ table.id }}">
-                                            Стол {{ table.number }}
-                                            <small class="text-muted">({{ table.seats }} мест)</small>
+                                            Стол {{ table.table_number }}
+                                            <small class="text-muted">({{ table.capacity }} мест)</small>
                                         </label>
                                     </div>
                                 </div>
@@ -358,7 +385,7 @@
                     
                     <div class="mb-3">
                         <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="autoAssignTables">
+                            {{ start_shift_form.auto_assign(class="form-check-input", id="autoAssignTables") }}
                             <label class="form-check-label" for="autoAssignTables">
                                 Автоматически назначить свободные столы
                             </label>
@@ -380,15 +407,39 @@
 {% block extra_js %}
 <script>
     // Quick start shift
-    function quickStartShift() {
+    async function quickStartShift() {
         const waiterId = document.getElementById('quickWaiterSelect').value;
         if (!waiterId) {
             showAlert('Выберите официанта', 'warning');
             return;
         }
         
-        // Auto-assign tables and start shift
-        startShiftForWaiter(waiterId, [], true);
+        // Get selected tables
+        const selectedTables = [];
+        const quickTableCheckboxes = document.querySelectorAll('.quick-table-checkbox:checked');
+        quickTableCheckboxes.forEach(checkbox => {
+            selectedTables.push(parseInt(checkbox.value));
+        });
+        
+        try {
+            // Auto-assign tables and start shift
+            await startShiftForWaiter(waiterId, selectedTables, true);
+            
+            // Reset form and refresh page
+            document.getElementById('quickWaiterSelect').value = '';
+            document.querySelectorAll('.quick-table-checkbox:checked').forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            
+            showAlert('Смена успешно начата!', 'success');
+            
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+            
+        } catch (error) {
+            showAlert('Ошибка при начале смены: ' + error.message, 'danger');
+        }
     }
 
     // Start shift
@@ -397,7 +448,8 @@
         const originalText = showLoading(button);
         
         const staffId = document.getElementById('shiftStaff').value;
-        const autoAssign = document.getElementById('autoAssignTables').checked;
+        const autoAssignElement = document.getElementById('autoAssignTables');
+        const autoAssign = autoAssignElement ? autoAssignElement.checked : false;
         
         if (!staffId) {
             showAlert('Выберите сотрудника', 'warning');
@@ -407,7 +459,8 @@
         
         // Get selected tables
         const selectedTables = [];
-        document.querySelectorAll('.table-checkbox input:checked').forEach(checkbox => {
+        const tableCheckboxes = document.querySelectorAll('.table-checkbox input[type="checkbox"]:checked');
+        tableCheckboxes.forEach(checkbox => {
             selectedTables.push(parseInt(checkbox.value));
         });
         
@@ -453,8 +506,17 @@
         }
         
         try {
+            // Получаем CSRF токен из формы
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
+                             document.querySelector('input[name="csrf_token"]')?.value;
+            
             const response = await apiRequest(`/admin/shifts/${shiftId}/end`, {
-                method: 'POST'
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({})
             });
             
             showAlert('Смена завершена', 'success');

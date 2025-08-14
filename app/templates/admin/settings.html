@@ -203,7 +203,7 @@
                 <option value="RUB" {{ 'selected' if settings.get('currency', 'RUB') == 'RUB' else '' }}>Российский рубль (₽)</option>
                 <option value="USD" {{ 'selected' if settings.get('currency') == 'USD' else '' }}>Доллар США ($)</option>
                 <option value="EUR" {{ 'selected' if settings.get('currency') == 'EUR' else '' }}>Евро (€)</option>
-                <option value="TRY" {{ 'selected' if settings.get('currency') == 'TRY' else '' }}>Турецкая лира (₺)</option>
+                <option value="TMT" {{ 'selected' if settings.get('currency') == 'TMT' else '' }}>Туркменский манат (TMT)</option>
             </select>
         </div>
     </div>
@@ -341,6 +341,27 @@
                    value="{{ settings.get('session_timeout', '60') }}">
         </div>
         
+        <div class="setting-item">
+            <div class="setting-label">PIN для выбора стола (клиент)</div>
+            <div class="setting-description">4-6 цифр. Используется на планшетах гостей для доступа к выбору стола</div>
+            <form id="clientPinForm" class="mt-3">
+                {{ client_pin_form.hidden_tag() }}
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <input type="text" class="form-control" name="pin" 
+                                   placeholder="Введите PIN (4-6 цифр)" 
+                                   pattern="[0-9]{4,6}" maxlength="6"
+                                   value="{{ settings.get('table_access_pin', '2112') }}">
+                            <button class="btn btn-outline-primary" type="submit">
+                                <i class="bi bi-key"></i> Обновить PIN
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
         <div class="setting-item">
             <div class="setting-label">Блокировка IP</div>
             <div class="setting-description">Блокировать IP после неудачных попыток входа</div>
@@ -601,11 +622,40 @@
             languages.push('en');
         }
         if (document.getElementById('langTr').checked) {
-            languages.push('tr');
+            languages.push('tk');
         }
         
         return languages.join(',');
     }
+
+    // Обработка формы PIN-кода клиента
+    document.getElementById('clientPinForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const form = e.target;
+        const button = form.querySelector('button[type="submit"]');
+        const originalText = showLoading(button);
+        
+        try {
+            const formData = new FormData(form);
+            const pin = formData.get('pin');
+            
+            if (!pin || pin.length < 4 || pin.length > 6 || !/^\d+$/.test(pin)) {
+                throw new Error('PIN должен содержать 4-6 цифр');
+            }
+            
+            const response = await apiRequest('/admin/settings/update', {
+                method: 'POST',
+                body: JSON.stringify({ table_access_pin: pin })
+            });
+            
+            showAlert('PIN-код успешно обновлён', 'success');
+            
+        } catch (error) {
+            showAlert('Ошибка при обновлении PIN: ' + error.message, 'danger');
+        } finally {
+            hideLoading(button, originalText);
+        }
+    });
 
     // Create backup
     async function createBackup() {

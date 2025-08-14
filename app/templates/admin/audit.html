@@ -88,7 +88,13 @@
         border-radius: 8px;
         padding: 1rem;
         margin-bottom: 2rem;
+        position: relative;
+        height: 300px;
     }
+
+.action-chart canvas {
+    height: 100% !important;
+}
 </style>
 {% endblock %}
 
@@ -146,37 +152,38 @@
 <div class="filter-panel">
     <h5><i class="bi bi-funnel"></i> Фильтры</h5>
     <form id="auditFilters" method="GET">
+        {{ audit_filter_form.hidden_tag() }}
         <div class="row align-items-end">
             <div class="col-md-3">
                 <label for="staffFilter" class="form-label">Сотрудник</label>
-                <select class="form-select" id="staffFilter" name="staff_id">
-                    <option value="">Все сотрудники</option>
-                    {% for staff in staff_members %}
-                    <option value="{{ staff.id }}" 
-                            {{ 'selected' if request.args.get('staff_id')|int == staff.id else '' }}>
-                        {{ staff.name }} ({{ staff.role }})
-                    </option>
-                    {% endfor %}
-                </select>
+                {{ audit_filter_form.staff_id(class="form-select") }}
+                <div class="invalid-feedback">
+                    {{ audit_filter_form.staff_id.errors[0] if audit_filter_form.staff_id.errors else '' }}
+                </div>
             </div>
             
             <div class="col-md-2">
                 <label for="actionFilter" class="form-label">Действие</label>
-                <input type="text" class="form-control" id="actionFilter" name="action" 
-                       value="{{ request.args.get('action', '') }}" 
-                       placeholder="Поиск по действию">
+                {{ audit_filter_form.action_type(class="form-control", placeholder="Поиск по действию") }}
+                <div class="invalid-feedback">
+                    {{ audit_filter_form.action_type.errors[0] if audit_filter_form.action_type.errors else '' }}
+                </div>
             </div>
             
             <div class="col-md-2">
                 <label for="dateFrom" class="form-label">Дата от</label>
-                <input type="date" class="form-control" id="dateFrom" name="date_from" 
-                       value="{{ request.args.get('date_from', '') }}">
+                {{ audit_filter_form.date_from(class="form-control") }}
+                <div class="invalid-feedback">
+                    {{ audit_filter_form.date_from.errors[0] if audit_filter_form.date_from.errors else '' }}
+                </div>
             </div>
             
             <div class="col-md-2">
                 <label for="dateTo" class="form-label">Дата до</label>
-                <input type="date" class="form-control" id="dateTo" name="date_to" 
-                       value="{{ request.args.get('date_to', '') }}">
+                {{ audit_filter_form.date_to(class="form-control") }}
+                <div class="invalid-feedback">
+                    {{ audit_filter_form.date_to.errors[0] if audit_filter_form.date_to.errors else '' }}
+                </div>
             </div>
             
             <div class="col-md-2">
@@ -215,7 +222,7 @@
                         {% endif %}
                     </div>
                     <span class="audit-timestamp">
-                        {{ log.timestamp.strftime('%d.%m.%Y %H:%M:%S') }}
+                        {{ log.created_at.strftime('%d.%m.%Y %H:%M:%S') }}
                     </span>
                 </div>
                 
@@ -331,13 +338,23 @@
 <script>
     // Initialize actions chart
     document.addEventListener('DOMContentLoaded', function() {
-        const ctx = document.getElementById('actionsChart').getContext('2d');
+        const canvas = document.getElementById('actionsChart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        // Фиксируем высоту, чтобы избежать бесконечного роста при ресайзе
+        canvas.style.height = '280px';
+        canvas.height = 280;
         
         const actionsData = {{ actions_stats|tojson }};
         const labels = actionsData.map(item => item[0]);
         const data = actionsData.map(item => item[1]);
         
-        new Chart(ctx, {
+        // Уничтожаем предыдущий инстанс, если есть
+        if (window.actionsChartInstance) {
+            window.actionsChartInstance.destroy();
+        }
+        
+        window.actionsChartInstance = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: labels,
@@ -461,9 +478,6 @@
         }
     });
 </script>
-
-<!-- Helper functions for template -->
-{% set _ = self.extend_template_functions() %}
 
 {%- macro getLogSeverity(action) -%}
     {%- if 'error' in action.lower() or 'fail' in action.lower() -%}
