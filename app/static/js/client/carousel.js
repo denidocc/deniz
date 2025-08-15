@@ -22,7 +22,7 @@ class CarouselManager {
         
         // Автопрокрутка
         this.autoplayInterval = null;
-        this.autoplayDelay = 5000; // 5 секунд
+        this.autoplayDelay = 5000; // 5 секунд по умолчанию
         this.isPaused = false;
         
         // Настройки
@@ -62,18 +62,23 @@ class CarouselManager {
 
     async loadSettings() {
         try {
-            if (!window.ClientAPI || typeof window.ClientAPI.getCarouselSettings !== 'function') {
-                this.createFakeSlides();
-                return;
-            }
+            // Получаем настройки из конфигурации
+            const config = window.CLIENT_CONFIG || {};
+            const settings = config.settings || {};
             
-            const response = await window.ClientAPI.getCarouselSettings();
+            // Загружаем настройки карусели
+            this.autoplayDelay = (settings.carousel_slide_duration || 5) * 1000; // в миллисекундах
+            this.transitionSpeed = settings.carousel_transition_speed || 0.5;
+            this.maxSlides = settings.carousel_slides_count || 3;
             
-            if (response.status === 'success' && response.data && response.data.slides) {
-                this.renderSlides(response.data.slides);
-            } else {
-                this.createFakeSlides();
-            }
+            // Загружаем баннеры из API
+            await this.loadBannersFromAPI();
+            
+            console.log('🎠 Carousel settings loaded:', {
+                autoplayDelay: this.autoplayDelay,
+                transitionSpeed: this.transitionSpeed,
+                maxSlides: this.maxSlides
+            });
             
         } catch (error) {
             console.error('❌ Error loading carousel settings:', error);
@@ -81,43 +86,92 @@ class CarouselManager {
         }
     }
 
-    createFakeSlides() {
-        const fakeSlides = [
-            {
-                id: 1,
-                title: 'РЫБНЫЙ МИКС ДНЯ',
-                description: 'Ассорти из лучших сортов рыбы с авторским соусом и свежими овощами',
-                price: 1250,
-                image_url: '/static/assets/images/fish.png',
-                is_active: true
-            },
-            {
-                id: 2,
-                title: 'КОРОЛЕВСКИЕ КРЕВЕТКИ',
-                description: 'Тигровые креветки на гриле с ароматными травами и лимонным маслом',
-                price: 1850,
-                image_url: '/static/assets/images/fish.png',
-                is_active: true
-            },
-            {
-                id: 3,
-                title: 'МРАМОРНАЯ ГОВЯДИНА',
-                description: 'Стейк Рибай из отборной мраморной говядины с трюфельным соусом',
-                price: 2900,
-                image_url: '/static/assets/images/fish.png',
-                is_active: true
-            },
-            {
-                id: 4,
-                title: 'ЛОБСТЕР С ПАСТОЙ',
-                description: 'Домашняя паста с мясом омара в сливочно-коньячном соусе',
-                price: 2150,
-                image_url: '/static/assets/images/fish.png',
-                is_active: true
+    async loadBannersFromAPI() {
+        try {
+            // Загружаем активные баннеры из API
+            const response = await fetch('/client/api/banners');
+            
+            if (response.ok) {
+                const data = await response.json();
+                
+                if (data.status === 'success' && data.data && data.data.length > 0) {
+                    // Баннеры уже отфильтрованы на сервере
+                    this.renderBanners(data.data);
+                    return;
+                }
             }
-        ];
+            
+            // Если баннеры не загружены, создаем фейковые слайды
+            this.createFakeSlides();
+            
+        } catch (error) {
+            console.error('❌ Error loading banners from API:', error);
+            this.createFakeSlides();
+        }
+    }
+
+    renderBanners(banners) {
+        // Ограничиваем количество слайдов
+        const limitedBanners = banners.slice(0, this.maxSlides);
         
-        this.renderSlides(fakeSlides);
+        // Очищаем существующие слайды
+        this.carousel.innerHTML = '';
+        
+        // Создаем слайды из баннеров
+        limitedBanners.forEach((banner, index) => {
+            const slide = document.createElement('div');
+            slide.className = 'carousel-slide';
+            slide.style.backgroundImage = `url('/static/assets/${banner.image_path}')`;
+            
+            // Добавляем контент баннера
+            slide.innerHTML = `
+                <div class="slide-content">
+                    <h2 class="slide-title">${banner.title}</h2>
+                    ${banner.description ? `<p class="slide-description">${banner.description}</p>` : ''}
+                    ${banner.link_url && banner.link_text ? 
+                        `<a href="${banner.link_url}" class="slide-link">${banner.link_text}</a>` : 
+                        ''}
+                </div>
+            `;
+            
+            this.carousel.appendChild(slide);
+        });
+        
+        // Обновляем количество слайдов
+        this.slides = Array.from(this.carousel.querySelectorAll('.carousel-slide'));
+        this.slideCount = this.slides.length;
+        
+        // Создаем точки навигации
+        this.createDots();
+        
+        // Показываем первый слайд
+        if (this.slideCount > 0) {
+            this.showSlide(0);
+        }
+        
+        console.log(`🎠 Loaded ${this.slideCount} banners from API`);
+    }
+
+    createFakeSlides() {
+        // Если баннеры не загружены, показываем пустое состояние
+        this.renderEmptyState();
+    }
+
+    renderEmptyState() {
+        this.carousel.innerHTML = `
+            <div class="carousel-empty-state">
+                <div class="empty-state-content">
+                    <i class="bi bi-images"></i>
+                    <h3>Баннеры не найдены</h3>
+                    <p>В данный момент нет активных баннеров для отображения</p>
+                </div>
+            </div>
+        `;
+        
+        this.slides = [];
+        this.slideCount = 0;
+        
+        console.log('🎠 No banners available, showing empty state');
     }
 
     renderSlides(slides) {

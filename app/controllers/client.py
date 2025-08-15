@@ -17,6 +17,9 @@ def index():
         # Получаем настройки системы
         settings = get_system_settings()
         
+        # Логируем настройки для отладки
+        current_app.logger.info(f"Client settings loaded: {settings}")
+        
         # Проверяем, включена ли PIN-защита столов
         table_pin_enabled = settings.get('table_pin_enabled', True)
         
@@ -32,6 +35,108 @@ def index():
     except Exception as e:
         current_app.logger.error(f"Error loading client interface: {e}")
         return render_template('errors/500.html'), 500
+
+@client_bp.route('/index')
+def client_index():
+    """Альтернативная главная страница клиентского интерфейса."""
+    return index()
+
+@client_bp.route('/debug-settings')
+def debug_settings():
+    """Отладочная страница для проверки настроек."""
+    try:
+        settings = get_system_settings()
+        return jsonify({
+            'status': 'success',
+            'settings': settings,
+            'raw_settings': [{'key': s.setting_key, 'value': s.setting_value} for s in SystemSetting.query.all()]
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+@client_bp.route('/clean-duplicate-settings')
+def clean_duplicate_settings():
+    """Очистка дублирующихся настроек в базе данных."""
+    try:
+        from app.models import SystemSetting
+        
+        # Удаляем старые дублирующиеся настройки
+        duplicates_to_remove = [
+            'service_charge_percent',  # Старый ключ для сервисного сбора
+            'carousel_auto_play',      # Старый ключ для автопроигрывания
+            'carousel_auto_play_delay', # Старый ключ для задержки
+            'carousel_max_slides',     # Старый ключ для слайдов
+            'carousel_slides',         # Старый ключ для слайдов
+            'system_language',         # Старый ключ для языка
+            'max_guests_per_table',    # Старый ключ для гостей
+            'printer_kitchen_ip',      # Старые ключи для принтеров
+            'printer_bar_ip',
+            'printer_receipt_ip',
+            'printer_kitchen_port',
+            'printer_bar_port',
+            'printer_receipt_port'
+        ]
+        
+        removed_count = 0
+        for key in duplicates_to_remove:
+            setting = SystemSetting.query.filter_by(setting_key=key).first()
+            if setting:
+                db.session.delete(setting)
+                removed_count += 1
+                current_app.logger.error(f"Removed duplicate setting: {key}")
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Удалено {removed_count} дублирующихся настроек',
+            'removed_settings': removed_count
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error cleaning duplicate settings: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+@client_bp.route('/api/banners')
+def get_banners():
+    """Получение активных баннеров для клиентской части."""
+    try:
+        from app.models import Banner
+        
+        # Получаем только активные баннеры, отсортированные по порядку
+        banners = Banner.query.filter_by(is_active=True).order_by(Banner.sort_order).all()
+        
+        # Преобразуем в формат для клиента
+        banner_data = []
+        for banner in banners:
+            banner_data.append({
+                'id': banner.id,
+                'title': banner.title,
+                'description': banner.description,
+                'image_path': banner.image_path,
+                'link_url': banner.link_url,
+                'link_text': banner.link_text,
+                'sort_order': banner.sort_order
+            })
+        
+        return jsonify({
+            'status': 'success',
+            'data': banner_data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting banners: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка загрузки баннеров'
+        }), 500
 
 @client_bp.route('/menu')
 def menu():
@@ -501,17 +606,31 @@ def get_system_settings():
             
             settings[setting.setting_key] = value
         
-        # Значения по умолчанию
+        # Значения по умолчанию (используем только если настройки вообще не найдены)
         defaults = {
-            'service_charge_percent': 5,
+            'service_charge': 5,
+            'service_charge_enabled': True,
+            'currency': 'TMT',
+            'restaurant_name': 'DENIZ Restaurant',
+            'restaurant_address': '',
+            'restaurant_phone': '',
+            'restaurant_email': '',
+            'default_language': 'ru',
+            'available_languages': 'ru,en,tk',
             'order_cancel_timeout': 300,
             'carousel_slide_duration': 5,
             'carousel_transition_speed': 0.5,
             'carousel_slides_count': 3,
             'table_pin_enabled': True,
-            'table_access_pin': '1234',
+            'table_access_pin': '2112',
             'tables_count': 28
         }
+        
+        # Очищаем дублирующиеся настройки
+        if 'service_charge' in settings and 'service_charge_percent' in settings:
+            # Удаляем старый ключ, оставляем новый
+            del settings['service_charge_percent']
+            current_app.logger.info("Removed duplicate setting: service_charge_percent")
         
         # Добавляем значения по умолчанию, если их нет
         for key, default_value in defaults.items():

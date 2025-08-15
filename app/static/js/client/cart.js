@@ -10,7 +10,9 @@ class CartManager {
         this.tableId = window.CLIENT_CONFIG?.tableId || 1;
         this.tableNumber = undefined;
         this.bonusCard = null;
-        this.serviceChargePercent = window.CLIENT_SETTINGS?.service_charge_percent || 5;
+        
+        // Получаем настройки из конфигурации
+        this.loadSettings();
         
         // Загружаем корзину из localStorage
         this.loadFromStorage();
@@ -28,6 +30,40 @@ class CartManager {
         this.render();
         
         console.log('✅ Cart Manager initialized');
+    }
+
+    static loadSettings() {
+        // Получаем настройки из конфигурации
+        const config = window.CLIENT_CONFIG || {};
+        const settings = config.settings || {};
+        
+        // Сервисный сбор
+        this.serviceChargePercent = settings.service_charge || 5;
+        this.serviceChargeEnabled = settings.service_charge_enabled !== 'false';
+        
+        // Валюта
+        this.currency = settings.currency || 'TMT';
+        this.currencySymbol = this.getCurrencySymbol(this.currency);
+        
+        // Название ресторана
+        this.restaurantName = settings.restaurant_name || 'DENIZ Restaurant';
+        
+        console.log('⚙️ Settings loaded:', {
+            serviceCharge: this.serviceChargePercent,
+            serviceChargeEnabled: this.serviceChargeEnabled,
+            currency: this.currency,
+            restaurantName: this.restaurantName
+        });
+    }
+    
+    static getCurrencySymbol(currency) {
+        const symbols = {
+            'TMT': 'тмт',
+            'RUB': '₽',
+            'USD': '$',
+            'EUR': '€'
+        };
+        return symbols[currency] || currency;
     }
 
     static initializeElements() {
@@ -160,6 +196,7 @@ class CartManager {
     }
 
     static getServiceCharge() {
+        if (!this.serviceChargeEnabled) return 0;
         return this.getSubtotal() * (this.serviceChargePercent / 100);
     }
 
@@ -260,10 +297,12 @@ class CartManager {
                     <span class="summary-value">${APIUtils.formatPrice(subtotal)}</span>
                 </div>
                 
+                ${this.serviceChargeEnabled ? `
                 <div class="summary-line service-charge">
                     <span class="summary-label">Сервисный сбор ${this.serviceChargePercent}%</span>
                     <span class="summary-value">${APIUtils.formatPrice(serviceCharge)}</span>
                 </div>
+                ` : ''}
                 
                 ${discountHTML}
                 

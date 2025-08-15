@@ -13,6 +13,7 @@ from .daily_report import DailyReport
 from .audit_log import AuditLog
 from .system_setting import SystemSetting
 from .bonus_card import BonusCard
+from .banner import Banner
 
 __all__ = [
     'BaseModel',
@@ -30,4 +31,5 @@ __all__ = [
     'AuditLog',
     'SystemSetting',
     'BonusCard',
+    'Banner',
 ] 

@@ -12,6 +12,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <!-- Chart.js для графиков -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     
     <style>
         :root {
@@ -297,10 +299,18 @@
             </li>
             
             <li class="nav-item">
-                <a class="nav-link {% if request.endpoint == 'admin.tables_page' %}active{% endif %}" 
-                   href="{{ url_for('admin.tables_page') }}">
+                <a class="nav-link {% if request.endpoint == 'admin.tables_page' %}active{% endif %}"
+                    href="{{ url_for('admin.tables_page') }}">
                     <i class="bi bi-table"></i>
                     <span class="sidebar-text">Столы</span>
+                </a>
+            </li>
+            
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'admin.banners_page' %}active{% endif %}"
+                    href="{{ url_for('admin.banners_page') }}">
+                    <i class="bi bi-images"></i>
+                    <span class="sidebar-text">Баннеры</span>
                 </a>
             </li>
             

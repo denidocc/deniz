@@ -86,6 +86,69 @@
         border-radius: 12px;
         font-size: 0.8rem;
     }
+    
+    /* Стили для загрузки изображений */
+    .image-upload-container {
+        text-align: center;
+    }
+    
+    .image-upload-area {
+        border: 2px dashed var(--admin-accent);
+        border-radius: 8px;
+        padding: 2rem;
+        background: var(--admin-light);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        min-height: 200px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+    }
+    
+    .image-upload-area:hover {
+        border-color: var(--admin-primary);
+        background: #e8f4fd;
+    }
+    
+    .image-upload-area.dragover {
+        border-color: var(--admin-success);
+        background: #e8f5e8;
+        transform: scale(1.02);
+    }
+    
+    .upload-placeholder {
+        text-align: center;
+        color: var(--admin-secondary);
+    }
+    
+    .upload-placeholder i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        color: var(--admin-accent);
+    }
+    
+    .upload-placeholder p {
+        margin: 0.5rem 0;
+        font-weight: 500;
+    }
+    
+    .upload-placeholder small {
+        color: #7f8c8d;
+    }
+    
+    .image-preview {
+        max-width: 100%;
+        max-height: 180px;
+        border-radius: 8px;
+        object-fit: cover;
+    }
+    
+    .image-upload-area.has-image {
+        border-style: solid;
+        border-color: var(--admin-success);
+        background: white;
+    }
 </style>
 {% endblock %}
 
@@ -395,20 +458,32 @@
                             </div>
                             
                             <div class="mb-3">
-                                <label for="itemImageUrl" class="form-label">URL изображения</label>
-                                {{ item_form.image_url(class="form-control") }}
-                                <div class="invalid-feedback">
-                                    {{ item_form.image_url.errors[0] if item_form.image_url.errors else '' }}
+                                <label for="itemImageUpload" class="form-label">Изображение блюда</label>
+                                <div class="image-upload-container">
+                                    <div class="image-upload-area" id="imageUploadArea" 
+                                         ondrop="handleImageDrop(event)" 
+                                         ondragover="handleDragOver(event)" 
+                                         ondragleave="handleDragLeave(event)"
+                                         onclick="document.getElementById('itemImageFile').click()">
+                                        <div class="upload-placeholder" id="uploadPlaceholder">
+                                            <i class="bi bi-cloud-upload"></i>
+                                            <p>Перетащите изображение сюда или кликните для выбора</p>
+                                            <small>Поддерживаемые форматы: JPG, PNG, GIF, WebP (макс. 5MB)</small>
+                                        </div>
+                                        <img id="imagePreview" class="image-preview" style="display: none;" alt="Preview">
+                                    </div>
+                                    <input type="file" id="itemImageFile" name="image" accept="image/*" style="display: none;" onchange="handleImageSelect(event)">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm mt-2" onclick="document.getElementById('itemImageFile').click()">
+                                        <i class="bi bi-folder2-open"></i> Выбрать файл
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger btn-sm mt-2 ms-2" id="removeImageBtn" onclick="removeImage()" style="display: none;">
+                                        <i class="bi bi-trash"></i> Убрать
+                                    </button>
                                 </div>
+                                <div class="form-text">Изображение будет сохранено в папке static/assets/meals/</div>
                             </div>
                             
-                            <div class="mb-3">
-                                <label for="itemSortOrder" class="form-label">Порядок сортировки</label>
-                                {{ item_form.sort_order(class="form-control", value=0) }}
-                                <div class="invalid-feedback">
-                                    {{ item_form.sort_order.errors[0] if item_form.sort_order.errors else '' }}
-                                </div>
-                            </div>
+                            <input type="hidden" name="sort_order" value="0">
                         </div>
                     </div>
                     
@@ -935,6 +1010,142 @@
             
         } catch (error) {
             showAlert('Ошибка при удалении блюда: ' + error.message, 'danger');
+        }
+    }
+
+    // Drag & Drop функции для загрузки изображений
+    function handleDragOver(event) {
+        event.preventDefault();
+        event.currentTarget.classList.add('dragover');
+    }
+
+    function handleDragLeave(event) {
+        event.preventDefault();
+        event.currentTarget.classList.remove('dragover');
+    }
+
+    function handleImageDrop(event) {
+        event.preventDefault();
+        event.currentTarget.classList.remove('dragover');
+        
+        const files = event.dataTransfer.files;
+        if (files.length > 0) {
+            handleImageFile(files[0]);
+        }
+    }
+
+    function handleImageSelect(event) {
+        const file = event.target.files[0];
+        if (file) {
+            handleImageFile(file);
+        }
+    }
+
+    function handleImageFile(file) {
+        // Проверка типа файла
+        if (!file.type.startsWith('image/')) {
+            showAlert('Пожалуйста, выберите изображение', 'warning');
+            return;
+        }
+
+        // Проверка размера файла (5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            showAlert('Размер файла не должен превышать 5MB', 'warning');
+            return;
+        }
+
+        // Показываем превью
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.getElementById('imagePreview');
+            const placeholder = document.getElementById('uploadPlaceholder');
+            const uploadArea = document.getElementById('imageUploadArea');
+            const removeBtn = document.getElementById('removeImageBtn');
+
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+            placeholder.style.display = 'none';
+            uploadArea.classList.add('has-image');
+            removeBtn.style.display = 'inline-block';
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function removeImage() {
+        const preview = document.getElementById('imagePreview');
+        const placeholder = document.getElementById('uploadPlaceholder');
+        const uploadArea = document.getElementById('imageUploadArea');
+        const removeBtn = document.getElementById('removeImageBtn');
+        const fileInput = document.getElementById('itemImageFile');
+
+        preview.style.display = 'none';
+        placeholder.style.display = 'block';
+        uploadArea.classList.remove('has-image');
+        removeBtn.style.display = 'none';
+        fileInput.value = '';
+    }
+
+    // Очистка формы при открытии модала
+    function resetImageUpload() {
+        removeImage();
+    }
+
+    // Обновляем функцию saveItem для работы с файлами
+    async function saveItem() {
+        const button = event.target;
+        const originalText = showLoading(button);
+        
+        try {
+            const formData = new FormData();
+            
+            // Добавляем все поля формы
+            const form = document.getElementById('addItemForm');
+            const formElements = form.elements;
+            
+            for (let element of formElements) {
+                if (element.name && element.type !== 'file') {
+                    formData.append(element.name, element.value);
+                }
+            }
+            
+            // Добавляем файл изображения, если есть
+            const imageFile = document.getElementById('itemImageFile').files[0];
+            if (imageFile) {
+                formData.append('image', imageFile);
+            }
+            
+            // Добавляем CSRF токен
+            formData.append('csrf_token', document.querySelector('meta[name="csrf-token"]').content);
+            
+            const response = await fetch('/admin/api/menu-items', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                showAlert('Блюдо успешно создано', 'success');
+                
+                // Закрываем модал и обновляем страницу
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addItemModal'));
+                modal.hide();
+                
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            } else {
+                throw new Error(result.message || 'Неизвестная ошибка');
+            }
+            
+        } catch (error) {
+            showAlert('Ошибка при создании блюда: ' + error.message, 'danger');
+        } finally {
+            hideLoading(button, originalText);
         }
     }
 </script>

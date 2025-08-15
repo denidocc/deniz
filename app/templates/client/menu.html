@@ -1,6 +1,6 @@
 {% extends "client/base.html" %}
 
-{% block title %}DENIZ - Меню стола #{{ table_id }}{% endblock %}
+{% block title %}{{ settings.get('restaurant_name', 'DENIZ') }} - Меню стола #{{ table_id }}{% endblock %}
 
 {% block extra_css %}
 <!-- CSS уже включен в base.html -->
@@ -48,8 +48,10 @@ document.addEventListener('DOMContentLoaded', function() {
         tableId: {{ table_id or 'null' }},
         settings: {{ settings | tojson if settings else '{}' }},
         apiUrl: '/client/api',
-        currentLanguage: 'ru'
+        currentLanguage: '{{ settings.get("default_language", "ru") if settings else "ru" }}'
     };
+    
+    console.log('⚙️ Client config loaded:', window.CLIENT_CONFIG);
 });
 </script>
 {% endblock %}

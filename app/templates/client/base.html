@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="{{ settings.get('default_language', 'ru') if settings else 'ru' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}DENIZ Restaurant{% endblock %}</title>
+    <title>{% block title %}{{ settings.get('restaurant_name', 'DENIZ Restaurant') }}{% endblock %}</title>
     
     <!-- Favicons -->
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='assets/images/logo.svg') }}">
@@ -35,7 +35,7 @@
         <header class="app-header">
             <div class="header-left">
                 <div class="logo">
-                    <img src="{{ url_for('static', filename='assets/images/logo.svg') }}" alt="DENIZ" class="logo-image">
+                    <img src="{{ url_for('static', filename='assets/images/logo.svg') }}" alt="{{ settings.get('restaurant_name', 'DENIZ') }}" class="logo-image">
                 </div>
             </div>
             
@@ -63,10 +63,8 @@
                     <img src="{{ url_for('static', filename='assets/images/sun.svg') }}" alt="Светлая тема" class="theme-icon sun" style="display: none;">
                 </button>
                 
-                <div class="language-selector">
-                    <button class="lang-btn" data-lang="tm">TM</button>
-                    <button class="lang-btn active" data-lang="ru">РУ</button>
-                    <button class="lang-btn" data-lang="en">EN</button>
+                <div class="language-selector" id="languageSelector">
+                    <!-- Языки будут загружены динамически -->
                 </div>
                 
                 <a href="/admin" class="staff-link" title="Вход для персонала">
@@ -184,6 +182,15 @@
     <!-- Initialize App -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Передаем настройки в глобальную конфигурацию
+            window.CLIENT_CONFIG = window.CLIENT_CONFIG || {
+                settings: {{ settings | tojson if settings else '{}' }},
+                apiUrl: '/client/api',
+                currentLanguage: '{{ settings.get("default_language", "ru") if settings else "ru" }}'
+            };
+            
+            console.log('⚙️ Base template config loaded:', window.CLIENT_CONFIG);
+            
             // Небольшая задержка для уверенности, что все скрипты загружены
             setTimeout(() => {
                 // Инициализация компонентов
@@ -192,26 +199,38 @@
                 CartManager.init();
                 MenuManager.init();
                 CarouselManager.init();
+                
+                // Инициализируем LanguageManager
                 LanguageManager.init();
+                
                 ThemeManager.init();
                 SearchManager.init();
                 DishManager.init();
             }, 100);
             
             // Обработчики событий
-            document.getElementById('tableSelectBtn').addEventListener('click', function() {
-                ModalManager.openTableWithPin(CartManager.getCurrentTableId());
-            });
-            
-            document.getElementById('bonusCardBtn').addEventListener('click', function() {
-                ModalManager.openBonusCard(function(bonusData) {
-                    CartManager.applyBonusCard(bonusData);
+            const tableSelectBtn = document.getElementById('tableSelectBtn');
+            if (tableSelectBtn) {
+                tableSelectBtn.addEventListener('click', function() {
+                    ModalManager.openTableWithPin(CartManager.getCurrentTableId());
                 });
-            });
+            }
             
-            document.getElementById('placeOrderBtn').addEventListener('click', function() {
-                CartManager.placeOrder();
-            });
+            const bonusCardBtn = document.getElementById('bonusCardBtn');
+            if (bonusCardBtn) {
+                bonusCardBtn.addEventListener('click', function() {
+                    ModalManager.openBonusCard(function(bonusData) {
+                        CartManager.applyBonusCard(bonusData);
+                    });
+                });
+            }
+            
+            const placeOrderBtn = document.getElementById('placeOrderBtn');
+            if (placeOrderBtn) {
+                placeOrderBtn.addEventListener('click', function() {
+                    CartManager.placeOrder();
+                });
+            }
             
             // Кнопка "Позвать официанта"
             document.addEventListener('click', function(e) {

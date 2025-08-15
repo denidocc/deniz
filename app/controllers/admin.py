@@ -10,9 +10,10 @@ import json
 from app import db
 from app.models import (
     Staff, MenuCategory, MenuItem, Table, Order, OrderItem, 
-    StaffShift, BonusCard, AuditLog, SystemSetting, DailyReport, TableAssignment
+    StaffShift, BonusCard, AuditLog, SystemSetting, DailyReport, TableAssignment, Banner
 )
 from app.utils.decorators import admin_required, audit_action, with_transaction
+from app.utils.image_upload import ImageUploadManager
 from app.forms.admin.menu import MenuCategoryForm, MenuItemForm
 from app.forms.admin.shifts import StartShiftForm, EndShiftForm
 from app.forms.admin.staff import StaffCreateForm, StaffUpdateForm
@@ -137,40 +138,80 @@ def create_category():
 @with_transaction
 def create_menu_item():
     """Создание нового блюда."""
-    data = request.get_json() or {}
-    form = MenuItemForm(data=data, meta={'csrf': False})
-    if not form.validate():
-        return jsonify({'status': 'error', 'message': 'Валидация не пройдена', 'errors': form.errors}), 400
-    
-    item = MenuItem(
-        category_id=form.category_id.data,
-        name_ru=form.name_ru.data,
-        name_en=form.name_en.data or '',
-        name_tk=form.name_tk.data or '',
-        description_ru=form.description_ru.data or '',
-        description_en=form.description_en.data or '',
-        description_tk=form.description_tk.data or '',
-        price=form.price.data,
-        estimated_time=form.estimated_time.data or 15,
-        image_url=form.image_url.data or '',
-        preparation_type=form.preparation_type.data,
-        has_size_options=bool(form.has_size_options.data),
-        can_modify_ingredients=bool(form.can_modify_ingredients.data),
-        is_active=bool(form.is_active.data),
-        sort_order=form.sort_order.data or 0
-    )
-    
-    db.session.add(item)
-    db.session.flush()
-    
-    return jsonify({
-        'status': 'success',
-        'message': 'Блюдо успешно создано',
-        'data': {
-            'id': item.id,
-            'name': item.name_ru
-        }
-    })
+    try:
+        data = request.form.to_dict()
+        image_file = request.files.get('image')
+        
+        # Валидируем данные
+        if not data.get('name_ru'):
+            return jsonify({
+                'status': 'error',
+                'message': 'Название блюда обязательно'
+            }), 400
+        
+        if not data.get('price') or float(data.get('price', 0)) <= 0:
+            return jsonify({
+                'status': 'error',
+                'message': 'Цена должна быть больше 0'
+            }), 400
+        
+        if not data.get('category_id'):
+            return jsonify({
+                'status': 'error',
+                'message': 'Категория обязательна'
+            }), 400
+        
+        # Обрабатываем изображение, если загружено
+        image_path = ''
+        if image_file and image_file.filename != '':
+            success, image_path, message = ImageUploadManager.save_image(
+                image_file, 'meal'
+            )
+            
+            if not success:
+                return jsonify({
+                    'status': 'error',
+                    'message': message
+                }), 400
+        else:
+            # Если изображение не загружено, используем URL из формы
+            image_path = data.get('image_url', '')
+        
+        # Создаем блюдо
+        item = MenuItem(
+            category_id=int(data.get('category_id', 0)),
+            name_ru=data.get('name_ru', ''),
+            name_en=data.get('name_en', ''),
+            name_tk=data.get('name_tk', ''),
+            description_ru=data.get('description_ru', ''),
+            description_en=data.get('description_en', ''),
+            description_tk=data.get('description_tk', ''),
+            price=float(data.get('price', 0)),
+            estimated_time=int(data.get('estimated_time', 15)),
+            image_url=image_path,
+            preparation_type=data.get('preparation_type', 'standard'),
+            has_size_options=data.get('has_size_options', 'false').lower() == 'true',
+            can_modify_ingredients=data.get('can_modify_ingredients', 'false').lower() == 'true',
+            is_active=data.get('is_active', 'true').lower() == 'true',
+            sort_order=int(data.get('sort_order', 0))
+        )
+        
+        db.session.add(item)
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Блюдо успешно создано',
+            'data': item.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error creating menu item: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Ошибка создания блюда: {str(e)}'
+        }), 500
 
 # === УПРАВЛЕНИЕ ПЕРСОНАЛОМ ===
 
@@ -716,6 +757,10 @@ def update_menu_item(item_id):
     
     if request.method == 'DELETE':
         # Удаление блюда
+        # Удаляем изображение, если оно было загружено
+        if item.image_url and not item.image_url.startswith('http'):
+            ImageUploadManager.delete_image(item.image_url)
+        
         db.session.delete(item)
         db.session.commit()
         
@@ -725,26 +770,75 @@ def update_menu_item(item_id):
         })
     
     # Обновление блюда
-    data = request.get_json() or {}
-    
-    # Валидация через форму
-    form = MenuItemForm(data=data, meta={'csrf': False})
-    if not form.validate():
-        return jsonify({'status': 'error', 'message': 'Валидация не пройдена', 'errors': form.errors}), 400
-    
-    # Обновление полей
-    for field in ['name_ru', 'name_en', 'name_tk', 'description_ru', 'description_en', 
-                  'description_tk', 'price', 'estimated_time', 'image_url', 
-                  'preparation_type', 'has_size_options', 'can_modify_ingredients',
-                  'sort_order', 'is_active']:
-        if hasattr(form, field) and hasattr(form, field).data is not None:
-            setattr(item, field, getattr(form, field).data)
-    
-    return jsonify({
-        'status': 'success',
-        'message': 'Блюдо обновлено',
-        'data': item.to_dict()
-    })
+    try:
+        data = request.form.to_dict()
+        image_file = request.files.get('image')
+        
+        # Обновляем основные поля
+        if 'name_ru' in data:
+            item.name_ru = data['name_ru']
+        if 'name_en' in data:
+            item.name_en = data['name_en']
+        if 'name_tk' in data:
+            item.name_tk = data['name_tk']
+        if 'description_ru' in data:
+            item.description_ru = data['description_ru']
+        if 'description_en' in data:
+            item.description_en = data['description_en']
+        if 'description_tk' in data:
+            item.description_tk = data['description_tk']
+        if 'price' in data:
+            item.price = float(data['price'])
+        if 'estimated_time' in data:
+            item.estimated_time = int(data['estimated_time'])
+        if 'preparation_type' in data:
+            item.preparation_type = data['preparation_type']
+        if 'has_size_options' in data:
+            item.has_size_options = data['has_size_options'].lower() == 'true'
+        if 'can_modify_ingredients' in data:
+            item.can_modify_ingredients = data['can_modify_ingredients'].lower() == 'true'
+        if 'sort_order' in data:
+            item.sort_order = int(data['sort_order'])
+        if 'is_active' in data:
+            item.is_active = data['is_active'].lower() == 'true'
+        
+        # Обрабатываем новое изображение, если загружено
+        if image_file and image_file.filename != '':
+            # Удаляем старое изображение, если оно было загружено
+            if item.image_url and not item.image_url.startswith('http'):
+                ImageUploadManager.delete_image(item.image_url)
+            
+            # Загружаем новое
+            success, image_path, message = ImageUploadManager.save_image(
+                image_file, 'meal'
+            )
+            
+            if not success:
+                return jsonify({
+                    'status': 'error',
+                    'message': message
+                }), 400
+            
+            item.image_url = image_path
+        elif 'image_url' in data:
+            # Если изображение не загружено, используем URL из формы
+            item.image_url = data['image_url']
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Блюдо обновлено',
+            'data': item.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating menu item: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Ошибка обновления блюда: {str(e)}'
+        }), 500
 
 @admin_bp.route('/menu/category/<int:category_id>', methods=['GET'])
 @admin_required
@@ -1161,4 +1255,302 @@ def delete_table(table_id):
     return jsonify({
         'status': 'success',
         'message': f'Стол {table_number} успешно удален'
-    }) 
+    })
+
+# === УПРАВЛЕНИЕ БАННЕРАМИ ===
+
+@admin_bp.route('/banners')
+@admin_required
+@audit_action("view_banners_management")
+def banners_page():
+    """Страница управления баннерами."""
+    return render_template('admin/banners.html')
+
+@admin_bp.route('/api/banners', methods=['GET'])
+@admin_required
+@audit_action("get_banners")
+def get_banners():
+    """Получение списка всех баннеров."""
+    banners = Banner.query.order_by(Banner.sort_order).all()
+    return jsonify({
+        'status': 'success',
+        'data': [banner.to_dict() for banner in banners]
+    })
+
+@admin_bp.route('/api/banners', methods=['POST'])
+@admin_required
+@audit_action("create_banner")
+@with_transaction
+def create_banner():
+    """Создание нового баннера."""
+    try:
+        data = request.form.to_dict()
+        image_file = request.files.get('image')
+        
+        if not image_file or image_file.filename == '':
+            return jsonify({
+                'status': 'error',
+                'message': 'Изображение обязательно для загрузки'
+            }), 400
+        
+        # Загружаем изображение
+        success, image_path, message = ImageUploadManager.save_image(
+            image_file, 'banner'
+        )
+        
+        if not success:
+            return jsonify({
+                'status': 'error',
+                'message': message
+            }), 400
+        
+        # Получаем следующий порядок сортировки
+        max_sort_order = db.session.query(db.func.max(Banner.sort_order)).scalar() or 0
+        next_sort_order = max_sort_order + 1
+        
+        # Создаем баннер
+        banner = Banner(
+            title=data.get('title', ''),
+            description=data.get('description', ''),
+            image_path=image_path,
+            image_url=f'/static/assets/{image_path}',
+            is_active=data.get('is_active', 'true').lower() == 'true',
+            sort_order=next_sort_order,
+            link_url=data.get('link_url', ''),
+            link_text=data.get('link_text', ''),
+            start_date=datetime.fromisoformat(data['start_date']) if data.get('start_date') else None,
+            end_date=datetime.fromisoformat(data['end_date']) if data.get('end_date') else None
+        )
+        
+        db.session.add(banner)
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Баннер успешно создан',
+            'data': banner.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error creating banner: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Ошибка создания баннера: {str(e)}'
+        }), 500
+
+@admin_bp.route('/api/banners/<int:banner_id>', methods=['GET'])
+@admin_required
+@audit_action("get_banner")
+def get_banner(banner_id):
+    """Получение данных конкретного баннера."""
+    banner = Banner.query.get_or_404(banner_id)
+    return jsonify({
+        'status': 'success',
+        'data': banner.to_dict()
+    })
+
+@admin_bp.route('/api/banners/<int:banner_id>', methods=['PUT'])
+@admin_required
+@audit_action("update_banner")
+@with_transaction
+def update_banner(banner_id):
+    """Обновление баннера."""
+    try:
+        banner = Banner.query.get_or_404(banner_id)
+        data = request.form.to_dict()
+        
+        # Обновляем основные поля
+        if 'title' in data:
+            banner.title = data['title']
+        if 'description' in data:
+            banner.description = data['description']
+        if 'is_active' in data:
+            banner.is_active = data['is_active'].lower() == 'true'
+        if 'sort_order' in data:
+            banner.sort_order = int(data['sort_order'])
+        if 'link_url' in data:
+            banner.link_url = data['link_url']
+        if 'link_text' in data:
+            banner.link_text = data['link_text']
+        if 'start_date' in data and data['start_date']:
+            banner.start_date = datetime.fromisoformat(data['start_date'])
+        if 'end_date' in data and data['end_date']:
+            banner.end_date = datetime.fromisoformat(data['end_date'])
+        
+        # Обрабатываем новое изображение, если загружено
+        image_file = request.files.get('image')
+        if image_file and image_file.filename != '':
+            # Удаляем старое изображение
+            if banner.image_path:
+                ImageUploadManager.delete_image(banner.image_path)
+            
+            # Загружаем новое
+            success, image_path, message = ImageUploadManager.save_image(
+                image_file, 'banner'
+            )
+            
+            if not success:
+                return jsonify({
+                    'status': 'error',
+                    'message': message
+                }), 400
+            
+            banner.image_path = image_path
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Баннер успешно обновлен',
+            'data': banner.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating banner: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Ошибка обновления баннера: {str(e)}'
+        }), 500
+
+@admin_bp.route('/api/banners/<int:banner_id>', methods=['DELETE'])
+@admin_required
+@audit_action("delete_banner")
+@with_transaction
+def delete_banner(banner_id):
+    """Удаление баннера."""
+    try:
+        banner = Banner.query.get_or_404(banner_id)
+        
+        # Удаляем изображение
+        if banner.image_path:
+            ImageUploadManager.delete_image(banner.image_path)
+        
+        banner_title = banner.title
+        db.session.delete(banner)
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Баннер "{banner_title}" успешно удален'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting banner: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Ошибка удаления баннера: {str(e)}'
+        }), 500
+
+@admin_bp.route('/api/banners/<int:banner_id>/toggle', methods=['PUT'])
+@admin_required
+@audit_action("toggle_banner_status")
+@with_transaction
+def toggle_banner_status(banner_id):
+    """Переключение статуса баннера."""
+    banner = Banner.query.get_or_404(banner_id)
+    banner.is_active = not banner.is_active
+    
+    db.session.commit()
+    
+    return jsonify({
+        'status': 'success',
+        'message': f'Статус баннера "{banner.title}" изменен на {"активный" if banner.is_active else "неактивный"}',
+        'data': banner.to_dict()
+    })
+
+@admin_bp.route('/api/banners/reorder', methods=['PUT'])
+@admin_required
+@audit_action("reorder_banners")
+@with_transaction
+def reorder_banners():
+    """Изменение порядка баннеров."""
+    try:
+        data = request.get_json() or {}
+        banner_orders = data.get('banner_orders', [])
+        
+        for item in banner_orders:
+            banner_id = item.get('id')
+            new_order = item.get('sort_order')
+            
+            if banner_id and new_order is not None:
+                banner = Banner.query.get(banner_id)
+                if banner:
+                    banner.sort_order = new_order
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Порядок баннеров обновлен'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error reordering banners: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Ошибка изменения порядка: {str(e)}'
+        }), 500
+
+@admin_bp.route('/api/menu-items', methods=['POST'])
+@admin_required
+@audit_action("create_menu_item_api")
+@with_transaction
+def create_menu_item_api():
+    """Создание нового блюда."""
+    try:
+        data = request.form.to_dict()
+        image_file = request.files.get('image')
+        
+        # Получаем следующий порядок сортировки для категории
+        max_sort_order = db.session.query(db.func.max(MenuItem.sort_order))\
+            .filter_by(category_id=int(data['category_id']))\
+            .scalar() or 0
+        next_sort_order = max_sort_order + 1
+        
+        # Создаем блюдо
+        menu_item = MenuItem(
+            category_id=int(data['category_id']),
+            name_ru=data['name_ru'],
+            name_en=data.get('name_en', ''),
+            name_tk=data.get('name_tk', ''),
+            description_ru=data.get('description_ru', ''),
+            price=float(data['price']),
+            estimated_time=int(data.get('estimated_time', 15)),
+            sort_order=next_sort_order,
+            is_active=data.get('is_active', 'true').lower() == 'true'
+        )
+        
+        # Обрабатываем изображение, если есть
+        if image_file and image_file.filename != '':
+            success, image_path, message = ImageUploadManager.save_image(
+                image_file, 'meal'
+            )
+            
+            if success:
+                menu_item.image_url = f'/static/assets/{image_path}'
+            else:
+                current_app.logger.warning(f"Image upload failed: {message}")
+        else:
+            # Если изображение не загружено, используем URL из формы
+            menu_item.image_url = data.get('image_url', '')
+        
+        db.session.add(menu_item)
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Блюдо успешно создано',
+            'data': menu_item.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error creating menu item: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Ошибка создания блюда: {str(e)}'
+        }), 500 
