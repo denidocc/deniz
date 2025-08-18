@@ -197,7 +197,7 @@
                                 </div>
                                 <div>
                                     <h6 class="mb-0">{{ shift.staff.name }}</h6>
-                                    <small class="text-muted">{{ shift.staff.role }}</small>
+                                    <small class="text-muted">{{ shift.shift_date.strftime('%d.%m.%Y') }}</small>
                                 </div>
                             </div>
                             <div class="text-end">
@@ -219,7 +219,7 @@
                                 {% if shift.table_assignments %}
                                     {% for assignment in shift.table_assignments %}
                                         {% if assignment.is_active and assignment.table %}
-                                            <span class="table-assignment">Стол {{ assignment.table.table_number }}</span>
+                                            <span class="table-assignment">{{ assignment.table.table_number }}</span>
                                         {% endif %}
                                     {% endfor %}
                                 {% else %}
@@ -240,10 +240,83 @@
     </div>
 </div>
 
+<!-- Today's Shifts -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h4><i class="bi bi-calendar-day"></i> Смены за сегодня</h4>
+        {% if today_shifts %}
+            {% for shift in today_shifts %}
+            <div class="shift-card {{ 'shift-ended' if shift.shift_end else 'shift-active' }}">
+                <div class="shift-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center">
+                            <div class="staff-avatar me-3">
+                                {{ shift.staff.name[0].upper() }}
+                            </div>
+                            <div>
+                                <h6 class="mb-0">{{ shift.staff.name }}</h6>
+                                <small class="text-muted">{{ shift.shift_date.strftime('%d.%m.%Y') }}</small>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            {% if shift.shift_end %}
+                                <span class="badge bg-secondary">Завершена</span>
+                            {% else %}
+                                <span class="badge bg-success">Активна</span>
+                                <button class="btn btn-sm btn-danger ms-2" 
+                                        onclick="endShift({{ shift.id }})">
+                                    <i class="bi bi-stop-circle"></i> Завершить
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="shift-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <strong>Начало:</strong> {{ shift.shift_start.strftime('%H:%M') }}
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Окончание:</strong> 
+                            {{ shift.shift_end.strftime('%H:%M') if shift.shift_end else 'В работе' }}
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Длительность:</strong>
+                            {% if shift.shift_end %}
+                                {{ ((shift.shift_end - shift.shift_start).total_seconds() / 3600)|round(1) }} ч
+                            {% else %}
+                                В работе
+                            {% endif %}
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Столы:</strong>
+                            {% if shift.table_assignments %}
+                                {% for assignment in shift.table_assignments %}
+                                    {% if assignment.is_active and assignment.table %}
+                                        <span class="table-assignment">{{ assignment.table.table_number }}</span>
+                                    {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="text-center text-muted p-4">
+                <i class="bi bi-calendar-day" style="font-size: 2rem;"></i>
+                <p class="mt-2">Нет смен за сегодня</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
 <!-- Recent Shifts -->
 <div class="row">
     <div class="col-12">
-        <h4><i class="bi bi-calendar"></i> Недавние смены</h4>
+        <h4><i class="bi bi-calendar"></i> Недавние смены (завершенные)</h4>
         
         <!-- Filter controls -->
         <div class="admin-card mb-3">
@@ -264,7 +337,6 @@
                     <div class="col-md-3">
                         <select class="form-select" id="statusFilter">
                             <option value="">Все смены</option>
-                            <option value="active">Активные</option>
                             <option value="ended">Завершенные</option>
                         </select>
                     </div>
@@ -279,7 +351,7 @@
         
         <!-- Shifts list -->
         <div id="shiftsContainer">
-            {% for shift in week_shifts[:10] %}
+            {% for shift in recent_shifts[:10] %}
             <div class="shift-card {{ 'shift-ended' if shift.shift_end else 'shift-active' }}"
                  data-staff-id="{{ shift.staff.id }}" 
                  data-date="{{ shift.shift_date.isoformat() }}"
@@ -468,8 +540,7 @@
             await startShiftForWaiter(staffId, selectedTables, autoAssign);
             
             // Close modal and refresh
-            const modal = bootstrap.Modal.getInstance(document.getElementById('startShiftModal'));
-            modal.hide();
+            $('#startShiftModal').modal('hide');
             
             setTimeout(() => {
                 location.reload();
@@ -543,7 +614,7 @@
             const matchesStatus = !statusFilter || shiftStatus === statusFilter;
             
             if (matchesStaff && matchesDate && matchesStatus) {
-                shift.style.display = 'block';
+                shift.style.display = '';
             } else {
                 shift.style.display = 'none';
             }

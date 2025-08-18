@@ -117,10 +117,10 @@ def generate_z_report_html(report) -> str:
     Returns:
         str: HTML содержимое отчета
     """
-    # Расчет налогов
+    # Налоги не применяются (НДС отсутствует)
     total_with_vat = report.total_revenue
-    total_without_vat = total_with_vat / 1.2
-    vat_amount = total_with_vat - total_without_vat
+    total_without_vat = report.total_revenue
+    vat_amount = 0
     
     html = f"""
     <!DOCTYPE html>
@@ -162,18 +162,21 @@ def generate_z_report_html(report) -> str:
                 <td>Количество заказов</td>
                 <td class="amount">{report.total_orders}</td>
             </tr>
+            <!-- Налоговые строки скрыты по требованиям -->
+            <!--
             <tr>
                 <td>Сумма без НДС</td>
-                <td class="amount">{total_without_vat:.2f} ₽</td>
+                <td class="amount">{total_without_vat:.2f} TMT</td>
             </tr>
             <tr>
                 <td>НДС (20%)</td>
-                <td class="amount">{vat_amount:.2f} ₽</td>
+                <td class="amount">{vat_amount:.2f} TMT</td>
             </tr>
             <tr class="total-row">
                 <td>ИТОГО с НДС</td>
-                <td class="amount">{total_with_vat:.2f} ₽</td>
+                <td class="amount">{total_with_vat:.2f} TMT</td>
             </tr>
+            -->
         </table>
         
         <div class="footer">
@@ -286,7 +289,7 @@ def generate_staff_performance_report(staff_data: Dict[str, Any]) -> str:
                     <td>{staff.get('role', 'N/A')}</td>
                     <td>{staff.get('hours_worked', 0)}</td>
                     <td>{staff.get('orders_served', 0)}</td>
-                    <td>{staff.get('avg_check', 0):.2f} ₽</td>
+                    <td>{staff.get('avg_check', 0):.2f} TMT</td>
                     <td>{rating}</td>
                 </tr>
         """
@@ -364,7 +367,7 @@ def generate_menu_popularity_report(menu_data: Dict[str, Any]) -> str:
                     <td>{item.get('name', 'N/A')}</td>
                     <td>{item.get('category', 'N/A')}</td>
                     <td>{item.get('quantity_sold', 0)}</td>
-                    <td>{item.get('revenue', 0):.2f} ₽</td>
+                    <td>{item.get('revenue', 0):.2f} TMT</td>
                     <td>{percentage:.1f}%</td>
                 </tr>
         """

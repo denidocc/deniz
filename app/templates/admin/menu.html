@@ -178,7 +178,7 @@
     </div>
     <div class="col-md-3">
         <div class="stat-card success">
-            <div class="stat-value">{{ items|selectattr('is_available')|list|length }}</div>
+            <div class="stat-value">{{ items|selectattr('is_active')|list|length }}</div>
             <div class="stat-label">
                 <i class="bi bi-check-circle"></i> Доступных блюд
             </div>
@@ -186,7 +186,7 @@
     </div>
     <div class="col-md-3">
         <div class="stat-card warning">
-            <div class="stat-value">{{ items|rejectattr('is_available')|list|length }}</div>
+            <div class="stat-value">{{ items|rejectattr('is_active')|list|length }}</div>
             <div class="stat-label">
                 <i class="bi bi-x-circle"></i> Недоступных блюд
             </div>
@@ -233,15 +233,16 @@
 
 <!-- Menu Categories and Items -->
 <div class="menu-section" id="menuContainer">
+    
     {% for category in categories %}
     <div class="category-card" data-category-id="{{ category.id }}">
         <div class="category-header" onclick="toggleCategory({{ category.id }})">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <h5 class="mb-1">
-                        <i class="bi bi-folder"></i> {{ category.name_ru }}
-                        <small class="text-muted">({{ category.items|length }} блюд)</small>
-                    </h5>
+                                            <h5 class="mb-1">
+                            <i class="bi bi-folder"></i> {{ category.name_ru }}
+                            <small class="text-muted">({{ category.items|length if category.items else 0 }} блюд)</small>
+                        </h5>
                     {% if category.description_ru %}
                         <p class="mb-0 text-muted">{{ category.description_ru }}</p>
                     {% endif %}
@@ -262,7 +263,8 @@
         </div>
         
         <div class="category-items" id="category-{{ category.id }}" style="display: block;">
-            {% for item in category.items|sort(attribute='sort_order') %}
+            {% if category.items %}
+                {% for item in category.items|sort(attribute='sort_order') %}
             <div class="menu-item" 
                  data-item-id="{{ item.id }}" 
                  data-category="{{ category.id }}"
@@ -289,7 +291,7 @@
                     </div>
                     
                     <div class="col-md-2">
-                        <span class="price-tag">{{ "%.2f"|format(item.price) }} ₽</span>
+                        <span class="price-tag">{{ "%.2f"|format(item.price) }} {{ settings.get('currency', 'TMT') }}</span>
                     </div>
                     
                     <div class="col-md-2">
@@ -328,8 +330,7 @@
                 </div>
             </div>
             {% endfor %}
-            
-            {% if not category.items %}
+            {% else %}
                 <div class="menu-item text-center text-muted">
                     <i class="bi bi-inbox"></i> В этой категории пока нет блюд
                 </div>
@@ -442,7 +443,7 @@
                         
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="itemPrice" class="form-label">Цена (₽)</label>
+                                <label for="itemPrice" class="form-label">Цена ({{ settings.get('currency', 'TMT') }})</label>
                                 {{ item_form.price(class="form-control", step="0.01", required=true) }}
                                 <div class="invalid-feedback">
                                     {{ item_form.price.errors[0] if item_form.price.errors else '' }}
@@ -454,6 +455,14 @@
                                 {{ item_form.estimated_time(class="form-control", value=15) }}
                                 <div class="invalid-feedback">
                                     {{ item_form.estimated_time.errors[0] if item_form.estimated_time.errors else '' }}
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="itemPreparationType" class="form-label">Тип приготовления</label>
+                                {{ item_form.preparation_type(class="form-select", required=true) }}
+                                <div class="invalid-feedback">
+                                    {{ item_form.preparation_type.errors[0] if item_form.preparation_type.errors else '' }}
                                 </div>
                             </div>
                             
@@ -611,13 +620,21 @@
                         
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="editItemPrice" class="form-label">Цена (₽)</label>
+                                <label for="editItemPrice" class="form-label">Цена ({{ settings.get('currency', 'TMT') }})</label>
                                 <input type="number" class="form-control" id="editItemPrice" name="price" step="0.01" required>
                             </div>
                             
                             <div class="mb-3">
                                 <label for="editItemCookingTime" class="form-label">Время приготовления (мин)</label>
                                 <input type="number" class="form-control" id="editItemCookingTime" name="estimated_time" value="15">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="editItemPreparationType" class="form-label">Тип приготовления</label>
+                                <select class="form-select" id="editItemPreparationType" name="preparation_type" required>
+                                    <option value="kitchen">Кухня</option>
+                                    <option value="bar">Бар</option>
+                                </select>
                             </div>
                             
                             <div class="mb-3">
@@ -740,7 +757,7 @@
             name_en: formData.get('name_en') || '',
             name_tk: formData.get('name_tk') || '',
             sort_order: parseInt(formData.get('sort_order') || '0'),
-            is_active: formData.get('is_active') === 'on'
+            is_active: true  // Категории всегда активны по умолчанию
         };
         
         try {
@@ -749,8 +766,7 @@
             showAlert('Категория успешно создана', 'success');
             
             // Close modal and refresh page
-            const modal = bootstrap.Modal.getInstance(document.getElementById('addCategoryModal'));
-            modal.hide();
+            $('#addCategoryModal').modal('hide');
             
             setTimeout(() => {
                 location.reload();
@@ -780,9 +796,10 @@
             description_ru: formData.get('description_ru') || '',
             price: parseFloat(formData.get('price')),
             estimated_time: parseInt(formData.get('estimated_time') || '15'),
+            preparation_type: formData.get('preparation_type') || 'kitchen',
             image_url: formData.get('image_url') || '',
             sort_order: parseInt(formData.get('sort_order') || '0'),
-            is_active: formData.get('is_active') === 'on'
+            is_active: formData.get('is_active') === 'on' || formData.get('is_active') === 'true'
         };
         
         try {
@@ -791,8 +808,7 @@
             showAlert('Блюдо успешно создано', 'success');
             
             // Close modal and refresh page
-            const modal = bootstrap.Modal.getInstance(document.getElementById('addItemModal'));
-            modal.hide();
+            $('#addItemModal').modal('hide');
             
             setTimeout(() => {
                 location.reload();
@@ -840,8 +856,7 @@
                     document.getElementById('editCategoryActive').checked = category.is_active;
                     
                     // Показываем модальное окно
-                    const modal = new bootstrap.Modal(document.getElementById('editCategoryModal'));
-                    modal.show();
+                    $('#editCategoryModal').modal('show');
                 } else {
                     showAlert('Ошибка загрузки данных категории', 'danger');
                 }
@@ -867,13 +882,13 @@
                     document.getElementById('editItemDescRu').value = item.description_ru || '';
                     document.getElementById('editItemPrice').value = item.price;
                     document.getElementById('editItemCookingTime').value = item.estimated_time || 15;
+                    document.getElementById('editItemPreparationType').value = item.preparation_type || 'kitchen';
                     document.getElementById('editItemImageUrl').value = item.image_url || '';
                     document.getElementById('editItemSortOrder').value = item.sort_order || 0;
                     document.getElementById('editItemAvailable').checked = item.is_active;
                     
                     // Показываем модальное окно
-                    const modal = new bootstrap.Modal(document.getElementById('editItemModal'));
-                    modal.show();
+                    $('#editItemModal').modal('show');
                 } else {
                     showAlert('Ошибка загрузки данных блюда', 'danger');
                 }
@@ -898,16 +913,12 @@
         };
         
         try {
-            const response = await apiRequest(`/admin/menu/category/${categoryId}`, {
-                method: 'POST',
-                body: JSON.stringify(data)
-            });
+            const response = await apiRequest(`/admin/menu/category/${categoryId}`, 'POST', data);
             
             showAlert('Категория успешно обновлена', 'success');
             
             // Close modal and refresh page
-            const modal = bootstrap.Modal.getInstance(document.getElementById('editCategoryModal'));
-            modal.hide();
+            $('#editCategoryModal').modal('hide');
             
             setTimeout(() => {
                 location.reload();
@@ -933,19 +944,19 @@
             description_ru: document.getElementById('editItemDescRu').value || '',
             price: parseFloat(document.getElementById('editItemPrice').value),
             estimated_time: parseInt(document.getElementById('editItemCookingTime').value || '15'),
+            preparation_type: document.getElementById('editItemPreparationType').value || 'kitchen',
             image_url: document.getElementById('editItemImageUrl').value || '',
             sort_order: parseInt(document.getElementById('editItemSortOrder').value || '0'),
             is_active: document.getElementById('editItemAvailable').checked
         };
         
         try {
-            const response = await apiRequest(`/admin/menu/item/${itemId}`, 'POST', data);
+            const response = await apiRequest(`/admin/menu/item/${itemId}`, 'PUT', data);
             
             showAlert('Блюдо успешно обновлено', 'success');
             
             // Close modal and refresh page
-            const modal = bootstrap.Modal.getInstance(document.getElementById('editItemModal'));
-            modal.hide();
+            $('#editItemModal').modal('hide');
             
             setTimeout(() => {
                 location.reload();
@@ -1116,8 +1127,7 @@
                 showAlert('Блюдо успешно создано', 'success');
                 
                 // Закрываем модал и обновляем страницу
-                const modal = bootstrap.Modal.getInstance(document.getElementById('addItemModal'));
-                modal.hide();
+                            $('#addItemModal').modal('hide');
                 
                 setTimeout(() => {
                     location.reload();

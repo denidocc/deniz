@@ -86,14 +86,45 @@ def dashboard():
 @audit_action("view_menu_management")
 def menu():
     """Управление меню."""
-    categories = MenuCategory.query.order_by(MenuCategory.sort_order).all()
+    categories = MenuCategory.query.options(
+        so.joinedload(MenuCategory.items)
+    ).order_by(MenuCategory.sort_order).all()
     items = MenuItem.query.join(MenuCategory).order_by(
         MenuCategory.sort_order, MenuItem.sort_order
     ).all()
     
+    # Дополнительная отладка для блюд
+    current_app.logger.info(f"Loaded {len(items)} menu items")
+    for item in items:
+        current_app.logger.info(f"Item: {item.id} - {item.name_ru} (category: {item.category_id}, is_active: {item.is_active})")
+    
+    # Логируем количество загруженных категорий
+    current_app.logger.info(f"Loaded {len(categories)} categories for menu management")
+    for cat in categories:
+        current_app.logger.info(f"Category: {cat.id} - {cat.name_ru} (active: {cat.is_active})")
+    
     # Создаем формы для валидации
     category_form = MenuCategoryForm()
     item_form = MenuItemForm()
+    
+    # Обновляем choices для категорий в форме
+    item_form.category_id.choices = [(cat.id, cat.name_ru) for cat in categories]
+    current_app.logger.info(f"Form choices: {item_form.category_id.choices}")
+    
+    # Дополнительная отладка
+    current_app.logger.info(f"Categories in template: {[cat.name_ru for cat in categories]}")
+    current_app.logger.info(f"Categories count: {len(categories)}")
+    
+    # Проверяем отношения
+    for cat in categories:
+        current_app.logger.info(f"Category {cat.id} ({cat.name_ru}) has {len(cat.items)} items")
+        for item in cat.items:
+            current_app.logger.info(f"  - Item: {item.id} - {item.name_ru} (is_active: {item.is_active})")
+    
+    # Отладочная информация для статистики
+    active_items = [item for item in items if item.is_active]
+    inactive_items = [item for item in items if not item.is_active]
+    current_app.logger.info(f"Statistics: {len(active_items)} active items, {len(inactive_items)} inactive items")
     
     return render_template('admin/menu.html',
                          categories=categories,
@@ -108,8 +139,11 @@ def menu():
 def create_category():
     """Создание новой категории меню."""
     data = request.get_json() or {}
+    current_app.logger.info(f"Creating category with data: {data}")
+    
     form = MenuCategoryForm(data=data, meta={'csrf': False})
     if not form.validate():
+        current_app.logger.error(f"Category form validation failed: {form.errors}")
         return jsonify({'status': 'error', 'message': 'Валидация не пройдена', 'errors': form.errors}), 400
     
     category = MenuCategory(
@@ -117,11 +151,16 @@ def create_category():
         name_en=form.name_en.data or '',
         name_tk=form.name_tk.data or '',
         sort_order=form.sort_order.data or 0,
-        is_active=bool(form.is_active.data)
+        is_active=True  # По умолчанию категория активна
     )
+    
+    current_app.logger.info(f"Category object created: {category}")
+    current_app.logger.info(f"Category is_active: {category.is_active}")
     
     db.session.add(category)
     db.session.flush()
+    
+    current_app.logger.info(f"Category saved with ID: {category.id}")
     
     return jsonify({
         'status': 'success',
@@ -305,20 +344,40 @@ def shifts():
     """Управление сменами."""
     today = datetime.now().date()
     
-    # Смены за сегодня с загрузкой связанных данных
+    # Активные смены (все незавершенные смены)
+    active_shifts = StaffShift.query.filter_by(shift_end=None).options(
+        so.joinedload(StaffShift.staff),
+        so.joinedload(StaffShift.table_assignments).joinedload(TableAssignment.table)
+    ).order_by(desc(StaffShift.shift_date)).all()
+    
+    # Смены за сегодня (все смены за сегодня)
     today_shifts = StaffShift.query.filter_by(shift_date=today).options(
         so.joinedload(StaffShift.staff),
         so.joinedload(StaffShift.table_assignments).joinedload(TableAssignment.table)
     ).all()
     
-    # Статистика смен за неделю с загрузкой связанных данных
+    # Недавние смены (завершенные смены за неделю)
     week_ago = today - timedelta(days=7)
-    week_shifts = StaffShift.query.filter(
-        StaffShift.shift_date >= week_ago
+    recent_shifts = StaffShift.query.filter(
+        StaffShift.shift_date >= week_ago,
+        StaffShift.shift_end.isnot(None)  # Только завершенные смены
     ).options(
         so.joinedload(StaffShift.staff),
         so.joinedload(StaffShift.table_assignments).joinedload(TableAssignment.table)
     ).order_by(desc(StaffShift.shift_date)).all()
+    
+    # Отладочная информация
+    current_app.logger.info(f"Active shifts: {len(active_shifts)}")
+    for shift in active_shifts:
+        current_app.logger.info(f"  - {shift.staff.name} ({shift.shift_date}) - Active")
+    
+    current_app.logger.info(f"Today shifts: {len(today_shifts)}")
+    for shift in today_shifts:
+        current_app.logger.info(f"  - {shift.staff.name} ({shift.shift_date}) - {'Active' if not shift.shift_end else 'Ended'}")
+    
+    current_app.logger.info(f"Recent shifts: {len(recent_shifts)}")
+    for shift in recent_shifts:
+        current_app.logger.info(f"  - {shift.staff.name} ({shift.shift_date}) - Ended at {shift.shift_end}")
     
     # Активные официанты
     active_waiters = Staff.query.filter_by(
@@ -333,8 +392,9 @@ def shifts():
     end_shift_form = EndShiftForm()
     
     return render_template('admin/shifts.html',
+                         active_shifts=active_shifts,
                          today_shifts=today_shifts,
-                         week_shifts=week_shifts,
+                         recent_shifts=recent_shifts,
                          active_waiters=active_waiters,
                          tables=tables,
                          today=today,
@@ -666,7 +726,7 @@ def get_menu_item(item_id):
         'data': item.to_dict()
     })
 
-@admin_bp.route('/menu/item/<int:item_id>', methods=['POST', 'DELETE'])
+@admin_bp.route('/menu/item/<int:item_id>', methods=['POST', 'PUT', 'DELETE'])
 @admin_required
 @audit_action("update_menu_item")
 @with_transaction
@@ -688,10 +748,15 @@ def update_menu_item(item_id):
             'message': 'Блюдо удалено'
         })
     
-    # Обновление блюда
+    # Обновление блюда (POST или PUT)
     try:
-        data = request.form.to_dict()
-        image_file = request.files.get('image')
+        # Поддержка JSON и form-data
+        if request.is_json:
+            data = request.get_json() or {}
+            image_file = None
+        else:
+            data = request.form.to_dict()
+            image_file = request.files.get('image')
         
         # Обновляем основные поля
         if 'name_ru' in data:
@@ -719,7 +784,10 @@ def update_menu_item(item_id):
         if 'sort_order' in data:
             item.sort_order = int(data['sort_order'])
         if 'is_active' in data:
-            item.is_active = data['is_active'].lower() == 'true'
+            if isinstance(data['is_active'], bool):
+                item.is_active = data['is_active']
+            else:
+                item.is_active = str(data['is_active']).lower() == 'true'
         
         # Обрабатываем новое изображение, если загружено
         if image_file and image_file.filename != '':
@@ -799,9 +867,13 @@ def update_menu_category(category_id):
         return jsonify({'status': 'error', 'message': 'Валидация не пройдена', 'errors': form.errors}), 400
     
     # Обновление полей
-    for field in ['name_ru', 'name_en', 'name_tk', 'sort_order', 'is_active']:
+    for field in ['name_ru', 'name_en', 'name_tk', 'sort_order']:
         if hasattr(form, field) and getattr(form, field).data is not None:
             setattr(category, field, getattr(form, field).data)
+    
+    # Обработка is_active отдельно
+    if hasattr(form, 'is_active') and form.is_active.data is not None:
+        category.is_active = bool(form.is_active.data)
     
     return jsonify({
         'status': 'success',
@@ -1431,8 +1503,31 @@ def reorder_banners():
 def create_menu_item_api():
     """Создание нового блюда."""
     try:
-        data = request.form.to_dict()
-        image_file = request.files.get('image')
+        # Поддержка JSON и form-data
+        if request.is_json:
+            data = request.get_json() or {}
+            image_file = None
+        else:
+            data = request.form.to_dict()
+            image_file = request.files.get('image')
+
+        # Валидация обязательных полей
+        required_fields = ['category_id', 'name_ru', 'price']
+        missing_fields = [f for f in required_fields if not data.get(f)]
+        if missing_fields:
+            return jsonify({
+                'status': 'error',
+                'message': f"Отсутствуют обязательные поля: {', '.join(missing_fields)}"
+            }), 400
+
+        def to_bool(value, default=False):
+            if isinstance(value, bool):
+                return value
+            if value is None:
+                return default
+            if isinstance(value, str):
+                return value.lower() in ('true', '1', 'yes', 'on')
+            return bool(value)
         
         # Получаем следующий порядок сортировки для категории
         max_sort_order = db.session.query(db.func.max(MenuItem.sort_order))\
@@ -1449,8 +1544,9 @@ def create_menu_item_api():
             description_ru=data.get('description_ru', ''),
             price=float(data['price']),
             estimated_time=int(data.get('estimated_time', 15)),
+            preparation_type=data.get('preparation_type', 'kitchen'),  # Значение по умолчанию
             sort_order=next_sort_order,
-            is_active=data.get('is_active', 'true').lower() == 'true'
+            is_active=to_bool(data.get('is_active', True))
         )
         
         # Обрабатываем изображение, если есть

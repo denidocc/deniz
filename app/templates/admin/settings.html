@@ -48,7 +48,7 @@
     }
     
     .currency-input::after {
-        content: '₽';
+        content: '{{ settings.get("currency", "TMT") }}';
         position: absolute;
         right: 10px;
         top: 50%;
@@ -180,7 +180,7 @@
             <div class="setting-description">Основная валюта системы</div>
             <select class="form-select" id="currency">
                 <option value="TMT" {{ 'selected' if settings.get('currency', 'TMT') == 'TMT' else '' }}>Туркменский манат (TMT)</option>
-                <option value="RUB" {{ 'selected' if settings.get('currency') == 'RUB' else '' }}>Российский рубль (₽)</option>
+                <!-- <option value="RUB" {{ 'selected' if settings.get('currency') == 'RUB' else '' }}>Российский рубль (₽)</option> -->
                 <option value="USD" {{ 'selected' if settings.get('currency') == 'USD' else '' }}>Доллар США ($)</option>
                 <option value="EUR" {{ 'selected' if settings.get('currency') == 'EUR' else '' }}>Евро (€)</option>
             </select>
@@ -717,8 +717,7 @@
     function showRestoreModal() {
         const modalElement = document.getElementById('restoreModal');
         if (modalElement) {
-            const modal = new bootstrap.Modal(modalElement);
-            modal.show();
+            $(modalElement).modal('show');
         }
     }
 

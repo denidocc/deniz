@@ -96,13 +96,13 @@
                     </div>
                     <div class="col-md-4">
                         <div class="text-center">
-                            <h3 class="text-success">{{ "%.2f"|format(today_stats.revenue) }} ₽</h3>
+                            <h3 class="text-success">{{ "%.2f"|format(today_stats.revenue) }} {{ settings.get('currency', 'TMT') }}</h3>
                             <p class="text-muted">Выручка</p>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="text-center">
-                            <h3 class="text-info">{{ "%.2f"|format(today_stats.avg_order) }} ₽</h3>
+                            <h3 class="text-info">{{ "%.2f"|format(today_stats.avg_order) }} {{ settings.get('currency', 'TMT') }}</h3>
                             <p class="text-muted">Средний чек</p>
                         </div>
                     </div>

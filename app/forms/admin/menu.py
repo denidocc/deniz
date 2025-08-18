@@ -38,9 +38,7 @@ class MenuItemForm(BaseJsonForm):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Динамически заполняем choices для category_id
-        from app.models import MenuCategory
-        categories = MenuCategory.query.filter_by(is_active=True).order_by(MenuCategory.sort_order).all()
-        self.category_id.choices = [(category.id, category.name_ru) for category in categories]
+        # Choices для category_id будут заполнены в контроллере
+        # Здесь мы не заполняем choices, так как это делается в контроллере
 
 

@@ -406,8 +406,7 @@
                 document.getElementById('editTableActive').checked = isActive;
                 
                 // Показываем модальное окно
-                const modal = new bootstrap.Modal(document.getElementById('editTableModal'));
-                modal.show();
+                $('#editTableModal').modal('show');
                 return;
             }
             
@@ -424,8 +423,7 @@
                 document.getElementById('editTableActive').checked = table.is_active;
                 
                 // Показываем модальное окно
-                const modal = new bootstrap.Modal(document.getElementById('editTableModal'));
-                modal.show();
+                $('#editTableModal').modal('show');
             }
         } catch (error) {
             showAlert('Ошибка при загрузке данных стола: ' + error.message, 'danger');
@@ -455,8 +453,7 @@
                 showAlert('Стол успешно обновлен', 'success');
                 
                 // Закрываем модальное окно
-                const modal = bootstrap.Modal.getInstance(document.getElementById('editTableModal'));
-                modal.hide();
+                $('#editTableModal').modal('hide');
                 
                 // Перезагружаем список
                 loadTables();

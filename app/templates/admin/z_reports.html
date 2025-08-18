@@ -118,7 +118,7 @@
             <h4><i class="bi bi-calendar-day"></i> Создание Z-отчета</h4>
             <p class="mb-0">
                 Z-отчет формируется автоматически в конце дня или может быть создан вручную.
-                Отчет содержит полную информацию о продажах, налогах и выручке за указанный период.
+                Отчет содержит полную информацию о продажах и выручке за указанный период.
             </p>
         </div>
         <div class="col-md-4">
@@ -131,7 +131,7 @@
 
 <!-- Statistics Overview -->
 <div class="row mb-4">
-    <div class="col-md-3">
+    <div class="col-md-4">
         <div class="stat-card">
             <div class="stat-value">{{ reports|length }}</div>
             <div class="stat-label">
@@ -139,7 +139,7 @@
             </div>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-md-4">
         <div class="stat-card success">
             <div class="stat-value">{{ reports|length }}</div>
             <div class="stat-label">
@@ -147,22 +147,25 @@
             </div>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-md-4">
         <div class="stat-card warning">
-            <div class="stat-value">{{ reports|sum(attribute='total_revenue')|round(2) }} ₽</div>
+                            <div class="stat-value">{{ reports|sum(attribute='total_revenue')|round(2) }} {{ settings.get('currency', 'TMT') }}</div>
             <div class="stat-label">
                 <i class="bi bi-cash"></i> Общая выручка
             </div>
         </div>
     </div>
+    <!-- НДС отключен по требованиям. Секция скрыта. -->
+    <!--
     <div class="col-md-3">
         <div class="stat-card danger">
-            <div class="stat-value">{{ (reports|sum(attribute='total_revenue') * 0.2)|round(2) }} ₽</div>
+            <div class="stat-value">{{ (reports|sum(attribute='total_revenue') * 0.2)|round(2) }} {{ settings.get('currency', 'TMT') }}</div>
             <div class="stat-label">
                 <i class="bi bi-percent"></i> НДС (20%)
             </div>
         </div>
     </div>
+    -->
 </div>
 
 <!-- Reports List -->
@@ -205,17 +208,20 @@
                             <div class="summary-label">Заказов</div>
                         </div>
                         <div class="summary-item">
-                            <div class="summary-value">{{ "%.2f"|format(report.total_revenue) }} ₽</div>
+                            <div class="summary-value">{{ "%.2f"|format(report.total_revenue) }} {{ settings.get('currency', 'TMT') }}</div>
                             <div class="summary-label">Выручка</div>
                         </div>
                         <div class="summary-item">
-                            <div class="summary-value">{{ "%.2f"|format(report.total_revenue / report.total_orders if report.total_orders > 0 else 0) }} ₽</div>
+                            <div class="summary-value">{{ "%.2f"|format(report.total_revenue / report.total_orders if report.total_orders > 0 else 0) }} TMT</div>
                             <div class="summary-label">Средний чек</div>
                         </div>
+                        <!-- НДС отключен по требованиям. Блок скрыт. -->
+                        <!--
                         <div class="summary-item">
-                            <div class="summary-value">{{ "%.2f"|format(report.total_revenue * 0.2) }} ₽</div>
+                            <div class="summary-value">{{ "%.2f"|format(report.total_revenue * 0.2) }} TMT</div>
                             <div class="summary-label">НДС</div>
                         </div>
+                        -->
                     </div>
                     
                     <div class="row">
@@ -232,23 +238,26 @@
                     </div>
                     
                     {% if report.report_data %}
+                    <!-- Налоговая информация отключена по требованиям. Блок скрыт. -->
+                    <!--
                     <div class="tax-info">
                         <h6><i class="bi bi-calculator"></i> Налоговая информация</h6>
                         <div class="row">
                             <div class="col-md-4">
                                 <strong>Сумма без НДС:</strong><br>
-                                {{ "%.2f"|format(report.total_revenue / 1.2) }} ₽
+                                {{ "%.2f"|format(report.total_revenue / 1.2) }} TMT
                             </div>
                             <div class="col-md-4">
                                 <strong>НДС (20%):</strong><br>
-                                {{ "%.2f"|format(report.total_revenue * 0.2 / 1.2) }} ₽
+                                {{ "%.2f"|format(report.total_revenue * 0.2 / 1.2) }} TMT
                             </div>
                             <div class="col-md-4">
                                 <strong>Сумма с НДС:</strong><br>
-                                {{ "%.2f"|format(report.total_revenue) }} ₽
+                                {{ "%.2f"|format(report.total_revenue) }} TMT
                             </div>
                         </div>
                     </div>
+                    -->
                     {% endif %}
                 </div>
             </div>
@@ -299,6 +308,8 @@
                                   placeholder="Дополнительная информация об отчете"></textarea>
                     </div>
                     
+                    <!-- Переключатель НДС скрыт по требованиям. -->
+                    <!--
                     <div class="mb-3">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="includeTax" checked>
@@ -307,6 +318,7 @@
                             </label>
                         </div>
                     </div>
+                    -->
                     
                     <div class="mb-3">
                         <div class="form-check">
@@ -374,8 +386,7 @@
 
     // Show generate modal
     function showGenerateModal() {
-        const modal = new bootstrap.Modal(document.getElementById('generateReportModal'));
-        modal.show();
+                    $('#generateReportModal').modal('show');
     }
 
     // Generate report for today
@@ -401,8 +412,7 @@
             await generateReportForDate(date);
             
             // Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('generateReportModal'));
-            modal.hide();
+            $('#generateReportModal').modal('hide');
             
             setTimeout(() => {
                 location.reload();
@@ -467,6 +477,8 @@
                         <td><strong>Общая сумма продаж:</strong></td>
                         <td class="text-end">${formatCurrency(report.total_revenue)}</td>
                     </tr>
+                    <!-- Налоговые строки скрыты по требованиям -->
+                    <!--
                     <tr>
                         <td><strong>Сумма без НДС:</strong></td>
                         <td class="text-end">${formatCurrency(report.total_revenue / 1.2)}</td>
@@ -479,6 +491,7 @@
                         <td><strong>ИТОГО с НДС:</strong></td>
                         <td class="text-end"><strong>${formatCurrency(report.total_revenue)}</strong></td>
                     </tr>
+                    -->
                 </table>
                 
                 <div class="mt-4">

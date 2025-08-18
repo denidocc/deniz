@@ -93,6 +93,7 @@ class SystemSetting(BaseModel):
             ('printer_bar_port', '9100', 'Порт барного принтера'),
             ('printer_receipt_port', '9100', 'Порт принтера чеков'),
             ('system_language', 'ru', 'Основной язык системы'),
+            ('currency', 'TMT', 'Основная валюта системы'),
             ('max_guests_per_table', '8', 'Максимальное количество гостей за столом'),
             ('carousel_auto_play', 'true', 'Автопроигрывание карусели'),
             ('carousel_auto_play_delay', '5000', 'Задержка автопроигрывания карусели (мс)'),

@@ -46,6 +46,7 @@
         padding: 0.25rem 0.75rem;
         border-radius: 20px;
         font-size: 0.8rem;
+        color: white;
     }
     
     .status-active {
@@ -619,8 +620,7 @@
             showAlert('Сотрудник успешно создан', 'success');
             
             // Close modal and refresh page
-            const modal = bootstrap.Modal.getInstance(document.getElementById('addStaffModal'));
-            modal.hide();
+            $('#addStaffModal').modal('hide');
             
             setTimeout(() => {
                 location.reload();
@@ -670,8 +670,7 @@
         document.getElementById('editStaffActive').checked = isActive;
         
         // Show modal
-        const modal = new bootstrap.Modal(document.getElementById('editStaffModal'));
-        modal.show();
+                        $('#editStaffModal').modal('show');
     }
 
     // Update staff member
@@ -698,8 +697,7 @@
             showAlert('Данные сотрудника обновлены', 'success');
             
             // Close modal and refresh page
-            const modal = bootstrap.Modal.getInstance(document.getElementById('editStaffModal'));
-            modal.hide();
+            $('#editStaffModal').modal('hide');
             
             setTimeout(() => {
                 location.reload();

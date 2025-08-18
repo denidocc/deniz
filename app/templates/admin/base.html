@@ -184,6 +184,7 @@
             padding: 0.5rem 0.75rem;
             border-radius: 20px;
             font-size: 0.8rem;
+            color: white;
         }
 
         .badge-admin { background: var(--admin-danger); }
@@ -538,9 +539,11 @@
 
         // Format currency
         function formatCurrency(amount) {
+            // Получаем валюту из настроек или используем TMT по умолчанию
+            const currency = '{{ settings.get("currency", "TMT") }}';
             return new Intl.NumberFormat('ru-RU', {
                 style: 'currency',
-                currency: 'RUB'
+                currency: currency
             }).format(amount);
         }
 

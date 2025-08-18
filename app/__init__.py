@@ -159,6 +159,17 @@ def init_system_components(app: Flask) -> None:
                 
         except Exception as e:
             app.logger.error(f"Ошибка инициализации системы: {e}")
+    
+    # Контекстный процессор для настроек системы
+    @app.context_processor
+    def inject_settings():
+        try:
+            from .models import SystemSetting
+            settings = SystemSetting.get_all_settings()
+            return {'settings': settings}
+        except Exception as e:
+            app.logger.warning(f"Не удалось загрузить настройки: {e}")
+            return {'settings': {}}
 
 def init_audit_system(app: Flask) -> None:
     """Инициализация системы аудита."""

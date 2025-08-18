@@ -438,7 +438,7 @@ class WaiterDashboard {
                                 </div>
                                 <div class="order-details">
                                     <span class="table-info">Стол ${order.table_number}</span>
-                                    <span class="order-total">${order.total_amount} ₽</span>
+                                    <span class="order-total">${order.total_amount} TMT</span>
                                 </div>
                                 <div class="order-time">
                                     ${new Date(order.created_at).toLocaleString('ru-RU', {
