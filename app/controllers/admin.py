@@ -132,87 +132,6 @@ def create_category():
         }
     })
 
-@admin_bp.route('/menu/item', methods=['POST'])
-@admin_required
-@audit_action("create_menu_item")
-@with_transaction
-def create_menu_item():
-    """Создание нового блюда."""
-    try:
-        data = request.form.to_dict()
-        image_file = request.files.get('image')
-        
-        # Валидируем данные
-        if not data.get('name_ru'):
-            return jsonify({
-                'status': 'error',
-                'message': 'Название блюда обязательно'
-            }), 400
-        
-        if not data.get('price') or float(data.get('price', 0)) <= 0:
-            return jsonify({
-                'status': 'error',
-                'message': 'Цена должна быть больше 0'
-            }), 400
-        
-        if not data.get('category_id'):
-            return jsonify({
-                'status': 'error',
-                'message': 'Категория обязательна'
-            }), 400
-        
-        # Обрабатываем изображение, если загружено
-        image_path = ''
-        if image_file and image_file.filename != '':
-            success, image_path, message = ImageUploadManager.save_image(
-                image_file, 'meal'
-            )
-            
-            if not success:
-                return jsonify({
-                    'status': 'error',
-                    'message': message
-                }), 400
-        else:
-            # Если изображение не загружено, используем URL из формы
-            image_path = data.get('image_url', '')
-        
-        # Создаем блюдо
-        item = MenuItem(
-            category_id=int(data.get('category_id', 0)),
-            name_ru=data.get('name_ru', ''),
-            name_en=data.get('name_en', ''),
-            name_tk=data.get('name_tk', ''),
-            description_ru=data.get('description_ru', ''),
-            description_en=data.get('description_en', ''),
-            description_tk=data.get('description_tk', ''),
-            price=float(data.get('price', 0)),
-            estimated_time=int(data.get('estimated_time', 15)),
-            image_url=image_path,
-            preparation_type=data.get('preparation_type', 'standard'),
-            has_size_options=data.get('has_size_options', 'false').lower() == 'true',
-            can_modify_ingredients=data.get('can_modify_ingredients', 'false').lower() == 'true',
-            is_active=data.get('is_active', 'true').lower() == 'true',
-            sort_order=int(data.get('sort_order', 0))
-        )
-        
-        db.session.add(item)
-        db.session.commit()
-        
-        return jsonify({
-            'status': 'success',
-            'message': 'Блюдо успешно создано',
-            'data': item.to_dict()
-        })
-        
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f"Error creating menu item: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': f'Ошибка создания блюда: {str(e)}'
-        }), 500
-
 # === УПРАВЛЕНИЕ ПЕРСОНАЛОМ ===
 
 @admin_bp.route('/staff')
@@ -1314,12 +1233,12 @@ def create_banner():
             description=data.get('description', ''),
             image_path=image_path,
             image_url=f'/static/assets/{image_path}',
-            is_active=data.get('is_active', 'true').lower() == 'true',
+            is_active=data.get('is_active') == 'true',
             sort_order=next_sort_order,
             link_url=data.get('link_url', ''),
             link_text=data.get('link_text', ''),
-            start_date=datetime.fromisoformat(data['start_date']) if data.get('start_date') else None,
-            end_date=datetime.fromisoformat(data['end_date']) if data.get('end_date') else None
+            start_date=datetime.fromisoformat(data['start_date'].replace('Z', '+00:00')) if data.get('start_date') else None,
+            end_date=datetime.fromisoformat(data['end_date'].replace('Z', '+00:00')) if data.get('end_date') else None
         )
         
         db.session.add(banner)
@@ -1366,7 +1285,7 @@ def update_banner(banner_id):
         if 'description' in data:
             banner.description = data['description']
         if 'is_active' in data:
-            banner.is_active = data['is_active'].lower() == 'true'
+            banner.is_active = data['is_active'] == 'true'
         if 'sort_order' in data:
             banner.sort_order = int(data['sort_order'])
         if 'link_url' in data:
@@ -1374,9 +1293,9 @@ def update_banner(banner_id):
         if 'link_text' in data:
             banner.link_text = data['link_text']
         if 'start_date' in data and data['start_date']:
-            banner.start_date = datetime.fromisoformat(data['start_date'])
+            banner.start_date = datetime.fromisoformat(data['start_date'].replace('Z', '+00:00'))
         if 'end_date' in data and data['end_date']:
-            banner.end_date = datetime.fromisoformat(data['end_date'])
+            banner.end_date = datetime.fromisoformat(data['end_date'].replace('Z', '+00:00'))
         
         # Обрабатываем новое изображение, если загружено
         image_file = request.files.get('image')

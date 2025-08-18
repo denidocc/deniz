@@ -50,7 +50,7 @@ class ImageUploadManager:
         return unique_name
     
     @classmethod
-    def save_image(cls, file, image_type: str, base_path: str = 'static/assets') -> Tuple[bool, str, str]:
+    def save_image(cls, file, image_type: str, base_path: str = 'app/static/assets') -> Tuple[bool, str, str]:
         """
         Сохранение загруженного изображения.
         

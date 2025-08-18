@@ -57,12 +57,12 @@ class Banner(BaseModel):
         if not self.is_active:
             return False
         
-        now = datetime.utcnow()
+        now = datetime.now().replace(tzinfo=None)
         
-        if self.start_date and now < self.start_date:
+        if self.start_date and now < self.start_date.replace(tzinfo=None):
             return False
         
-        if self.end_date and now > self.end_date:
+        if self.end_date and now > self.end_date.replace(tzinfo=None):
             return False
         
         return True
@@ -93,15 +93,15 @@ class Banner(BaseModel):
     @classmethod
     def get_current_banners(cls) -> list['Banner']:
         """Получение баннеров, активных в данный момент."""
-        now = datetime.utcnow()
+        now = datetime.now().replace(tzinfo=None)
         return cls.query.filter(
             cls.is_active == True,
             sa.or_(
                 cls.start_date.is_(None),
-                cls.start_date <= now
+                sa.func.date_trunc('minute', cls.start_date) <= sa.func.date_trunc('minute', sa.func.now())
             ),
             sa.or_(
                 cls.end_date.is_(None),
-                cls.end_date >= now
+                sa.func.date_trunc('minute', cls.end_date) >= sa.func.date_trunc('minute', sa.func.now())
             )
         ).order_by(cls.sort_order).all()

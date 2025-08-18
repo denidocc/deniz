@@ -131,7 +131,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="bannerModalLabel">Добавить баннер</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="closeBannerModal()">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
@@ -194,8 +194,9 @@
                             </div>
                             
                             <div class="form-group">
+                                <input type="hidden" name="is_active" value="false">
                                 <div class="custom-control custom-switch">
-                                    <input type="checkbox" class="custom-control-input" id="bannerIsActive" name="is_active" checked>
+                                    <input type="checkbox" class="custom-control-input" id="bannerIsActive" onchange="updateHiddenField(this)">
                                     <label class="custom-control-label" for="bannerIsActive">Активный</label>
                                 </div>
                             </div>
@@ -203,7 +204,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeBannerModal()">Отмена</button>
                     <button type="submit" class="btn btn-primary" id="bannerSubmitBtn">
                         <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
                         Сохранить
@@ -220,7 +221,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="deleteBannerModalLabel">Подтверждение удаления</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="closeDeleteBannerModal()">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
@@ -231,10 +232,10 @@
                     Это действие нельзя отменить. Изображение также будет удалено с сервера.
                 </p>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
-                <button type="button" class="btn btn-danger" id="confirmDeleteBanner">Удалить</button>
-            </div>
+                            <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeDeleteBannerModal()">Отмена</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteBanner">Удалить</button>
+                </div>
         </div>
     </div>
 </div>
@@ -282,7 +283,7 @@ async function loadBanners() {
     try {
         console.log('🎠 Loading banners...');
         showLoading();
-        const response = await apiRequest('/admin/api/banners', 'GET');
+        const response = await apiRequest('/admin/api/banners');
         
         console.log('🎠 API response:', response);
         
@@ -310,7 +311,7 @@ function renderBannersTable() {
     if (banners.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="8" class="text-center text-muted py-4">
+                <td colspan="9" class="text-center text-muted py-4">
                     <i class="bi bi-images fa-3x mb-3"></i>
                     <p>Баннеры не найдены</p>
                     <button class="btn btn-primary" onclick="openAddBannerModal()">
@@ -334,7 +335,9 @@ function renderBannersTable() {
             </td>
             <td>
                 <strong>${banner.title}</strong>
-                ${banner.description ? `<br><small class="text-muted">${banner.description}</small>` : ''}
+            </td>
+            <td>
+                ${banner.description || '<span class="text-muted">-</span>'}
             </td>
             <td>
                 <span class="badge badge-${banner.is_active ? 'success' : 'secondary'}">
@@ -405,8 +408,13 @@ function openAddBannerModal() {
     document.getElementById('bannerModalLabel').textContent = 'Добавить баннер';
     document.getElementById('bannerForm').reset();
     document.getElementById('imagePreview').style.display = 'none';
-    document.getElementById('bannerSubmitBtn').innerHTML = '<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>Сохранить';
+    document.getElementById('bannerSubmitBtn').innerHTML = '<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>Создать';
     
+    // Устанавливаем чекбокс как активный по умолчанию
+    document.getElementById('bannerIsActive').checked = true;
+    updateHiddenField(document.getElementById('bannerIsActive'));
+    
+    // Используем jQuery для модальных окон
     $('#bannerModal').modal('show');
 }
 
@@ -416,14 +424,13 @@ async function createBanner() {
         
         // Показываем спиннер
         const submitBtn = document.getElementById('bannerSubmitBtn');
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>Сохранение...';
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>Создание...';
         submitBtn.disabled = true;
         
-        const response = await apiRequest('/admin/api/banners', 'POST', formData, false);
+        const response = await apiRequest('/admin/api/banners', 'POST', formData);
         
         if (response.status === 'success') {
-            showAlert('Баннер успешно создан!', 'success');
-            $('#bannerModal').modal('hide');
+            closeBannerModal();
             loadBanners();
         } else {
             showAlert('Ошибка создания баннера: ' + response.message, 'error');
@@ -433,14 +440,14 @@ async function createBanner() {
     } finally {
         // Восстанавливаем кнопку
         const submitBtn = document.getElementById('bannerSubmitBtn');
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>Сохранить';
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>Создать';
         submitBtn.disabled = false;
     }
 }
 
 async function editBanner(bannerId) {
     try {
-        const response = await apiRequest(`/admin/api/banners/${bannerId}`, 'GET');
+        const response = await apiRequest(`/admin/api/banners/${bannerId}`);
         
         if (response.status === 'success') {
             const banner = response.data;
@@ -448,11 +455,13 @@ async function editBanner(bannerId) {
             
             // Заполняем форму
             document.getElementById('bannerModalLabel').textContent = 'Редактировать баннер';
+            document.getElementById('bannerSubmitBtn').innerHTML = '<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>Сохранить';
             document.getElementById('bannerTitle').value = banner.title;
             document.getElementById('bannerDescription').value = banner.description || '';
             document.getElementById('bannerLinkUrl').value = banner.link_url || '';
             document.getElementById('bannerLinkText').value = banner.link_text || '';
             document.getElementById('bannerIsActive').checked = banner.is_active;
+            updateHiddenField(document.getElementById('bannerIsActive'));
             
             if (banner.start_date) {
                 document.getElementById('bannerStartDate').value = banner.start_date.slice(0, 16);
@@ -488,11 +497,11 @@ async function updateBanner(bannerId) {
         submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>Сохранение...';
         submitBtn.disabled = true;
         
-        const response = await apiRequest(`/admin/api/banners/${bannerId}`, 'PUT', formData, false);
+        const response = await apiRequest(`/admin/api/banners/${bannerId}`, 'PUT', formData);
         
         if (response.status === 'success') {
             showAlert('Баннер успешно обновлен!', 'success');
-            $('#bannerModal').modal('hide');
+            closeBannerModal();
             loadBanners();
         } else {
             showAlert('Ошибка обновления баннера: ' + response.message, 'error');
@@ -517,8 +526,7 @@ async function deleteBanner(bannerId) {
             const response = await apiRequest(`/admin/api/banners/${bannerId}`, 'DELETE');
             
             if (response.status === 'success') {
-                showAlert('Баннер успешно удален!', 'success');
-                $('#deleteBannerModal').modal('hide');
+                closeDeleteBannerModal();
                 loadBanners();
             } else {
                 showAlert('Ошибка удаления баннера: ' + response.message, 'error');
@@ -536,7 +544,6 @@ async function toggleBannerStatus(bannerId) {
         const response = await apiRequest(`/admin/api/banners/${bannerId}/toggle`, 'PUT');
         
         if (response.status === 'success') {
-            showAlert(response.message, 'success');
             loadBanners();
         } else {
             showAlert('Ошибка изменения статуса: ' + response.message, 'error');
@@ -557,6 +564,37 @@ function toggleSortOrder() {
         // Выключаем режим сортировки
         document.getElementById('bannersTableBody').classList.remove('sortable');
         showAlert('Режим сортировки выключен.', 'info');
+    }
+}
+
+// Функции для правильного закрытия модальных окон
+function closeBannerModal() {
+    // Убираем фокус с кнопок перед закрытием
+    document.getElementById('bannerSubmitBtn').blur();
+    document.querySelector('#bannerModal .btn-secondary').blur();
+    
+    // Сбрасываем форму
+    document.getElementById('bannerForm').reset();
+    document.getElementById('imagePreview').style.display = 'none';
+    
+    // Закрываем модальное окно
+    $('#bannerModal').modal('hide');
+}
+
+function closeDeleteBannerModal() {
+    // Убираем фокус с кнопок перед закрытием
+    document.getElementById('confirmDeleteBanner').blur();
+    document.querySelector('#deleteBannerModal .btn-secondary').blur();
+    
+    // Закрываем модальное окно
+    $('#deleteBannerModal').modal('hide');
+}
+
+function updateHiddenField(checkbox) {
+    // Обновляем скрытое поле при изменении чекбокса
+    const hiddenField = checkbox.parentElement.parentElement.querySelector('input[type="hidden"]');
+    if (hiddenField) {
+        hiddenField.value = checkbox.checked ? 'true' : 'false';
     }
 }
 
