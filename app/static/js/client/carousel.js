@@ -88,18 +88,31 @@ class CarouselManager {
 
     async loadBannersFromAPI() {
         try {
+            console.log('🎠 Loading banners from API...');
             // Загружаем активные баннеры из API
             const response = await fetch('/client/api/banners');
             
+            console.log('🎠 API Response status:', response.status);
+            
             if (response.ok) {
                 const data = await response.json();
+                console.log('🎠 API Response data:', data);
                 
                 if (data.status === 'success' && data.data && data.data.length > 0) {
+                    console.log('🎠 Banners found:', data.data.length);
                     // Баннеры уже отфильтрованы на сервере
                     this.renderBanners(data.data);
                     return;
-                }
+                            } else {
+                console.log('🎠 No banners found in response');
+                console.log('🎠 Response data:', data);
+                this.renderEmptyState();
+                return;
             }
+        } else {
+            console.log('🎠 API response not OK:', response.status);
+            this.renderEmptyState();
+        }
             
             // Если баннеры не загружены, создаем фейковые слайды
             this.createFakeSlides();
@@ -111,17 +124,21 @@ class CarouselManager {
     }
 
     renderBanners(banners) {
+        console.log('🎠 Rendering banners:', banners);
+        
         // Ограничиваем количество слайдов
         const limitedBanners = banners.slice(0, this.maxSlides);
+        console.log('🎠 Limited banners:', limitedBanners);
         
         // Очищаем существующие слайды
         this.carousel.innerHTML = '';
         
         // Создаем слайды из баннеров
         limitedBanners.forEach((banner, index) => {
+            console.log('🎠 Processing banner:', banner);
             const slide = document.createElement('div');
             slide.className = 'carousel-slide';
-            slide.style.backgroundImage = `url('/static/assets/${banner.image_path}')`;
+            slide.style.backgroundImage = `url('${banner.image_url}')`;
             
             // Добавляем контент баннера
             slide.innerHTML = `
@@ -158,6 +175,7 @@ class CarouselManager {
     }
 
     renderEmptyState() {
+        console.log('🎠 Rendering empty state');
         this.carousel.innerHTML = `
             <div class="carousel-empty-state">
                 <div class="empty-state-content">

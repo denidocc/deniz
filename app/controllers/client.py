@@ -110,8 +110,13 @@ def get_banners():
     try:
         from app.models import Banner
         
-        # Получаем только активные баннеры, отсортированные по порядку
-        banners = Banner.query.filter_by(is_active=True).order_by(Banner.sort_order).all()
+        # Получаем только активные баннеры с учетом дат, отсортированные по порядку
+        banners = Banner.get_current_banners()
+        
+        # Логируем для отладки
+        current_app.logger.info(f"Found {len(banners)} current banners")
+        for banner in banners:
+            current_app.logger.info(f"Banner: {banner.title}, active: {banner.is_active}, start: {banner.start_date}, end: {banner.end_date}")
         
         # Преобразуем в формат для клиента
         banner_data = []
@@ -121,6 +126,7 @@ def get_banners():
                 'title': banner.title,
                 'description': banner.description,
                 'image_path': banner.image_path,
+                'image_url': f'/static/assets/{banner.image_path}' if banner.image_path else '',
                 'link_url': banner.link_url,
                 'link_text': banner.link_text,
                 'sort_order': banner.sort_order
