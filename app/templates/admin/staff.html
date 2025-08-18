@@ -614,10 +614,7 @@
         console.log('is_active boolean:', data.is_active);
         
         try {
-            const response = await apiRequest('{{ url_for("admin.create_staff") }}', {
-                method: 'POST',
-                body: JSON.stringify(data)
-            });
+            const response = await apiRequest('{{ url_for("admin.create_staff") }}', 'POST', data);
             
             showAlert('Сотрудник успешно создан', 'success');
             
@@ -696,10 +693,7 @@
         }
         
         try {
-            const response = await apiRequest(`{{ url_for("admin.update_staff", staff_id=0) }}`.replace('0', staffId), {
-                method: 'PUT',
-                body: JSON.stringify(data)
-            });
+            const response = await apiRequest(`{{ url_for("admin.update_staff", staff_id=0) }}`.replace('0', staffId), 'PUT', data);
             
             showAlert('Данные сотрудника обновлены', 'success');
             
@@ -721,11 +715,8 @@
     // Toggle staff status
     async function toggleStaffStatus(staffId, newStatus) {
         try {
-            const response = await apiRequest(`{{ url_for("admin.update_staff", staff_id=0) }}`.replace('0', staffId), {
-                method: 'PUT',
-                body: JSON.stringify({
-                    is_active: newStatus
-                })
+            const response = await apiRequest(`{{ url_for("admin.update_staff", staff_id=0) }}`.replace('0', staffId), 'PUT', {
+                is_active: newStatus
             });
             
             showAlert(`Сотрудник ${newStatus ? 'активирован' : 'деактивирован'}`, 'success');
@@ -746,9 +737,7 @@
         }
         
         try {
-            const response = await apiRequest(`{{ url_for("admin.update_staff", staff_id=0) }}`.replace('0', staffId), {
-                method: 'DELETE'
-            });
+            const response = await apiRequest(`{{ url_for("admin.update_staff", staff_id=0) }}`.replace('0', staffId), 'DELETE');
             
             showAlert('Сотрудник успешно удален', 'success');
             

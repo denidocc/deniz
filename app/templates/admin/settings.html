@@ -632,10 +632,7 @@
         if (backupRetention) settings.backup_retention = backupRetention.value;
         
         try {
-            const response = await apiRequest('{{ url_for("admin.update_settings") }}', {
-                method: 'POST',
-                body: JSON.stringify(settings)
-            });
+            const response = await apiRequest('{{ url_for("admin.update_settings") }}', 'POST', settings);
             
             showAlert('Настройки успешно сохранены', 'success');
             
@@ -680,10 +677,7 @@
                     throw new Error('PIN должен содержать 4-6 цифр');
                 }
                 
-                const response = await apiRequest('/admin/settings/update', {
-                    method: 'POST',
-                    body: JSON.stringify({ table_access_pin: pin })
-                });
+                const response = await apiRequest('/admin/settings/update', 'POST', { table_access_pin: pin });
                 
                 showAlert('PIN-код успешно обновлён', 'success');
                 
@@ -703,9 +697,7 @@
         const originalText = showLoading(button);
         
         try {
-            const response = await apiRequest('/admin/backup/create', {
-                method: 'POST'
-            });
+            const response = await apiRequest('/admin/backup/create', 'POST');
             
             showAlert('Резервная копия успешно создана', 'success');
             

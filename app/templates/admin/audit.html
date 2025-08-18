@@ -427,11 +427,8 @@
         const originalText = showLoading(button);
         
         try {
-            const response = await apiRequest('/admin/audit/cleanup', {
-                method: 'POST',
-                body: JSON.stringify({
-                    days_old: 30
-                })
+            const response = await apiRequest('/admin/audit/cleanup', 'POST', {
+                days_old: 30
             });
             
             showAlert('Старые логи очищены', 'success');

@@ -39,11 +39,18 @@
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         border-color: var(--admin-accent);
     }
-    
+
     .table-info {
         display: flex;
         align-items: center;
         gap: 1rem;
+    }
+    
+    /* Переопределяем Bootstrap стили для table-info */
+    .table-info, 
+    .table-info > td, 
+    .table-info > th {
+        background-color: transparent !important;
     }
     
     .table-number {
@@ -54,11 +61,12 @@
     }
     
     .table-capacity {
-        background: var(--admin-secondary);
-        color: white;
+        background: transparent;
+        color: var(--admin-primary);
         padding: 0.25rem 0.75rem;
         border-radius: 20px;
         font-size: 0.9rem;
+        border: 1px solid var(--admin-secondary);
     }
     
     .table-status {
@@ -264,9 +272,7 @@
         `;
         
         try {
-            const response = await apiRequest('/admin/api/tables', {
-                method: 'GET'
-            });
+            const response = await apiRequest('/admin/api/tables', 'GET');
             
             if (response.status === 'success') {
                 renderTablesList(response.data);
@@ -359,13 +365,10 @@
             }
             
             try {
-                const response = await apiRequest('/admin/api/tables/create', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        table_number: parseInt(tableNumber),
-                        capacity: parseInt(capacity),
-                        is_active: isActive
-                    })
+                const response = await apiRequest('/admin/api/tables/create', 'POST', {
+                    table_number: parseInt(tableNumber),
+                    capacity: parseInt(capacity),
+                    is_active: isActive
                 });
                 
                 if (response.status === 'success') {
@@ -409,9 +412,7 @@
             }
             
             // Если не нашли в DOM, делаем API запрос
-            const response = await apiRequest(`/admin/api/tables/${tableId}`, {
-                method: 'GET'
-            });
+            const response = await apiRequest(`/admin/api/tables/${tableId}`, 'GET');
             
             if (response.status === 'success') {
                 const table = response.data;
@@ -444,13 +445,10 @@
         }
         
         try {
-            const response = await apiRequest(`/admin/api/tables/${tableId}/update`, {
-                method: 'PUT',
-                body: JSON.stringify({
-                    table_number: parseInt(tableNumber),
-                    capacity: parseInt(capacity),
-                    is_active: isActive
-                })
+            const response = await apiRequest(`/admin/api/tables/${tableId}/update`, 'PUT', {
+                table_number: parseInt(tableNumber),
+                capacity: parseInt(capacity),
+                is_active: isActive
             });
             
             if (response.status === 'success') {
@@ -507,9 +505,7 @@
                 return;
             }
             
-            const response = await apiRequest(`/admin/api/tables/${tableId}/delete`, {
-                method: 'DELETE'
-            });
+            const response = await apiRequest(`/admin/api/tables/${tableId}/delete`, 'DELETE');
             
             if (response.status === 'success') {
                 showAlert(`Стол ${tableDetails.table_number} успешно удален`, 'success');
@@ -539,11 +535,8 @@
     // Переключение статуса стола
     async function toggleTableStatus(tableId, currentStatus) {
         try {
-            const response = await apiRequest(`/admin/api/tables/${tableId}/update`, {
-                method: 'PUT',
-                body: JSON.stringify({
-                    is_active: !currentStatus
-                })
+            const response = await apiRequest(`/admin/api/tables/${tableId}/update`, 'PUT', {
+                is_active: !currentStatus
             });
             
             if (response.status === 'success') {
@@ -560,9 +553,7 @@
     // Дополнительная проверка стола перед удалением
     async function getTableDetails(tableId) {
         try {
-            const response = await apiRequest(`/admin/api/tables/${tableId}`, {
-                method: 'GET'
-            });
+            const response = await apiRequest(`/admin/api/tables/${tableId}`, 'GET');
             
             if (response.status === 'success') {
                 return response.data;

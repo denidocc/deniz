@@ -417,14 +417,11 @@
 
     // Generate report for specific date
     async function generateReportForDate(date) {
-        const response = await apiRequest('{{ url_for("admin.generate_z_report") }}', {
-            method: 'POST',
-            body: JSON.stringify({
-                date: date,
-                include_tax: document.getElementById('includeTax')?.checked || true,
-                comment: document.getElementById('reportComment')?.value || '',
-                auto_print: document.getElementById('autoPrint')?.checked || false
-            })
+        const response = await apiRequest('{{ url_for("admin.generate_z_report") }}', 'POST', {
+            date: date,
+            include_tax: document.getElementById('includeTax')?.checked || true,
+            comment: document.getElementById('reportComment')?.value || '',
+            auto_print: document.getElementById('autoPrint')?.checked || false
         });
         
         showAlert('Z-отчет успешно создан', 'success');
