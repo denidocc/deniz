@@ -4,11 +4,11 @@
 
 class DishManager {
     static init() {
-        console.log('🍽️ Initializing Dish Manager');
+
         
         this.setupEventListeners();
         
-        console.log('✅ Dish Manager initialized');
+
     }
     
     static setupEventListeners() {

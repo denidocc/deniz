@@ -1,7 +1,7 @@
 """Контроллер клиентского интерфейса для планшетов."""
 
 from flask import Blueprint, render_template, request, jsonify, current_app
-from app.models import Table, MenuItem, MenuCategory, SystemSetting
+from app.models import Table, MenuItem, MenuCategory, SystemSetting, WaiterCall, TableAssignment
 from app import db, csrf
 from sqlalchemy import func
 import json
@@ -28,8 +28,12 @@ def index():
             return render_template('client/menu.html', settings=settings)
         
         # Иначе сразу показываем меню
+        # Получаем первый доступный стол для значения по умолчанию
+        default_table = Table.query.filter_by(is_active=True).first()
+        default_table_id = default_table.id if default_table else None
+        
         return render_template('client/menu.html', 
-                             table_id=request.args.get('table_id', 1),
+                             table_id=request.args.get('table_id', default_table_id),
                              settings=settings)
         
     except Exception as e:
@@ -553,35 +557,81 @@ def create_order():
         }), 500
 
 @client_bp.route('/api/waiter-call', methods=['POST'])
+@csrf.exempt
 def call_waiter():
     """Вызов официанта к столу."""
     try:
+        current_app.logger.info(f"Waiter call request received: {request.get_data()}")
         data = request.get_json()
+        current_app.logger.info(f"Parsed JSON data: {data}")
+        
         table_id = data.get('table_id')
+        current_app.logger.info(f"Table ID from request: {table_id}")
         
         if not table_id:
+            current_app.logger.warning("Table ID is missing")
             return jsonify({
                 "status": "error",
                 "message": "ID стола обязателен"
             }), 400
         
-        table = Table.query.get(table_id)
+        # Проверяем, что table_id является числом
+        try:
+            table_id = int(table_id)
+        except (ValueError, TypeError):
+            current_app.logger.warning(f"Invalid table ID format: {table_id}")
+            return jsonify({
+                "status": "error",
+                "message": "Неверный формат ID стола"
+            }), 400
+        
+        # Сначала пытаемся найти стол по номеру (это более логично для клиентского интерфейса)
+        table = Table.query.filter_by(table_number=table_id).first()
+        
+        # Если стол не найден по номеру, пытаемся найти по ID
         if not table:
+            table = Table.query.get(table_id)
+            if table:
+                current_app.logger.info(f"Table found by ID: {table_id} -> Number: {table.table_number}")
+        
+        current_app.logger.info(f"Table found: {table}")
+        
+        if not table:
+            current_app.logger.warning(f"Table with number/ID {table_id} not found")
             return jsonify({
                 "status": "error",
                 "message": "Стол не найден"
             }), 404
         
-        # TODO: Здесь нужно создать запись в таблице WaiterCall
-        # Пока возвращаем успешный ответ
+        # Проверяем, есть ли назначенный официант для стола
+        assigned_waiter = table.get_assigned_waiter()
+        current_app.logger.info(f"Assigned waiter: {assigned_waiter}")
         
-        return jsonify({
-            "status": "success",
-            "message": f"Официант вызван к столу {table.table_number}"
-        })
+        # Создаем запись в таблице WaiterCall
+        waiter_call = WaiterCall(
+            table_id=table.id,  # Используем реальный ID стола из БД
+            status='pending'
+        )
+        
+        db.session.add(waiter_call)
+        db.session.commit()
+        
+        if assigned_waiter:
+            current_app.logger.info(f"Waiter called to table {table.table_number} (assigned waiter: {assigned_waiter.name})")
+            return jsonify({
+                "status": "success",
+                "message": f"Официант {assigned_waiter.name} вызван к столу {table.table_number}"
+            })
+        else:
+            # Если официант не назначен, отправляем общий вызов
+            current_app.logger.info(f"General waiter call to table {table.table_number} (no assigned waiter)")
+            return jsonify({
+                "status": "success",
+                "message": f"Вызов официанта к столу {table.table_number} отправлен"
+            })
         
     except Exception as e:
-        current_app.logger.error(f"Error calling waiter: {e}")
+        current_app.logger.error(f"Error calling waiter: {e}", exc_info=True)
         return jsonify({
             "status": "error",
             "message": "Ошибка вызова официанта"

@@ -24,10 +24,22 @@ class ClientAPI {
         };
 
         try {
+            console.log(`Making request to: ${url}`, config);
             const response = await fetch(url, config);
             
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                // Пытаемся получить детали ошибки из ответа
+                let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                try {
+                    const errorData = await response.json();
+                    if (errorData.message) {
+                        errorMessage = errorData.message;
+                    }
+                } catch (jsonError) {
+                    // Если не удалось распарсить JSON, используем стандартное сообщение
+                }
+                
+                throw new Error(errorMessage);
             }
             
             const text = await response.text();
@@ -43,6 +55,7 @@ class ClientAPI {
             }
             
         } catch (error) {
+            console.error('Request failed:', error);
             throw error;
         }
     }
@@ -126,7 +139,7 @@ class ClientAPI {
     /**
      * Вызов официанта
      */
-    async callWaiter(tableId) {
+    callWaiter = async (tableId) => {
         return this.request('/waiter-call', {
             method: 'POST',
             body: JSON.stringify({ table_id: tableId })
@@ -236,7 +249,7 @@ try {
     window.ClientAPI = new ClientAPI();
     window.ClientAPI._ready = true;
 } catch (error) {
-    console.error('🚨 Failed to initialize ClientAPI:', error);
+    console.error('Failed to initialize ClientAPI:', error);
 }
 
 // Экспортируем утилиты

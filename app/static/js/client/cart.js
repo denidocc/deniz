@@ -4,10 +4,11 @@
 
 class CartManager {
     static init() {
-        console.log('🛒 Initializing Cart Manager');
+    
         
         this.items = new Map();
-        this.tableId = window.CLIENT_CONFIG?.tableId || 1;
+        // Используем tableId из конфигурации или значение по умолчанию
+        this.tableId = window.CLIENT_CONFIG?.tableId || null;
         this.tableNumber = undefined;
         this.bonusCard = null;
         
@@ -29,7 +30,9 @@ class CartManager {
         // Рендерим корзину
         this.render();
         
-        console.log('✅ Cart Manager initialized');
+        // Логируем для отладки
+        console.log('🛒 CartManager initialized with tableId:', this.tableId);
+
     }
 
     static loadSettings() {
@@ -48,12 +51,7 @@ class CartManager {
         // Название ресторана
         this.restaurantName = settings.restaurant_name || 'DENIZ Restaurant';
         
-        console.log('⚙️ Settings loaded:', {
-            serviceCharge: this.serviceChargePercent,
-            serviceChargeEnabled: this.serviceChargeEnabled,
-            currency: this.currency,
-            restaurantName: this.restaurantName
-        });
+
     }
     
     static getCurrencySymbol(currency) {
@@ -97,19 +95,18 @@ class CartManager {
     }
 
     static addItem(dishId, quantity = 1) {
-        console.log(`🛒 Adding item: ${dishId}, quantity: ${quantity}`);
+
         
         // Получаем данные блюда из меню
         const dish = this.getDishById(dishId);
         if (!dish) {
-            console.error(`❌ Dish not found: ${dishId}`);
+
             NotificationManager.showError('Блюдо не найдено');
             return;
         }
 
         const currentQuantity = this.items.get(dishId) || 0;
         const newQuantity = currentQuantity + quantity;
-        console.log(`📊 Current: ${currentQuantity}, New: ${newQuantity}`);
         
         if (newQuantity <= 0) {
             this.removeItem(dishId);
@@ -129,11 +126,9 @@ class CartManager {
     }
 
     static removeItem(dishId, quantity = 1) {
-        console.log(`🗑️ Removing item: ${dishId}, quantity: ${quantity}`);
         
         const currentQuantity = this.items.get(dishId) || 0;
         const newQuantity = currentQuantity - quantity;
-        console.log(`📊 Current: ${currentQuantity}, New: ${newQuantity}`);
         
         if (newQuantity <= 0) {
             this.items.delete(dishId);
@@ -348,8 +343,11 @@ class CartManager {
     }
 
     static setTable(tableId, tableNumber) {
-        this.tableId = tableId;
+        // tableId здесь - это номер стола (например, 1, 2, 3), а не ID из БД
+        this.tableId = tableNumber || tableId; // Используем номер стола
         this.tableNumber = tableNumber || tableId;
+        
+        console.log('🛒 setTable called with:', { tableId, tableNumber, finalTableId: this.tableId });
         
         if (this.currentTableNumber) {
             this.currentTableNumber.textContent = this.tableNumber;
@@ -363,6 +361,7 @@ class CartManager {
     }
 
     static getCurrentTableId() {
+        console.log('🔍 getCurrentTableId called, current tableId:', this.tableId);
         return this.tableId;
     }
 

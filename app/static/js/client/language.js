@@ -4,7 +4,7 @@
 
 class LanguageManager {
     static init() {
-        console.log('🌐 Initializing Language Manager');
+
         
         // Получаем настройки из конфигурации
         this.loadLanguageSettings();
@@ -15,14 +15,13 @@ class LanguageManager {
         this.setupEventListeners();
         this.applyLanguage(this.currentLanguage);
         
-        console.log('✅ Language Manager initialized');
-        console.log('🔍 Language buttons created:', document.querySelectorAll('.lang-btn').length);
-        console.log('🔍 Language selector found:', document.getElementById('languageSelector'));
+
+
     }
     
     static createLanguageButtons() {
         const languageSelector = document.getElementById('languageSelector');
-        console.log('🔍 Creating language buttons, selector found:', languageSelector);
+
         
         if (!languageSelector) {
             console.error('❌ Language selector not found!');
@@ -32,7 +31,7 @@ class LanguageManager {
         // Очищаем существующие кнопки
         languageSelector.innerHTML = '';
         
-        console.log('🔍 Supported languages:', this.supportedLanguages);
+
         
         // Создаем кнопки для каждого доступного языка
         this.supportedLanguages.forEach(lang => {
@@ -55,10 +54,10 @@ class LanguageManager {
             }
             
             languageSelector.appendChild(btn);
-            console.log('🔍 Added language button:', lang, btn.textContent);
+
         });
         
-        console.log('🔍 Total language buttons created:', languageSelector.querySelectorAll('.lang-btn').length);
+
     }
     
     static loadLanguageSettings() {
@@ -66,8 +65,8 @@ class LanguageManager {
         const config = window.CLIENT_CONFIG || {};
         const settings = config.settings || {};
         
-        console.log('🔍 Loading language settings from config:', config);
-        console.log('🔍 Settings object:', settings);
+
+
         
         // Язык по умолчанию
         this.currentLanguage = localStorage.getItem('language') || 
@@ -87,11 +86,7 @@ class LanguageManager {
             this.currentLanguage = this.supportedLanguages[0] || 'ru';
         }
         
-        console.log('🌐 Language settings loaded:', {
-            currentLanguage: this.currentLanguage,
-            supportedLanguages: this.supportedLanguages,
-            availableLanguages: availableLanguages
-        });
+
     }
     
     static setupEventListeners() {

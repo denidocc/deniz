@@ -168,7 +168,7 @@
     
     <!-- JavaScript -->
     <script src="{{ url_for('static', filename='js/client/utils.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/client/api.js') }}?v=2"></script>
+    <script src="{{ url_for('static', filename='js/client/api.js') }}?v=3" onerror="console.error('❌ Ошибка загрузки api.js')"></script>
     <script src="{{ url_for('static', filename='js/client/language.js') }}"></script>
     <script src="{{ url_for('static', filename='js/client/theme.js') }}"></script>
     <script src="{{ url_for('static', filename='js/client/cart.js') }}?v=3"></script>
@@ -183,13 +183,15 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Передаем настройки в глобальную конфигурацию
+            // Сохраняем tableId если он уже установлен в menu.html
             window.CLIENT_CONFIG = window.CLIENT_CONFIG || {
                 settings: {{ settings | tojson if settings else '{}' }},
                 apiUrl: '/client/api',
                 currentLanguage: '{{ settings.get("default_language", "ru") if settings else "ru" }}'
             };
             
-            console.log('⚙️ Base template config loaded:', window.CLIENT_CONFIG);
+            // Логируем конфигурацию для отладки
+            console.log('🔧 Base config loaded:', window.CLIENT_CONFIG);
             
             // Небольшая задержка для уверенности, что все скрипты загружены
             setTimeout(() => {
@@ -236,17 +238,28 @@
             document.addEventListener('click', function(e) {
                 if (e.target.matches('.call-waiter-btn')) {
                     const tableId = CartManager.getCurrentTableId();
+                    console.log('Calling waiter for table ID:', tableId);
+                    
                     if (tableId) {
-                        ClientAPI.callWaiter(tableId).then(response => {
-                            if (response.status === 'success') {
-                                NotificationManager.showSuccess('Официант вызван!');
-                            } else {
-                                NotificationManager.showError('Ошибка вызова официанта');
-                            }
-                        }).catch(error => {
-                            NotificationManager.showError('Ошибка вызова официанта');
-                        });
+                        if (window.ClientAPI && typeof window.ClientAPI.callWaiter === 'function') {
+                            window.ClientAPI.callWaiter(tableId).then(response => {
+                                console.log('Waiter call response:', response);
+                                if (response.status === 'success') {
+                                    NotificationManager.showSuccess(response.message || 'Официант вызван!');
+                                } else {
+                                    NotificationManager.showError(response.message || 'Ошибка вызова официанта');
+                                }
+                            }).catch(error => {
+                                console.error('Error calling waiter:', error);
+                                const errorMessage = error.message || 'Ошибка вызова официанта';
+                                NotificationManager.showError(errorMessage);
+                            });
+                        } else {
+                            console.error('ClientAPI not ready or callWaiter function not found');
+                            NotificationManager.showError('API не готов');
+                        }
                     } else {
+                        console.warn('No table ID available');
                         NotificationManager.showWarning('Сначала выберите стол');
                     }
                 }

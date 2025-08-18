@@ -4,7 +4,7 @@
 
 class MenuManager {
     static async init() {
-        console.log('📱 Initializing Menu Page');
+
         
         this.currentLanguage = window.CLIENT_CONFIG?.currentLanguage || 'ru';
         this.currentCategory = null;
@@ -342,7 +342,7 @@ class MenuManager {
         const preloader = document.getElementById('globalPreloader');
         if (preloader) {
             preloader.style.display = 'none';
-            console.log('🔧 Global preloader hidden');
+    
         }
     }
 }

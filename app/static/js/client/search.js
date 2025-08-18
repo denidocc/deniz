@@ -4,7 +4,7 @@
 
 class SearchManager {
     static init() {
-        console.log('🔍 Initializing Search Manager');
+
         
         this.searchInput = document.getElementById('dishSearch');
         this.searchTimeout = null;
@@ -12,7 +12,7 @@ class SearchManager {
         
         this.setupEventListeners();
         
-        console.log('✅ Search Manager initialized');
+
     }
     
     static setupEventListeners() {

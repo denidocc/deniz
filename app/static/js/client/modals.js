@@ -4,7 +4,7 @@
 
 class ModalManager {
     static init() {
-        console.log('🔲 Initializing Modal Manager');
+
         
         this.activeModal = null;
         this.overlay = null;
@@ -13,7 +13,7 @@ class ModalManager {
         this.createOverlay();
         this.setupEventListeners();
         
-        console.log('✅ Modal Manager initialized');
+
     }
 
     static createOverlay() {
@@ -253,7 +253,7 @@ class ModalManager {
                 console.log(`📐 Tables: ${totalTables}, Columns: ${columns}, Layout: ${Math.ceil(totalTables/columns)} rows`);
                 
                 grid.innerHTML = tables.map(table => `
-                    <button class="table-option ${table.id === currentTableId ? 'selected' : ''} ${!table.is_available ? 'occupied' : ''}"
+                    <button class="table-option ${table.table_number === currentTableId ? 'selected' : ''} ${!table.is_available ? 'occupied' : ''}"
                             data-table-id="${table.id}"
                             data-table-number="${table.table_number}"
                             ${!table.is_available ? 'disabled' : ''}>
@@ -264,8 +264,10 @@ class ModalManager {
                 // Обработчики кликов
                 grid.querySelectorAll('.table-option:not(.occupied)').forEach(btn => {
                     btn.addEventListener('click', () => {
-                        const tableId = parseInt(btn.dataset.tableId, 10);
-                        const tableNumber = parseInt(btn.dataset.tableNumber, 10);
+                        const tableId = parseInt(btn.dataset.tableId, 10); // ID из БД (для отладки)
+                        const tableNumber = parseInt(btn.dataset.tableNumber, 10); // Номер стола
+                        
+                        console.log('🪑 Table selected:', { tableId, tableNumber });
                         
                         // Обновляем выбранный стол
                         grid.querySelectorAll('.table-option').forEach(b => b.classList.remove('selected'));
@@ -273,7 +275,7 @@ class ModalManager {
                         
                         // Вызываем callback и закрываем модальное окно
                         setTimeout(() => {
-                            if (callback) callback(tableId, tableNumber);
+                            if (callback) callback(tableNumber, tableNumber); // Передаем номер стола
                             this.closeActive();
                         }, 300);
                     });

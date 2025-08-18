@@ -4,7 +4,7 @@
 
 class ThemeManager {
     static init() {
-        console.log('🌙 Initializing Theme Manager');
+
         
         this.themeToggle = document.getElementById('themeToggle');
         this.currentTheme = localStorage.getItem('theme') || 'light';
@@ -12,7 +12,7 @@ class ThemeManager {
         this.setupEventListeners();
         this.applyTheme(this.currentTheme);
         
-        console.log('✅ Theme Manager initialized');
+
     }
     
     static setupEventListeners() {

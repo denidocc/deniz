@@ -74,11 +74,7 @@ class CarouselManager {
             // Загружаем баннеры из API
             await this.loadBannersFromAPI();
             
-            console.log('🎠 Carousel settings loaded:', {
-                autoplayDelay: this.autoplayDelay,
-                transitionSpeed: this.transitionSpeed,
-                maxSlides: this.maxSlides
-            });
+            
             
         } catch (error) {
             console.error('❌ Error loading carousel settings:', error);
@@ -88,29 +84,28 @@ class CarouselManager {
 
     async loadBannersFromAPI() {
         try {
-            console.log('🎠 Loading banners from API...');
+    
             // Загружаем активные баннеры из API
             const response = await fetch('/client/api/banners');
             
-            console.log('🎠 API Response status:', response.status);
+
             
             if (response.ok) {
                 const data = await response.json();
-                console.log('🎠 API Response data:', data);
+
                 
                 if (data.status === 'success' && data.data && data.data.length > 0) {
-                    console.log('🎠 Banners found:', data.data.length);
+
                     // Баннеры уже отфильтрованы на сервере
                     this.renderBanners(data.data);
                     return;
                             } else {
-                console.log('🎠 No banners found in response');
-                console.log('🎠 Response data:', data);
+
                 this.renderEmptyState();
                 return;
             }
         } else {
-            console.log('🎠 API response not OK:', response.status);
+            
             this.renderEmptyState();
         }
             
@@ -124,11 +119,11 @@ class CarouselManager {
     }
 
     renderBanners(banners) {
-        console.log('🎠 Rendering banners:', banners);
+
         
         // Ограничиваем количество слайдов
         const limitedBanners = banners.slice(0, this.maxSlides);
-        console.log('🎠 Limited banners:', limitedBanners);
+
         
         // Очищаем существующие слайды
         this.carousel.innerHTML = '';
@@ -141,7 +136,7 @@ class CarouselManager {
         
         // Создаем слайды из баннеров
         limitedBanners.forEach((banner, index) => {
-            console.log('🎠 Processing banner:', banner);
+
             const slide = document.createElement('div');
             slide.className = 'carousel-slide';
             slide.style.backgroundImage = `url('${banner.image_url}')`;
@@ -182,7 +177,7 @@ class CarouselManager {
             }
         }
         
-        console.log(`🎠 Loaded ${this.slideCount} banners from API`);
+
     }
 
     createFakeSlides() {
@@ -191,7 +186,7 @@ class CarouselManager {
     }
 
     renderEmptyState() {
-        console.log('🎠 Rendering empty state');
+
         this.carousel.innerHTML = `
             <div class="carousel-empty-state">
                 <div class="empty-state-content">
@@ -205,7 +200,7 @@ class CarouselManager {
         this.slides = [];
         this.slideCount = 0;
         
-        console.log('🎠 No banners available, showing empty state');
+
     }
 
     renderSlides(slides) {
@@ -524,7 +519,7 @@ class CarouselManager {
         // Удаляем обработчики событий
         window.removeEventListener('resize', this.updateSlideWidth);
         
-        console.log('🎠 Carousel destroyed');
+
     }
 }
 
