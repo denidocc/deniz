@@ -422,6 +422,16 @@ async function createBanner() {
     try {
         const formData = new FormData(document.getElementById('bannerForm'));
         
+        // Отладочная информация
+        console.log('🎠 Form data contents:');
+        for (let [key, value] of formData.entries()) {
+            console.log(`🎠 ${key}:`, value);
+        }
+        
+        // Проверяем CSRF токен
+        const csrfToken = document.querySelector('meta[name=csrf-token]')?.getAttribute('content');
+        console.log('🎠 CSRF token:', csrfToken);
+        
         // Показываем спиннер
         const submitBtn = document.getElementById('bannerSubmitBtn');
         submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>Создание...';

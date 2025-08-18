@@ -490,6 +490,15 @@
 
             const finalOptions = { ...defaultOptions, ...options };
             
+            // Отладочная информация
+            console.log('🎠 API Request:', {
+                url: url,
+                method: method,
+                headers: finalOptions.headers,
+                hasFormData: data instanceof FormData,
+                dataType: data ? data.constructor.name : 'null'
+            });
+            
             // Добавляем тело запроса
             if (data) {
                 if (data instanceof FormData) {

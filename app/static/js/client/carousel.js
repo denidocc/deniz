@@ -133,6 +133,12 @@ class CarouselManager {
         // Очищаем существующие слайды
         this.carousel.innerHTML = '';
         
+        // Создаем структуру карусели с track
+        const track = document.createElement('div');
+        track.className = 'carousel-track';
+        track.id = 'carouselTrack';
+        this.track = track;
+        
         // Создаем слайды из баннеров
         limitedBanners.forEach((banner, index) => {
             console.log('🎠 Processing banner:', banner);
@@ -151,19 +157,29 @@ class CarouselManager {
                 </div>
             `;
             
-            this.carousel.appendChild(slide);
+            track.appendChild(slide);
         });
+        
+        // Добавляем track в карусель
+        this.carousel.appendChild(track);
         
         // Обновляем количество слайдов
         this.slides = Array.from(this.carousel.querySelectorAll('.carousel-slide'));
         this.slideCount = this.slides.length;
+        
+        // Обновляем ширину слайдов
+        this.updateSlideWidth();
         
         // Создаем точки навигации
         this.createDots();
         
         // Показываем первый слайд
         if (this.slideCount > 0) {
-            this.showSlide(0);
+            try {
+                this.goToSlide(0);
+            } catch (error) {
+                console.error('🎠 Error showing first slide:', error);
+            }
         }
         
         console.log(`🎠 Loaded ${this.slideCount} banners from API`);
@@ -394,6 +410,12 @@ class CarouselManager {
     }
 
     goToSlide(index, animate = true) {
+        // Проверяем, что track существует
+        if (!this.track) {
+            console.warn('🎠 Track not initialized, skipping slide navigation');
+            return;
+        }
+        
         // Нормализуем индекс для бесконечной прокрутки
         if (index >= this.slideCount) {
             index = 0;

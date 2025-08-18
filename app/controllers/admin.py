@@ -1203,8 +1203,15 @@ def get_banners():
 def create_banner():
     """Создание нового баннера."""
     try:
+        # Логируем входящие данные для отладки
+        current_app.logger.info(f"Creating banner with form data: {request.form.to_dict()}")
+        current_app.logger.info(f"Files: {list(request.files.keys())}")
+        
         data = request.form.to_dict()
         image_file = request.files.get('image')
+        
+        current_app.logger.info(f"Image file: {image_file.filename if image_file else 'None'}")
+        current_app.logger.info(f"Form data keys: {list(data.keys())}")
         
         if not image_file or image_file.filename == '':
             return jsonify({
@@ -1213,9 +1220,12 @@ def create_banner():
             }), 400
         
         # Загружаем изображение
+        current_app.logger.info(f"Attempting to save image: {image_file.filename}")
         success, image_path, message = ImageUploadManager.save_image(
             image_file, 'banner'
         )
+        
+        current_app.logger.info(f"Image save result: success={success}, path={image_path}, message={message}")
         
         if not success:
             return jsonify({
