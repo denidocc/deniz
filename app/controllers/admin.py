@@ -337,6 +337,16 @@ def update_staff(staff_id):
 
 # === УПРАВЛЕНИЕ СМЕНАМИ ===
 
+@admin_bp.route('/csrf-token')
+@admin_required
+def get_csrf_token():
+    """Получение нового CSRF токена."""
+    from flask_wtf.csrf import generate_csrf
+    return jsonify({
+        'status': 'success',
+        'csrf_token': generate_csrf()
+    })
+
 @admin_bp.route('/shifts')
 @admin_required
 @audit_action("view_shifts_management")

@@ -105,7 +105,15 @@ class WaiterDashboard {
         const assignedTablesEl = document.getElementById('assignedTables');
         if (assignedTablesEl) {
             const count = this.stats.assigned_tables || 0;
-            assignedTablesEl.textContent = count > 0 ? count : 'Нет';
+            const tableNumbers = this.stats.assigned_table_numbers || [];
+            
+            if (count > 0 && tableNumbers.length > 0) {
+                assignedTablesEl.textContent = tableNumbers.join(', ');
+            } else if (count > 0) {
+                assignedTablesEl.textContent = count;
+            } else {
+                assignedTablesEl.textContent = 'Нет';
+            }
         }
     }
 
@@ -139,6 +147,12 @@ class WaiterDashboard {
             const shiftStatsEl = document.getElementById('shiftStats');
             if (shiftStatsEl) {
                 shiftStatsEl.style.display = 'block';
+            }
+            
+            // Обновляем назначенные столы в статистике смены
+            const shiftAssignedTablesEl = document.getElementById('shiftAssignedTables');
+            if (shiftAssignedTablesEl && this.shiftData.assigned_tables) {
+                shiftAssignedTablesEl.textContent = this.shiftData.assigned_tables.join(', ');
             }
         } else {
             // Смена неактивна

@@ -475,8 +475,33 @@
             }, 5000);
         }
 
+        // Функция обновления CSRF токена
+        async function refreshCSRFToken() {
+            try {
+                const response = await fetch('/admin/csrf-token', {
+                    method: 'GET',
+                    credentials: 'same-origin'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.csrf_token) {
+                        const metaTag = document.querySelector('meta[name="csrf-token"]');
+                        if (metaTag) {
+                            metaTag.setAttribute('content', data.csrf_token);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.warn('Не удалось обновить CSRF токен:', error);
+            }
+        }
+
         // AJAX helper function
         async function apiRequest(url, method = 'GET', data = null, options = {}) {
+            // Обновляем CSRF токен перед каждым запросом
+            await refreshCSRFToken();
+            
             const defaultOptions = {
                 method: method,
                 headers: {
@@ -551,6 +576,11 @@
         function formatDate(dateString) {
             return new Date(dateString).toLocaleString('ru-RU');
         }
+
+        // Обновляем CSRF токен каждые 30 минут (1800000 мс)
+        setInterval(() => {
+            refreshCSRFToken();
+        }, 1800000);
     </script>
 
     <!-- Bootstrap JavaScript -->

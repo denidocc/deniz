@@ -574,16 +574,7 @@
         }
         
         try {
-            // Получаем CSRF токен из формы
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || 
-                             document.querySelector('input[name="csrf_token"]')?.value;
-            
-            const response = await apiRequest(`/admin/shifts/${shiftId}/end`, 'POST', {}, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken
-                }
-            });
+            const response = await apiRequest(`/admin/shifts/${shiftId}/end`, 'POST', {});
             
             showAlert('Смена завершена', 'success');
             

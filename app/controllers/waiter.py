@@ -83,7 +83,8 @@ def dashboard_stats():
         
         # Подсчитываем назначенные столы
         assigned_tables = TableAssignment.query.filter_by(
-            waiter_id=current_user.id
+            waiter_id=current_user.id,
+            is_active=True
         ).count()
         
         # Подсчитываем статистику за смену
@@ -102,6 +103,18 @@ def dashboard_stats():
             Order.created_at >= active_shift.shift_start
         ).scalar() or 0
 
+        # Получаем номера назначенных столов для отображения
+        assigned_table_ids = db.session.query(TableAssignment.table_id).filter_by(
+            waiter_id=current_user.id,
+            is_active=True
+        ).subquery()
+        
+        assigned_tables_data = Table.query.filter(
+            Table.id.in_(assigned_table_ids)
+        ).all()
+        
+        assigned_table_numbers = [table.table_number for table in assigned_tables_data]
+        
         return jsonify({
             'status': 'success',
             'data': {
@@ -110,6 +123,7 @@ def dashboard_stats():
                 'pending_orders': pending_orders,
                 'pending_calls': pending_calls,
                 'assigned_tables': assigned_tables,
+                'assigned_table_numbers': assigned_table_numbers,
                 'total_orders': total_orders,
                 'total_revenue': float(total_revenue)
             }
@@ -166,6 +180,19 @@ def shift_info():
             Order.created_at >= active_shift.shift_start
         ).scalar() or 0
 
+        # Получаем назначенные столы для текущей смены
+        from app.models import TableAssignment
+        assigned_table_ids = db.session.query(TableAssignment.table_id).filter_by(
+            waiter_id=current_user.id,
+            is_active=True
+        ).subquery()
+        
+        assigned_tables = Table.query.filter(
+            Table.id.in_(assigned_table_ids)
+        ).all()
+        
+        assigned_table_numbers = [table.table_number for table in assigned_tables]
+        
         return jsonify({
             'status': 'success',
             'data': {
@@ -174,7 +201,8 @@ def shift_info():
                 'start_time': active_shift.shift_start.isoformat(),
                 'tables_served': tables_served,
                 'orders_taken': orders_taken,
-                'total_sales': float(total_sales)
+                'total_sales': float(total_sales),
+                'assigned_tables': assigned_table_numbers
             }
         })
         
