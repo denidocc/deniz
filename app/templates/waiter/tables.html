@@ -72,92 +72,103 @@ document.addEventListener('DOMContentLoaded', function() {
             const statusFilter = document.getElementById('statusFilter').value;
             const zoneFilter = document.getElementById('zoneFilter').value;
             
-            const filters = {};
-            if (statusFilter) filters.status = statusFilter;
-            if (zoneFilter) filters.zone = zoneFilter;
-            
             const tablesGrid = document.getElementById('tablesGrid');
             tablesGrid.innerHTML = '<div class="loading-placeholder"><div class="spinner"></div><p>Загрузка столов...</p></div>';
             
-            // Пока используем заглушку
-            setTimeout(() => {
-                const sampleTables = [
-                    { id: 1, number: 1, capacity: 4, status: 'free', zone: 'main' },
-                    { id: 2, number: 2, capacity: 2, status: 'occupied', zone: 'main' },
-                    { id: 3, number: 3, capacity: 6, status: 'reserved', zone: 'terrace' },
-                    { id: 4, number: 4, capacity: 4, status: 'cleaning', zone: 'main' },
-                    { id: 5, number: 5, capacity: 8, status: 'free', zone: 'vip' },
-                    { id: 6, number: 6, capacity: 2, status: 'occupied', zone: 'terrace' }
-                ];
-                
-                let filteredTables = sampleTables;
-                if (statusFilter) {
-                    filteredTables = filteredTables.filter(t => t.status === statusFilter);
-                }
-                if (zoneFilter) {
-                    filteredTables = filteredTables.filter(t => t.zone === zoneFilter);
-                }
-                
-                if (filteredTables.length === 0) {
-                    tablesGrid.innerHTML = `
-                        <div class="no-data">
-                            <i class="fas fa-chair"></i>
-                            <h3>Столы не найдены</h3>
-                            <p>Нет столов соответствующих выбранным фильтрам</p>
-                        </div>
-                    `;
-                    return;
-                }
-                
-                const tablesHtml = filteredTables.map(table => `
-                    <div class="table-card table-${table.status}" data-table-id="${table.id}">
-                        <div class="table-header">
-                            <div class="table-number">Стол ${table.number}</div>
-                            <div class="table-status status-${table.status}">
-                                ${getStatusText(table.status)}
-                            </div>
-                        </div>
-                        <div class="table-info">
-                            <div class="table-capacity">
-                                <i class="fas fa-users"></i> Мест: <strong>${table.capacity}</strong>
-                            </div>
-                            <div class="table-zone">Зона: <strong>${getZoneText(table.zone)}</strong></div>
-                        </div>
-                        <div class="table-actions">
-                            <button class="btn btn-sm btn-primary" onclick="showTableDetails(${table.id})">
-                                Подробнее
-                            </button>
+            // Загружаем реальные данные из API
+            const response = await fetch('/waiter/api/tables');
+            const result = await response.json();
+            
+            if (result.status !== 'success') {
+                throw new Error(result.message || 'Ошибка загрузки столов');
+            }
+            
+            let tables = result.data.tables || [];
+            
+            // Применяем фильтры
+            if (statusFilter) {
+                tables = tables.filter(t => mapStatusToFilter(t.status) === statusFilter);
+            }
+            
+            if (tables.length === 0) {
+                tablesGrid.innerHTML = `
+                    <div class="no-data">
+                        <i class="fas fa-chair"></i>
+                        <h3>Столы не найдены</h3>
+                        <p>Нет столов соответствующих выбранным фильтрам</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const tablesHtml = tables.map(table => `
+                <div class="table-card table-${mapStatusToClass(table.status)}" data-table-id="${table.id}">
+                    <div class="table-header">
+                        <div class="table-number">Стол ${table.table_number}</div>
+                        <div class="table-status status-${mapStatusToClass(table.status)}">
+                            ${getStatusText(table.status)}
                         </div>
                     </div>
-                `).join('');
-                
-                tablesGrid.innerHTML = tablesHtml;
-            }, 1000);
+                    <div class="table-info">
+                        <div class="table-capacity">
+                            <i class="fas fa-users"></i> Мест: <strong>${table.capacity}</strong>
+                        </div>
+                        <div class="table-zone">Зона: <strong>Основная зона</strong></div>
+                    </div>
+                    <div class="table-actions">
+                        <button class="btn btn-sm btn-primary" onclick="showTableDetails(${table.id})">
+                            Подробнее
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            
+            tablesGrid.innerHTML = tablesHtml;
             
         } catch (error) {
             console.error('Error loading tables:', error);
-            waiterNotifications.showError('Ошибка загрузки столов');
+            const tablesGrid = document.getElementById('tablesGrid');
+            tablesGrid.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Ошибка загрузки</h3>
+                    <p>${error.message || 'Не удалось загрузить столы'}</p>
+                </div>
+            `;
         }
+    }
+    
+    // Функция маппинга статуса БД в класс CSS
+    function mapStatusToClass(status) {
+        const statusMap = {
+            'available': 'free',
+            'occupied': 'occupied',
+            'reserved': 'reserved',
+            'cleaning': 'cleaning'
+        };
+        return statusMap[status] || 'free';
+    }
+    
+    // Функция маппинга статуса БД в фильтр
+    function mapStatusToFilter(status) {
+        const statusMap = {
+            'available': 'free',
+            'occupied': 'occupied',
+            'reserved': 'reserved',
+            'cleaning': 'cleaning'
+        };
+        return statusMap[status] || 'free';
     }
     
     // Вспомогательные функции
     function getStatusText(status) {
         const statusTexts = {
-            'free': 'Свободен',
+            'available': 'Свободен',
             'occupied': 'Занят',
             'reserved': 'Забронирован',
             'cleaning': 'Уборка'
         };
         return statusTexts[status] || status;
-    }
-    
-    function getZoneText(zone) {
-        const zoneTexts = {
-            'main': 'Основная зона',
-            'terrace': 'Терраса',
-            'vip': 'VIP зона'
-        };
-        return zoneTexts[zone] || zone;
     }
     
     // Глобальная функция для показа деталей стола

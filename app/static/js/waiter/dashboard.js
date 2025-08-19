@@ -33,12 +33,7 @@ class WaiterDashboard {
             
             const response = await window.WaiterAPI.getDashboardStats();
             
-            // Также загружаем информацию о смене
-            const shiftResponse = await window.WaiterAPI.getShiftInfo();
-            if (shiftResponse.status === 'success') {
-                this.shiftData = shiftResponse.data;
-                this.updateShiftDisplay();
-            }
+
             if (response.status === 'success') {
                 this.stats = response.data;
                 this.updateDashboardDisplay();
@@ -62,7 +57,7 @@ class WaiterDashboard {
         this.updateQuickActions();
         this.updateRecentActivity();
         this.loadRecentOrders();
-        this.updateShiftDisplay();
+
     }
 
     /**
@@ -90,111 +85,12 @@ class WaiterDashboard {
             pendingCallsEl.textContent = `${count} активных`;
         }
 
-        // Статистика в блоке смены
-        const ordersCountEl = document.getElementById('ordersCount');
-        if (ordersCountEl) {
-            ordersCountEl.textContent = this.stats.total_orders || 0;
-        }
 
-        const totalRevenueEl = document.getElementById('totalRevenue');
-        if (totalRevenueEl) {
-            const revenue = this.stats.total_revenue || 0;
-            totalRevenueEl.textContent = WaiterUtils.formatPrice(revenue);
-        }
-
-        const assignedTablesEl = document.getElementById('assignedTables');
-        if (assignedTablesEl) {
-            const count = this.stats.assigned_tables || 0;
-            const tableNumbers = this.stats.assigned_table_numbers || [];
-            
-            if (count > 0 && tableNumbers.length > 0) {
-                assignedTablesEl.textContent = tableNumbers.join(', ');
-            } else if (count > 0) {
-                assignedTablesEl.textContent = count;
-            } else {
-                assignedTablesEl.textContent = 'Нет';
-            }
-        }
     }
 
-    /**
-     * Обновить отображение смены
-     */
-    updateShiftDisplay() {
-        if (!this.shiftData) return;
-        
-        if (this.shiftData.status === 'active') {
-            // Обновляем статус смены
-            const shiftStatusEl = document.getElementById('shiftStatus');
-            if (shiftStatusEl) {
-                shiftStatusEl.textContent = 'Активна';
-            }
-            
-            // Обновляем время начала смены
-            const shiftStartEl = document.getElementById('shiftStart');
-            if (shiftStartEl) {
-                const startTime = new Date(this.shiftData.start_time);
-                shiftStartEl.textContent = startTime.toLocaleTimeString('ru-RU', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-            }
-            
-            // Запускаем таймер смены
-            this.startShiftTimer(this.shiftData.start_time);
-            
-            // Показываем статистику смены
-            const shiftStatsEl = document.getElementById('shiftStats');
-            if (shiftStatsEl) {
-                shiftStatsEl.style.display = 'block';
-            }
-            
-            // Обновляем назначенные столы в статистике смены
-            const shiftAssignedTablesEl = document.getElementById('shiftAssignedTables');
-            if (shiftAssignedTablesEl && this.shiftData.assigned_tables) {
-                shiftAssignedTablesEl.textContent = this.shiftData.assigned_tables.join(', ');
-            }
-        } else {
-            // Смена неактивна
-            const shiftStatusEl = document.getElementById('shiftStatus');
-            if (shiftStatusEl) {
-                shiftStatusEl.textContent = 'Неактивна';
-            }
-            
-            const shiftStatsEl = document.getElementById('shiftStats');
-            if (shiftStatsEl) {
-                shiftStatsEl.style.display = 'none';
-            }
-        }
-    }
 
-    /**
-     * Запустить таймер смены
-     */
-    startShiftTimer(startTime) {
-        const updateTimer = () => {
-            const now = new Date();
-            const start = new Date(startTime);
-            const diff = now - start;
-            
-            const hours = Math.floor(diff / (1000 * 60 * 60));
-            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-            
-            const shiftDurationEl = document.getElementById('shiftDuration');
-            if (shiftDurationEl) {
-                shiftDurationEl.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            }
-        };
-        
-        updateTimer();
-        
-        // Обновляем каждую секунду
-        if (this.shiftTimerInterval) {
-            clearInterval(this.shiftTimerInterval);
-        }
-        this.shiftTimerInterval = setInterval(updateTimer, 1000);
-    }
+
+
 
     /**
      * Обновить быстрые действия
@@ -259,8 +155,7 @@ class WaiterDashboard {
             'order_ready': '✅',
             'call_received': '🔔',
             'table_assigned': '🪑',
-            'shift_started': '⏰',
-            'shift_ended': '🏁'
+
         };
         return icons[type] || '📌';
     }
@@ -362,9 +257,7 @@ class WaiterDashboard {
             case 'calls':
                 window.location.href = '/waiter/calls';
                 break;
-            case 'shift':
-                window.location.href = '/waiter/shift';
-                break;
+
             default:
                 console.warn('Неизвестное действие:', action);
         }

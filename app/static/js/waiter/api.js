@@ -9,9 +9,7 @@ class WaiterAPI {
         
         // Привязываем все методы к контексту класса
         this.getDashboardStats = this.getDashboardStats.bind(this);
-        this.getShiftInfo = this.getShiftInfo.bind(this);
-        this.startShift = this.startShift.bind(this);
-        this.endShift = this.endShift.bind(this);
+
         this.getCalls = this.getCalls.bind(this);
         this.getOrders = this.getOrders.bind(this);
         this.getTables = this.getTables.bind(this);
@@ -170,28 +168,7 @@ class WaiterAPI {
         return this.put(`/calls/${callId}`, { action });
     }
 
-    // === SHIFTS API ===
 
-    /**
-     * Получение информации о смене
-     */
-    async getShiftInfo() {
-        return this.get('/waiter/api/shift');
-    }
-
-    /**
-     * Начало смены
-     */
-    async startShift() {
-        return this.post('/waiter/api/shift/start', {});
-    }
-
-    /**
-     * Завершение смены
-     */
-    async endShift() {
-        return this.post('/waiter/api/shift/end', {});
-    }
 }
 
 // Глобальный экземпляр API
@@ -200,5 +177,5 @@ window.WaiterAPI = new WaiterAPI();
 // Отладка для проверки правильности загрузки
 console.log('🔄 WaiterAPI создан:', window.WaiterAPI);
 console.log('🔍 getDashboardStats тип:', typeof window.WaiterAPI.getDashboardStats);
-console.log('🔍 getShiftInfo тип:', typeof window.WaiterAPI.getShiftInfo);
+
 console.log('🔍 getCalls тип:', typeof window.WaiterAPI.getCalls);

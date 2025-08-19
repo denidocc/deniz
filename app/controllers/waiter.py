@@ -3,7 +3,7 @@
 from flask import Blueprint, render_template, jsonify, request, current_app
 from flask_login import current_user
 from app.utils.decorators import waiter_required
-from app.models import Order, WaiterCall, Table, StaffShift
+from app.models import Order, WaiterCall, Table
 from app import db
 from datetime import datetime
 from app.utils.decorators import audit_action
@@ -34,11 +34,7 @@ def calls():
     """Вызовы официанта."""
     return render_template('waiter/calls.html')
 
-@waiter_bp.route('/shift')
-@waiter_required
-def shift():
-    """Управление сменой."""
-    return render_template('waiter/shift.html')
+
 
 # API endpoints для dashboard
 @waiter_bp.route('/api/dashboard/stats')
@@ -46,24 +42,6 @@ def shift():
 def dashboard_stats():
     """Получение статистики для dashboard."""
     try:
-        # Проверка активной смены
-        active_shift = StaffShift.query.filter_by(
-            staff_id=current_user.id,
-            is_active=True
-        ).first()
-        
-        if not active_shift:
-            return jsonify({
-                'status': 'success',
-                'data': {
-                    'has_active_shift': False,
-                    'pending_orders': 0,
-                    'pending_calls': 0,
-                    'assigned_tables': 0
-                }
-            })
-        
-        # Получение статистики
         # Подсчитываем новые заказы для текущего официанта
         pending_orders = Order.query.filter_by(
             waiter_id=current_user.id,
@@ -86,22 +64,6 @@ def dashboard_stats():
             waiter_id=current_user.id,
             is_active=True
         ).count()
-        
-        # Подсчитываем статистику за смену
-        from sqlalchemy import func
-        
-        # Общее количество заказов за смену
-        total_orders = Order.query.filter(
-            Order.waiter_id == current_user.id,
-            Order.created_at >= active_shift.shift_start
-        ).count()
-        
-        # Общая выручка за смену (только оплаченные заказы)
-        total_revenue = db.session.query(func.coalesce(func.sum(Order.total_amount), 0)).filter(
-            Order.waiter_id == current_user.id,
-            Order.status == 'оплачен',
-            Order.created_at >= active_shift.shift_start
-        ).scalar() or 0
 
         # Получаем номера назначенных столов для отображения
         assigned_table_ids = db.session.query(TableAssignment.table_id).filter_by(
@@ -118,14 +80,10 @@ def dashboard_stats():
         return jsonify({
             'status': 'success',
             'data': {
-                'has_active_shift': True,
-                'shift_start': active_shift.shift_start.isoformat(),
                 'pending_orders': pending_orders,
                 'pending_calls': pending_calls,
                 'assigned_tables': assigned_tables,
-                'assigned_table_numbers': assigned_table_numbers,
-                'total_orders': total_orders,
-                'total_revenue': float(total_revenue)
+                'assigned_table_numbers': assigned_table_numbers
             }
         })
         
@@ -136,179 +94,11 @@ def dashboard_stats():
             'message': 'Ошибка получения статистики'
         }), 500
 
-# API endpoints для смен
-@waiter_bp.route('/api/shift')
-@waiter_required
-def shift_info():
-    """Получение информации о текущей смене."""
-    try:
-        # Ищем активную смену
-        active_shift = StaffShift.query.filter_by(
-            staff_id=current_user.id,
-            is_active=True
-        ).first()
-        
-        if not active_shift:
-            return jsonify({
-                'status': 'success',
-                'data': {
-                    'status': 'inactive',
-                    'shift': None
-                }
-            })
-        
-        # Подсчитываем реальную статистику смены
-        from sqlalchemy import func
-        from datetime import datetime
-        
-        # Заказы за текущую смену
-        orders_taken = Order.query.filter(
-            Order.waiter_id == current_user.id,
-            Order.created_at >= active_shift.shift_start
-        ).count()
-        
-        # Столы обслуженные за смену (уникальные table_id из заказов)
-        tables_served = db.session.query(func.count(func.distinct(Order.table_id))).filter(
-            Order.waiter_id == current_user.id,
-            Order.created_at >= active_shift.shift_start
-        ).scalar() or 0
-        
-        # Общая сумма продаж за смену (только оплаченные заказы)
-        total_sales = db.session.query(func.coalesce(func.sum(Order.total_amount), 0)).filter(
-            Order.waiter_id == current_user.id,
-            Order.status == 'оплачен',
-            Order.created_at >= active_shift.shift_start
-        ).scalar() or 0
 
-        # Получаем назначенные столы для текущей смены
-        from app.models import TableAssignment
-        assigned_table_ids = db.session.query(TableAssignment.table_id).filter_by(
-            waiter_id=current_user.id,
-            is_active=True
-        ).subquery()
-        
-        assigned_tables = Table.query.filter(
-            Table.id.in_(assigned_table_ids)
-        ).all()
-        
-        assigned_table_numbers = [table.table_number for table in assigned_tables]
-        
-        return jsonify({
-            'status': 'success',
-            'data': {
-                'status': 'active',
-                'id': active_shift.id,
-                'start_time': active_shift.shift_start.isoformat(),
-                'tables_served': tables_served,
-                'orders_taken': orders_taken,
-                'total_sales': float(total_sales),
-                'assigned_tables': assigned_table_numbers
-            }
-        })
-        
-    except Exception as e:
-        current_app.logger.error(f"Error getting shift info: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': 'Ошибка получения информации о смене'
-        }), 500
 
-@waiter_bp.route('/api/shift/start', methods=['POST'])
-@waiter_required
-def start_shift():
-    """Начать смену."""
-    try:
-        # Проверяем, нет ли уже активной смены
-        existing_shift = StaffShift.query.filter_by(
-            staff_id=current_user.id,
-            is_active=True
-        ).first()
-        
-        if existing_shift:
-            return jsonify({
-                'status': 'error',
-                'message': 'У вас уже есть активная смена'
-            }), 400
-        
-        # Создаем новую смену
-        from datetime import datetime, date
-        now = datetime.utcnow()
-        new_shift = StaffShift(
-            staff_id=current_user.id,
-            shift_date=now.date(),
-            shift_start=now,
-            is_active=True
-        )
-        
-        db.session.add(new_shift)
-        db.session.commit()
-        
-        return jsonify({
-            'status': 'success',
-            'message': 'Смена успешно начата',
-            'data': {
-                'id': new_shift.id,
-                'start_time': new_shift.shift_start.isoformat(),
-                'status': 'active'
-            }
-        })
-        
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f"Error starting shift: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': 'Ошибка при начале смены'
-        }), 500
 
-@waiter_bp.route('/api/shift/end', methods=['POST'])
-@waiter_required
-def end_shift():
-    """Завершить смену."""
-    try:
-        # Ищем активную смену
-        active_shift = StaffShift.query.filter_by(
-            staff_id=current_user.id,
-            is_active=True
-        ).first()
-        
-        if not active_shift:
-            return jsonify({
-                'status': 'error',
-                'message': 'Нет активной смены для завершения'
-            }), 400
-        
-        # Завершаем смену
-        from datetime import datetime
-        active_shift.shift_end = datetime.utcnow()
-        active_shift.is_active = False
-        
-        db.session.commit()
-        
-        # Считаем статистику (пока заглушки)
-        shift_duration = (active_shift.shift_end - active_shift.shift_start).total_seconds()
-        
-        return jsonify({
-            'status': 'success',
-            'message': 'Смена успешно завершена',
-            'data': {
-                'id': active_shift.id,
-                'start_time': active_shift.shift_start.isoformat(),
-                'end_time': active_shift.shift_end.isoformat(),
-                'duration': shift_duration,
-                'tables_served': 0,  # TODO: подсчитать реальные данные
-                'orders_taken': 0,   # TODO: подсчитать реальные данные
-                'total_sales': 0     # TODO: подсчитать реальные данные
-            }
-        })
-        
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f"Error ending shift: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': 'Ошибка при завершении смены'
-        }), 500
+
+
 
 @waiter_bp.route('/api/calls')
 @waiter_required
@@ -444,10 +234,7 @@ def get_tables():
             Table.id.in_(assigned_table_ids)
         ).all()
         
-        # Также получаем все столы для фильтрации
-        all_tables = Table.query.all()
-        
-        # Формируем данные ответа
+        # Формируем данные ответа только для назначенных столов
         assigned_data = []
         for table in assigned_tables:
             assigned_data.append({
@@ -458,23 +245,11 @@ def get_tables():
                 'is_active': table.is_active,
             })
         
-        all_tables_data = []
-        for table in all_tables:
-            all_tables_data.append({
-                'id': table.id,
-                'table_number': table.table_number,
-                'capacity': table.capacity,
-                'status': table.status,
-                'is_active': table.is_active,
-            })
-        
         return jsonify({
             'status': 'success',
             'data': {
-                'assigned_tables': assigned_data,
-                'all_tables': all_tables_data,
-                'total_assigned': len(assigned_data),
-                'total_all': len(all_tables_data)
+                'tables': assigned_data,
+                'total': len(assigned_data)
             }
         })
         

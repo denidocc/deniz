@@ -63,9 +63,7 @@ updated_at         - Время последнего обновления
 - `menu_item_update` - Изменение блюда
 - `menu_item_delete` - Удаление блюда
 
-### Смены
-- `shift_start` - Начало смены
-- `shift_end` - Завершение смены
+
 
 ### Печать
 - `print_kitchen_order` - Печать заказа на кухню

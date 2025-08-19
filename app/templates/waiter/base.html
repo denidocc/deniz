@@ -29,12 +29,7 @@
             <h1 class="app-title">Официант</h1>
         </div>
         
-        <div class="header-center">
-            <div class="shift-info" id="shiftInfo">
-                <span class="shift-status">Смена не начата</span>
-                <span class="shift-time" id="shiftTime"></span>
-            </div>
-        </div>
+
         
         <div class="header-right">
             <div class="user-info">
@@ -65,9 +60,7 @@
         <div class="nav-item {% if request.endpoint == 'waiter.calls' %}active{% endif %}">
             <a href="{{ url_for('waiter.calls') }}">Вызовы</a>
         </div>
-        <div class="nav-item {% if request.endpoint == 'waiter.shift' %}active{% endif %}">
-            <a href="{{ url_for('waiter.shift') }}">Смена</a>
-        </div>
+
     </nav>
 
     <!-- Main Content -->
@@ -110,7 +103,7 @@
     
     <script src="{{ url_for('static', filename='js/waiter/utils.js') }}?v=2.0.9"></script>
     <script src="{{ url_for('static', filename='js/waiter/notifications.js') }}?v=2.0.9"></script>
-    <script src="{{ url_for('static', filename='js/waiter/shift.js') }}?v=2.0.9"></script>
+    
     {% block extra_js %}{% endblock %}
     
     <!-- Initialize App -->

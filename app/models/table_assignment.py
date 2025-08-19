@@ -9,7 +9,6 @@ from .base import BaseModel
 if TYPE_CHECKING:
     from .table import Table
     from .staff import Staff
-    from .staff_shift import StaffShift
 
 class TableAssignment(BaseModel):
     """Модель назначения столов официантам."""
@@ -23,9 +22,7 @@ class TableAssignment(BaseModel):
     waiter_id: so.Mapped[int] = so.mapped_column(
         sa.Integer, sa.ForeignKey('staff.id'), nullable=False, index=True
     )
-    shift_id: so.Mapped[Optional[int]] = so.mapped_column(
-        sa.Integer, sa.ForeignKey('staff_shifts.id'), nullable=True, index=True
-    )
+
     assigned_at: so.Mapped[datetime] = so.mapped_column(
         sa.DateTime(timezone=True),
         server_default=sa.func.now(),
@@ -46,10 +43,7 @@ class TableAssignment(BaseModel):
         lazy='selectin'
     )
     
-    shift: so.Mapped[Optional["StaffShift"]] = so.relationship(
-        back_populates="table_assignments",
-        lazy='selectin'
-    )
+
     
     def __repr__(self) -> str:
         """Строковое представление."""
@@ -108,7 +102,7 @@ class TableAssignment(BaseModel):
         ).first()
     
     @classmethod
-    def assign_table_to_waiter(cls, table_id: int, waiter_id: int, shift_id: Optional[int] = None) -> 'TableAssignment':
+    def assign_table_to_waiter(cls, table_id: int, waiter_id: int) -> 'TableAssignment':
         """Назначение стола официанту."""
         # Деактивируем предыдущие назначения для этого стола
         existing_assignments = cls.query.filter_by(
@@ -123,7 +117,6 @@ class TableAssignment(BaseModel):
         assignment = cls(
             table_id=table_id,
             waiter_id=waiter_id,
-            shift_id=shift_id,
             is_active=True
         )
         

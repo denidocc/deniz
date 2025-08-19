@@ -176,8 +176,26 @@
             color: white;
         }
 
-        .modal-header .btn-close {
-            filter: invert(1);
+        .modal-header .close {
+            color: white;
+            text-shadow: none;
+            opacity: 1;
+            font-size: 1.5rem;
+            line-height: 1;
+            padding: 0;
+            margin: 0;
+            background: none;
+            border: none;
+        }
+        
+        .modal-header .close:hover {
+            color: #f8f9fa;
+            opacity: 0.8;
+        }
+        
+        .modal-header .close span {
+            color: white;
+            font-weight: bold;
         }
 
         .badge-role {
@@ -291,13 +309,7 @@
                 </a>
             </li>
             
-            <li class="nav-item">
-                <a class="nav-link {% if request.endpoint == 'admin.shifts' %}active{% endif %}" 
-                   href="{{ url_for('admin.shifts') }}">
-                    <i class="bi bi-calendar-check"></i>
-                    <span class="sidebar-text">Смены</span>
-                </a>
-            </li>
+
             
             <li class="nav-item">
                 <a class="nav-link {% if request.endpoint == 'admin.tables_page' %}active{% endif %}"
@@ -455,24 +467,30 @@
         }
 
         function showAlert(message, type = 'info') {
+            // Удаляем старые алерты перед показом нового
+            const oldAlerts = document.querySelectorAll('.alert.alert-admin');
+            oldAlerts.forEach(alert => {
+                alert.remove();
+            });
+            
             const alertHTML = `
-                <div class="alert alert-${type} alert-admin alert-dismissible fade show" role="alert">
+                <div class="alert alert-${type} alert-admin fade show" role="alert">
                     ${message}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             `;
             
             const container = document.querySelector('.container-fluid');
             container.insertAdjacentHTML('afterbegin', alertHTML);
             
-            // Auto-dismiss after 5 seconds
+            // Получаем только что созданный алерт
+            const newAlert = container.querySelector('.alert.alert-admin');
+            
+            // Auto-dismiss after 3 seconds
             setTimeout(() => {
-                const alert = container.querySelector('.alert');
-                if (alert) {
-                    const bsAlert = new bootstrap.Alert(alert);
-                    bsAlert.close();
+                if (newAlert && newAlert.parentNode) {
+                    newAlert.remove();
                 }
-            }, 5000);
+            }, 3000);
         }
 
         // Функция обновления CSRF токена

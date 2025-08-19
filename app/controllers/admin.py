@@ -10,12 +10,12 @@ import json
 from app import db
 from app.models import (
     Staff, MenuCategory, MenuItem, Table, Order, OrderItem, 
-    StaffShift, BonusCard, AuditLog, SystemSetting, DailyReport, TableAssignment, Banner
+    BonusCard, AuditLog, SystemSetting, DailyReport, TableAssignment, Banner
 )
 from app.utils.decorators import admin_required, audit_action, with_transaction
 from app.utils.image_upload import ImageUploadManager
 from app.forms.admin.menu import MenuCategoryForm, MenuItemForm
-from app.forms.admin.shifts import StartShiftForm, EndShiftForm
+
 from app.forms.admin.staff import StaffCreateForm, StaffUpdateForm
 from app.forms.admin.settings import SystemSettingForm, ServiceChargeForm, ClientPinForm, PrinterSettingsForm
 from app.forms.admin.reports import ReportFilterForm, ZReportForm, AuditFilterForm
@@ -61,11 +61,7 @@ def dashboard():
         desc('total_sold')
     ).limit(5).all()
     
-    # Активные смены
-    active_shifts = StaffShift.query.filter_by(
-        shift_date=today,
-        shift_end=None
-    ).all()
+
     
     # Последние действия в системе (аудит)
     recent_actions = AuditLog.query.order_by(
@@ -76,7 +72,7 @@ def dashboard():
                          stats=stats,
                          today_stats=today_stats,
                          popular_dishes=popular_dishes,
-                         active_shifts=active_shifts,
+
                          recent_actions=recent_actions)
 
 # === УПРАВЛЕНИЕ МЕНЮ ===
@@ -335,7 +331,7 @@ def update_staff(staff_id):
         'data': staff.to_dict()
     })
 
-# === УПРАВЛЕНИЕ СМЕНАМИ ===
+
 
 @admin_bp.route('/csrf-token')
 @admin_required
@@ -347,126 +343,9 @@ def get_csrf_token():
         'csrf_token': generate_csrf()
     })
 
-@admin_bp.route('/shifts')
-@admin_required
-@audit_action("view_shifts_management")
-def shifts():
-    """Управление сменами."""
-    today = datetime.now().date()
-    
-    # Активные смены (все незавершенные смены)
-    active_shifts = StaffShift.query.filter_by(shift_end=None).options(
-        so.joinedload(StaffShift.staff),
-        so.joinedload(StaffShift.table_assignments).joinedload(TableAssignment.table)
-    ).order_by(desc(StaffShift.shift_date)).all()
-    
-    # Смены за сегодня (все смены за сегодня)
-    today_shifts = StaffShift.query.filter_by(shift_date=today).options(
-        so.joinedload(StaffShift.staff),
-        so.joinedload(StaffShift.table_assignments).joinedload(TableAssignment.table)
-    ).all()
-    
-    # Недавние смены (завершенные смены за неделю)
-    week_ago = today - timedelta(days=7)
-    recent_shifts = StaffShift.query.filter(
-        StaffShift.shift_date >= week_ago,
-        StaffShift.shift_end.isnot(None)  # Только завершенные смены
-    ).options(
-        so.joinedload(StaffShift.staff),
-        so.joinedload(StaffShift.table_assignments).joinedload(TableAssignment.table)
-    ).order_by(desc(StaffShift.shift_date)).all()
-    
-    # Отладочная информация
-    current_app.logger.info(f"Active shifts: {len(active_shifts)}")
-    for shift in active_shifts:
-        current_app.logger.info(f"  - {shift.staff.name} ({shift.shift_date}) - Active")
-    
-    current_app.logger.info(f"Today shifts: {len(today_shifts)}")
-    for shift in today_shifts:
-        current_app.logger.info(f"  - {shift.staff.name} ({shift.shift_date}) - {'Active' if not shift.shift_end else 'Ended'}")
-    
-    current_app.logger.info(f"Recent shifts: {len(recent_shifts)}")
-    for shift in recent_shifts:
-        current_app.logger.info(f"  - {shift.staff.name} ({shift.shift_date}) - Ended at {shift.shift_end}")
-    
-    # Активные официанты
-    active_waiters = Staff.query.filter_by(
-        role='waiter', is_active=True
-    ).all()
-    
-    # Все столы
-    tables = Table.query.order_by(Table.table_number).all()
-    
-    # Создаем формы для валидации
-    start_shift_form = StartShiftForm()
-    end_shift_form = EndShiftForm()
-    
-    return render_template('admin/shifts.html',
-                         active_shifts=active_shifts,
-                         today_shifts=today_shifts,
-                         recent_shifts=recent_shifts,
-                         active_waiters=active_waiters,
-                         tables=tables,
-                         today=today,
-                         now=datetime.now(),
-                         start_shift_form=start_shift_form,
-                         end_shift_form=end_shift_form)
 
-@admin_bp.route('/shifts/start', methods=['POST'])
-@admin_required
-@audit_action("start_shift")
-@with_transaction
-def start_shift():
-    """Начало смены сотрудника."""
-    data = request.get_json() or {}
-    form = StartShiftForm(data=data, meta={'csrf': False})
-    if not form.validate():
-        return jsonify({'status': 'error', 'message': 'Валидация не пройдена', 'errors': form.errors}), 400
-    
-    staff_id = form.staff_id.data
-    table_ids = data.get('table_ids', [])
-    
-    # Проверка, что у сотрудника нет активной смены
-    active_shift = StaffShift.query.filter_by(
-        staff_id=staff_id,
-        shift_date=datetime.now().date(),
-        shift_end=None
-    ).first()
-    
-    if active_shift:
-        return jsonify({
-            'status': 'error',
-            'message': 'У сотрудника уже есть активная смена'
-        }), 400
-    
-    # Создание смены
-    shift = StaffShift(
-        staff_id=staff_id,
-        shift_date=datetime.now().date(),
-        shift_start=datetime.now(),
-        is_active=True
-    )
-    
-    db.session.add(shift)
-    db.session.flush()  # Получаем ID смены
-    
-    # Назначаем столы, если указаны
-    if table_ids:
-        from app.models import TableAssignment
-        for table_id in table_ids:
-            assignment = TableAssignment(
-                table_id=table_id,
-                waiter_id=staff_id,
-                shift_id=shift.id,
-                is_active=True
-            )
-            db.session.add(assignment)
-    
-    return jsonify({
-        'status': 'success',
-        'message': 'Смена успешно начата',
-        'data': shift.to_dict()
-    })
+
+
 
 # === ОТЧЕТЫ ===
 
@@ -915,36 +794,7 @@ def toggle_menu_item_availability(item_id):
         'message': 'Не указан параметр is_available'
     }), 400
 
-@admin_bp.route('/shifts/<int:shift_id>/end', methods=['POST'])
-@admin_required
-@audit_action("end_shift")
-@with_transaction
-def end_shift(shift_id):
-    """Завершение смены."""
-    shift = StaffShift.query.get_or_404(shift_id)
-    
-    if shift.shift_end:
-        return jsonify({
-            'status': 'error',
-            'message': 'Смена уже завершена'
-        }), 400
-    
-    data = request.get_json() or {}
-    
-    # Если есть заметки, валидируем форму
-    if data.get('notes'):
-        form = EndShiftForm(data=data, meta={'csrf': False})
-        if not form.validate():
-            return jsonify({'status': 'error', 'message': 'Валидация не пройдена', 'errors': form.errors}), 400
-        shift.notes = form.notes.data
-    
-    shift.shift_end = datetime.now()
-    
-    return jsonify({
-        'status': 'success',
-        'message': 'Смена завершена',
-        'data': shift.to_dict()
-    })
+
 
 @admin_bp.route('/backup/create', methods=['POST'])
 @admin_required
@@ -1100,16 +950,160 @@ def tables_page():
     tables = Table.query.order_by(Table.table_number).all()
     return render_template('admin/tables.html', tables=tables)
 
+@admin_bp.route('/api/staff/waiters')
+@admin_required
+@audit_action("view_waiters_list")
+def get_waiters():
+    """Получение списка официантов для назначения к столам."""
+    try:
+        from app.models import Staff
+        
+        # Получаем только активных официантов
+        waiters = Staff.query.filter_by(
+            role='waiter',
+            is_active=True
+        ).order_by(Staff.name).all()
+        
+        waiters_data = []
+        for waiter in waiters:
+            waiters_data.append({
+                'id': waiter.id,
+                'name': waiter.name,
+                'login': waiter.login,
+                'is_active': waiter.is_active
+            })
+        
+        return jsonify({
+            'status': 'success',
+            'data': waiters_data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting waiters: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка получения списка официантов'
+        }), 500
+
+@admin_bp.route('/api/tables/assign', methods=['POST'])
+@admin_required
+@audit_action("assign_table_to_waiter")
+@with_transaction
+def assign_table_to_waiter():
+    """Назначение стола официанту."""
+    try:
+        data = request.get_json() or {}
+        
+        table_id = data.get('table_id')
+        waiter_id = data.get('waiter_id')
+        is_active = data.get('is_active', True)
+        
+        if not table_id or not waiter_id:
+            return jsonify({
+                'status': 'error',
+                'message': 'ID стола и официанта обязательны'
+            }), 400
+        
+        # Проверяем существование стола и официанта
+        from app.models import Table, Staff, TableAssignment
+        
+        table = Table.query.get(table_id)
+        if not table:
+            return jsonify({
+                'status': 'error',
+                'message': 'Стол не найден'
+            }), 404
+        
+        waiter = Staff.query.get(waiter_id)
+        if not waiter or waiter.role != 'waiter':
+            return jsonify({
+                'status': 'error',
+                'message': 'Официант не найден'
+            }), 404
+        
+        # Проверяем, не назначен ли уже стол другому официанту
+        existing_assignment = TableAssignment.query.filter_by(
+            table_id=table_id,
+            is_active=True
+        ).first()
+        
+        if existing_assignment:
+            # Деактивируем существующее назначение
+            existing_assignment.is_active = False
+            current_app.logger.info(f"Deactivated existing assignment: table {table_id} -> waiter {existing_assignment.waiter_id}")
+        
+        # Создаем новое назначение
+        new_assignment = TableAssignment(
+            table_id=table_id,
+            waiter_id=waiter_id,
+            is_active=is_active
+        )
+        
+        db.session.add(new_assignment)
+        db.session.commit()
+        
+        current_app.logger.info(f"Assigned table {table_id} to waiter {waiter_id}")
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Стол {table.table_number} назначен официанту {waiter.name}',
+            'data': {
+                'table_id': table_id,
+                'waiter_id': waiter_id,
+                'assignment_id': new_assignment.id
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error assigning table to waiter: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка назначения стола официанту'
+        }), 500
+
 @admin_bp.route('/api/tables', methods=['GET'])
 @admin_required
 @audit_action("view_tables")
 def get_tables():
-    """Получение списка всех столов."""
-    tables = Table.query.order_by(Table.table_number).all()
-    return jsonify({
-        'status': 'success',
-        'data': [table.to_dict() for table in tables]
-    })
+    """Получение списка всех столов с информацией о назначенных официантах."""
+    try:
+        from app.models import TableAssignment, Staff
+        
+        tables = Table.query.order_by(Table.table_number).all()
+        tables_data = []
+        
+        for table in tables:
+            table_data = table.to_dict()
+            
+            # Получаем активное назначение официанта для этого стола
+            assignment = TableAssignment.query.filter_by(
+                table_id=table.id,
+                is_active=True
+            ).first()
+            
+            if assignment:
+                waiter = Staff.query.get(assignment.waiter_id)
+                table_data['assigned_waiter'] = {
+                    'id': waiter.id,
+                    'name': waiter.name,
+                    'login': waiter.login
+                } if waiter else None
+            else:
+                table_data['assigned_waiter'] = None
+            
+            tables_data.append(table_data)
+        
+        return jsonify({
+            'status': 'success',
+            'data': tables_data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting tables with assignments: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка получения столов'
+        }), 500
 
 @admin_bp.route('/api/tables/create', methods=['POST'])
 @admin_required

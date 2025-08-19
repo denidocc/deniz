@@ -41,48 +41,7 @@
   padding: 20px 24px;
 }
 
-/* Shift Card */
-.shift-card {
-  grid-column: 1 / -1;
-}
 
-.shift-actions {
-  display: flex;
-  gap: 12px;
-}
-
-.shift-details {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.shift-status-display {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  background: linear-gradient(135deg, var(--waiter-primary), var(--waiter-secondary));
-  border-radius: 8px;
-  color: white;
-}
-
-.status-text {
-  font-size: 18px;
-  font-weight: 500;
-}
-
-.shift-duration {
-  font-size: 24px;
-  font-weight: 700;
-  font-family: 'Courier New', monospace;
-}
-
-.shift-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-}
 
 .stat-item {
   padding: 16px;
@@ -788,39 +747,7 @@
   color: var(--waiter-primary);
 }
 
-/* Shift Summary */
-.shift-summary {
-  background: var(--waiter-bg);
-  border-radius: 8px;
-  padding: 20px;
-  margin-bottom: 20px;
-}
 
-.summary-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--waiter-border);
-}
-
-.summary-row:last-child {
-  border-bottom: none;
-  font-weight: 600;
-  font-size: 16px;
-  margin-top: 8px;
-  padding-top: 16px;
-  border-top: 2px solid var(--waiter-border);
-}
-
-.summary-label {
-  color: var(--waiter-text-muted);
-}
-
-.summary-value {
-  font-weight: 500;
-  color: var(--waiter-text);
-}
 
 /* Responsive Improvements */
 @media (max-width: 768px) {
@@ -833,9 +760,7 @@
     grid-template-columns: 1fr;
   }
   
-  .shift-stats {
-    grid-template-columns: 1fr;
-  }
+
   
   .notifications-panel {
     width: 100%;
@@ -1071,43 +996,7 @@
     100% { transform: rotate(360deg); }
 }
 
-/* Shift Page Additional Styles */
-.shift-status-card,
-.shift-stats-card,
-.shift-history-card {
-    background: var(--waiter-surface);
-    border-radius: 10px;
-    box-shadow: var(--shadow-sm);
-    margin-bottom: 20px;
-    padding: 20px;
-    border: 1px solid var(--waiter-border);
-}
 
-.shift-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-}
-
-.shift-timer {
-    font-size: 24px;
-    font-weight: bold;
-    color: var(--waiter-primary);
-    font-family: monospace;
-}
-
-.shift-inactive,
-.shift-active {
-    text-align: center;
-    padding: 20px;
-}
-
-.shift-inactive i {
-    font-size: 48px;
-    color: var(--waiter-text-muted);
-    margin-bottom: 15px;
-}
 
 .detail-item {
     display: flex;

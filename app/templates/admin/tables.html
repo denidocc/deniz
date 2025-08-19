@@ -91,6 +91,17 @@
         gap: 0.5rem;
     }
     
+    .assigned-waiter {
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        margin: 0.25rem 0;
+    }
+    
+    .assigned-waiter i {
+        margin-right: 0.25rem;
+    }
+    
     .btn-edit {
         background: var(--admin-accent);
         border: none;
@@ -216,7 +227,9 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Редактировать стол</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
             </div>
             <div class="modal-body">
                 <form id="editTableForm">
@@ -242,8 +255,45 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
                 <button type="button" class="btn btn-primary" onclick="saveTableEdit()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно назначения официанта -->
+<div class="modal fade" id="assignWaiterModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Назначить официанта к столу</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="assignWaiterForm">
+                    <input type="hidden" id="assignTableId">
+                    <div class="mb-3">
+                        <label for="assignWaiterSelect" class="form-label">Выберите официанта</label>
+                        <select class="form-control" id="assignWaiterSelect" required>
+                            <option value="">Выберите официанта...</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="assignWaiterActive" checked>
+                            <label class="form-check-label" for="assignWaiterActive">
+                                Активное назначение
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="saveWaiterAssignment()">Назначить</button>
             </div>
         </div>
     </div>
@@ -317,11 +367,22 @@
                         <span class="table-status ${table.is_active ? 'status-active' : 'status-inactive'}">
                             ${table.is_active ? 'Активен' : 'Неактивен'}
                         </span>
+                        ${table.assigned_waiter 
+                            ? `<div class="assigned-waiter">
+                                <i class="bi bi-person-check text-success"></i> 
+                                <strong>${table.assigned_waiter.name}</strong>
+                               </div>`
+                            : '<div class="assigned-waiter text-muted"><i class="bi bi-person-dash"></i> Не назначен</div>'
+                        }
                         <small class="text-muted">
                             Создан: ${new Date(table.created_at).toLocaleDateString('ru-RU')}
                         </small>
                     </div>
                     <div class="table-actions">
+                        <button class="btn btn-sm btn-primary" onclick="assignWaiter(${table.id})" 
+                                title="Назначить официанта">
+                            <i class="bi bi-person-plus"></i> ${table.assigned_waiter ? 'Изменить' : 'Назначить'}
+                        </button>
                         <button class="btn btn-sm btn-edit" onclick="editTable(${table.id})">
                             <i class="bi bi-pencil"></i> Изменить
                         </button>
@@ -406,7 +467,8 @@
                 document.getElementById('editTableActive').checked = isActive;
                 
                 // Показываем модальное окно
-                $('#editTableModal').modal('show');
+                const modal = new bootstrap.Modal(document.getElementById('editTableModal'));
+                modal.show();
                 return;
             }
             
@@ -423,7 +485,8 @@
                 document.getElementById('editTableActive').checked = table.is_active;
                 
                 // Показываем модальное окно
-                $('#editTableModal').modal('show');
+                const modal = new bootstrap.Modal(document.getElementById('editTableModal'));
+                modal.show();
             }
         } catch (error) {
             showAlert('Ошибка при загрузке данных стола: ' + error.message, 'danger');
@@ -559,6 +622,97 @@
         } catch (error) {
             console.error('Error getting table details:', error);
             return null;
+        }
+    }
+
+    // Назначение официанта к столу
+    async function assignWaiter(tableId) {
+        try {
+            // Загружаем список официантов
+            const response = await apiRequest('/admin/api/staff/waiters', 'GET');
+            
+            if (response.status === 'success') {
+                const waiters = response.data;
+                
+                // Получаем информацию о столе
+                const tableElement = document.querySelector(`[data-table-id="${tableId}"]`);
+                const tableNumber = tableElement ? tableElement.querySelector('.table-number').textContent : tableId;
+                
+                // Обновляем заголовок модального окна
+                const modalTitle = document.querySelector('#assignWaiterModal .modal-title');
+                modalTitle.textContent = `Назначить официанта к столу ${tableNumber}`;
+                
+                // Заполняем селект официантами
+                const waiterSelect = document.getElementById('assignWaiterSelect');
+                waiterSelect.innerHTML = '<option value="">Выберите официанта...</option>';
+                
+                // Проверяем, есть ли уже назначенный официант
+                let currentWaiterId = null;
+                const tables = await apiRequest('/admin/api/tables', 'GET');
+                if (tables.status === 'success') {
+                    const currentTable = tables.data.find(t => t.id == tableId);
+                    if (currentTable && currentTable.assigned_waiter) {
+                        currentWaiterId = currentTable.assigned_waiter.id;
+                    }
+                }
+                
+                waiters.forEach(waiter => {
+                    const option = document.createElement('option');
+                    option.value = waiter.id;
+                    option.textContent = `${waiter.name} (${waiter.login})`;
+                    
+                    // Выбираем текущего назначенного официанта
+                    if (waiter.id == currentWaiterId) {
+                        option.selected = true;
+                    }
+                    
+                    waiterSelect.appendChild(option);
+                });
+                
+                // Устанавливаем ID стола
+                document.getElementById('assignTableId').value = tableId;
+                
+                // Показываем модальное окно
+                const modal = new bootstrap.Modal(document.getElementById('assignWaiterModal'));
+                modal.show();
+            } else {
+                throw new Error(response.message || 'Ошибка загрузки списка официантов');
+            }
+        } catch (error) {
+            showAlert('Ошибка при загрузке списка официантов: ' + error.message, 'danger');
+        }
+    }
+
+    // Сохранение назначения официанта
+    async function saveWaiterAssignment() {
+        const tableId = document.getElementById('assignTableId').value;
+        const waiterId = document.getElementById('assignWaiterSelect').value;
+        const isActive = document.getElementById('assignWaiterActive').checked;
+        
+        if (!waiterId) {
+            showAlert('Выберите официанта', 'warning');
+            return;
+        }
+        
+        try {
+            const response = await apiRequest('/admin/api/tables/assign', 'POST', {
+                table_id: parseInt(tableId),
+                waiter_id: parseInt(waiterId),
+                is_active: isActive
+            });
+            
+            if (response.status === 'success') {
+                showAlert('Официант успешно назначен к столу', 'success');
+                
+                // Закрываем модальное окно
+                $('#assignWaiterModal').modal('hide');
+                
+                // Перезагружаем список
+                loadTables();
+            }
+            
+        } catch (error) {
+            showAlert('Ошибка при назначении официанта: ' + error.message, 'danger');
         }
     }
 </script>

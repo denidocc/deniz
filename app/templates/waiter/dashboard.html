@@ -4,42 +4,7 @@
 
 {% block content %}
 <div class="dashboard-container">
-    <!-- Shift Status Card -->
-    <div class="dashboard-card shift-card">
-        <div class="card-header">
-            <h2>Статус смены</h2>
-            <div class="shift-actions">
-                <button class="btn btn-primary" id="startShiftBtn" style="display: none;">Начать смену</button>
-                <button class="btn btn-danger" id="endShiftBtn" style="display: none;">Завершить смену</button>
-            </div>
-        </div>
-        <div class="card-content">
-            <div class="shift-details" id="shiftDetails">
-                <div class="shift-status-display">
-                    <span class="status-text" id="shiftStatusText">Загрузка...</span>
-                    <span class="shift-duration" id="shiftDuration">--:--</span>
-                </div>
-                <div class="shift-stats" id="shiftStats" style="display: none;">
-                    <div class="stat-item">
-                        <span class="stat-label">Заказов обслужено:</span>
-                        <span class="stat-value" id="ordersCount">0</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Общая выручка:</span>
-                        <span class="stat-value" id="totalRevenue">0 ₼</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Закрепленные столы:</span>
-                        <span class="stat-value" id="assignedTables">Нет</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Номера столов:</span>
-                        <span class="stat-value" id="shiftAssignedTables">-</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+
 
     <!-- Quick Actions -->
     <div class="dashboard-card actions-card">
@@ -110,54 +75,7 @@
     </div>
 </div>
 
-<!-- Start Shift Modal -->
-<div class="modal" id="startShiftModal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3>Начать смену</h3>
-            <button class="modal-close" data-modal="startShiftModal">&times;</button>
-        </div>
-        <div class="modal-body">
-            <div class="form-group">
-                <label for="tableSelection">Выберите столы для обслуживания:</label>
-                <div class="tables-grid" id="tablesGrid">
-                    <!-- Столы будут загружены динамически -->
-                </div>
-            </div>
-            <div class="selected-tables" id="selectedTables">
-                <span class="selected-label">Выбрано столов: </span>
-                <span class="selected-count">0</span>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-secondary" data-modal="startShiftModal">Отмена</button>
-            <button class="btn btn-primary" id="confirmStartShift" disabled>Начать смену</button>
-        </div>
-    </div>
-</div>
 
-<!-- End Shift Modal -->
-<div class="modal" id="endShiftModal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3>Завершить смену</h3>
-            <button class="modal-close" data-modal="endShiftModal">&times;</button>
-        </div>
-        <div class="modal-body">
-            <div class="shift-summary" id="shiftSummary">
-                <!-- Сводка смены будет загружена динамически -->
-            </div>
-            <div class="form-group">
-                <label for="shiftNotes">Примечания к смене (необязательно):</label>
-                <textarea id="shiftNotes" class="form-control" rows="3" placeholder="Добавьте примечания к смене..."></textarea>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-secondary" data-modal="endShiftModal">Отмена</button>
-            <button class="btn btn-danger" id="confirmEndShift">Завершить смену</button>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block extra_js %}

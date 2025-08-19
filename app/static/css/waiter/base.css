@@ -94,25 +94,7 @@ body {
   justify-content: center;
 }
 
-.shift-info {
-  background: var(--waiter-primary);
-  color: white;
-  padding: 8px 16px;
-  border-radius: 20px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-weight: 500;
-}
 
-.shift-status {
-  font-size: 14px;
-}
-
-.shift-time {
-  font-size: 14px;
-  opacity: 0.9;
-}
 
 .header-right {
   display: flex;

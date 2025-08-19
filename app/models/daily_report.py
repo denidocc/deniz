@@ -96,7 +96,6 @@ class DailyReport(BaseModel):
     def generate_daily_report(cls, report_date: date) -> 'DailyReport':
         """Генерация дневного отчета."""
         from .order import Order
-        from .staff_shift import StaffShift
         
         # Получаем все заказы за день
         orders = Order.query.filter(
@@ -175,19 +174,5 @@ class DailyReport(BaseModel):
     @classmethod
     def _get_staff_performance(cls, report_date: date) -> list:
         """Получение производительности персонала."""
-        from .staff_shift import StaffShift
-        
-        shifts = StaffShift.query.filter(
-            sa.func.date(StaffShift.shift_date) == report_date
-        ).all()
-        
-        performance = []
-        for shift in shifts:
-            performance.append({
-                'staff_name': shift.staff.name,
-                'total_orders': shift.total_orders,
-                'total_revenue': float(shift.total_revenue),
-                'shift_duration': shift.get_duration() or 0,
-            })
-        
-        return performance 
+
+        return [] 

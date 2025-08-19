@@ -124,9 +124,7 @@ class AuditMiddleware:
             'menu.delete': 'menu_item_delete',
             'menu.get': 'menu_view',
             
-            # Смены
-            'shifts.start': 'shift_start',
-            'shifts.end': 'shift_end',
+
             
             # Печать
             'print.kitchen': 'print_kitchen_order',
@@ -168,14 +166,11 @@ class AuditMiddleware:
             'static',
             'health',
             'favicon.ico',
-            'waiter.dashboard_stats',
-            'waiter.shift_info',
-            'waiter.start_shift',
-            'waiter.end_shift'
+            'waiter.dashboard_stats'
         ]
         
         # Также исключаем по URL пути
-        if request.path and any(path in request.path for path in ['/api/dashboard', '/api/shift']):
+        if request.path and any(path in request.path for path in ['/api/dashboard']):
             return False
         
         if endpoint and any(excl in endpoint for excl in excluded_endpoints):
@@ -187,7 +182,6 @@ class AuditMiddleware:
             'order_create', 'order_confirm', 'order_complete', 'order_cancel',
             'table_assign', 'table_release',
             'menu_item_create', 'menu_item_update', 'menu_item_delete',
-            'shift_start', 'shift_end',
             'print_kitchen_order', 'print_bar_order', 'print_receipt',
             'admin_', 'waiter_'  # Все админские и официантские действия
         ]

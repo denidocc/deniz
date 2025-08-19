@@ -9,7 +9,6 @@ from flask_login import UserMixin
 from .base import BaseModel
 
 if TYPE_CHECKING:
-    from .staff_shift import StaffShift
     from .table_assignment import TableAssignment
     from .order import Order
 
@@ -42,11 +41,6 @@ class Staff(BaseModel, UserMixin):
     )
     
     # Отношения
-    shifts: so.Mapped[list["StaffShift"]] = so.relationship(
-        back_populates="staff",
-        lazy='selectin'
-    )
-    
     table_assignments: so.Mapped[list["TableAssignment"]] = so.relationship(
         back_populates="staff",
         lazy='selectin'

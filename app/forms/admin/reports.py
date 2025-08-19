@@ -33,7 +33,6 @@ class AuditFilterForm(BaseJsonForm):
     date_to = DateField(validators=[Optional()])
     action_type = SelectField(
         choices=[('', 'Все действия'), ('login', 'Вход в систему'), ('create_order', 'Создание заказа'), 
-                ('confirm_order', 'Подтверждение заказа'), ('start_shift', 'Начало смены'), 
-                ('end_shift', 'Завершение смены')],
+                ('confirm_order', 'Подтверждение заказа')],
         validators=[Optional()]
     )

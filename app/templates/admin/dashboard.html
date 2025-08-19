@@ -121,37 +121,7 @@
         </div>
     </div>
     
-    <div class="col-lg-4 mb-4">
-        <div class="admin-card">
-            <div class="card-header bg-success text-white">
-                <h5 class="mb-0">
-                    <i class="bi bi-clock"></i> Активные смены
-                </h5>
-            </div>
-            <div class="card-body">
-                {% if active_shifts %}
-                    {% for shift in active_shifts %}
-                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
-                        <div>
-                            <strong>{{ shift.staff.name }}</strong>
-                            <br>
-                            <small class="text-muted">{{ shift.staff.role }}</small>
-                        </div>
-                        <div class="text-end">
-                            <small>
-                                {{ shift.shift_start.strftime('%H:%M') }}
-                                <br>
-                                <span class="badge bg-success">Активна</span>
-                            </small>
-                        </div>
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <p class="text-muted text-center">Нет активных смен</p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
+
 </div>
 
 <!-- Recent Activity -->

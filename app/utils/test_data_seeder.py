@@ -3,7 +3,7 @@
 
 Создает полный набор тестовых данных:
 - Столы
-- Смены официантов
+
 - Заказы
 - Вызовы официанта
 - Назначения столов
@@ -22,7 +22,7 @@ sys.path.insert(0, project_root)
 
 from app import create_app, db
 from app.models import (
-    Staff, Table, StaffShift, Order, OrderItem, 
+    Staff, Table, Order, OrderItem, 
     WaiterCall, TableAssignment, MenuItem, MenuCategory
 )
 
@@ -45,7 +45,6 @@ class TestDataSeeder:
             
             results = {
                 'tables': TestDataSeeder.seed_tables(),
-                'shifts': TestDataSeeder.seed_shifts(),
                 'orders': TestDataSeeder.seed_orders(),
                 'calls': TestDataSeeder.seed_waiter_calls(),
                 'assignments': TestDataSeeder.seed_table_assignments()
@@ -143,96 +142,7 @@ class TestDataSeeder:
                 "created_count": 0
             }
     
-    @staticmethod
-    def seed_shifts() -> Dict[str, Any]:
-        """Создание тестовых смен."""
-        try:
-            # Проверяем, есть ли уже смены
-            existing_count = StaffShift.query.count()
-            if existing_count > 0:
-                return {
-                    "status": "info",
-                    "message": f"Смены уже существуют ({existing_count} записей)",
-                    "created_count": 0
-                }
-            
-            logger.info("Создаем тестовые смены...")
-            
-            # Получаем официантов
-            waiters = Staff.query.filter_by(role='waiter').all()
-            if not waiters:
-                return {
-                    "status": "error",
-                    "message": "Не найдены официанты для создания смен",
-                    "created_count": 0
-                }
-            
-            created_shifts = []
-            now = datetime.utcnow()
-            
-            # Создаем смены за последние 7 дней
-            for day_offset in range(7):
-                shift_date = now - timedelta(days=day_offset)
-                
-                for waiter in waiters:
-                    # Не все официанты работают каждый день
-                    if random.random() > 0.7:  # 70% вероятность работы
-                        continue
-                    
-                    # Случайное время начала смены (8:00 - 10:00)
-                    start_hour = random.randint(8, 10)
-                    start_time = shift_date.replace(
-                        hour=start_hour, 
-                        minute=random.randint(0, 59),
-                        second=0,
-                        microsecond=0
-                    )
-                    
-                    # Продолжительность смены 6-10 часов
-                    shift_duration = random.randint(6, 10)
-                    end_time = start_time + timedelta(hours=shift_duration)
-                    
-                    # Для текущего дня - возможна активная смена
-                    is_active = (day_offset == 0 and random.random() > 0.5)
-                    
-                    shift = StaffShift(
-                        staff_id=waiter.id,
-                        shift_date=start_time.date(),
-                        shift_start=start_time,
-                        shift_end=None if is_active else end_time,
-                        is_active=is_active,
-                        total_orders=random.randint(5, 25) if not is_active else random.randint(0, 15),
-                        total_revenue=random.uniform(500, 3000) if not is_active else random.uniform(0, 1500)
-                    )
-                    
-                    db.session.add(shift)
-                    created_shifts.append({
-                        'waiter': waiter.name,
-                        'date': start_time.date(),
-                        'active': is_active
-                    })
-                    
-                    logger.info(f"Создана смена для {waiter.name} на {start_time.date()}")
-            
-            db.session.commit()
-            
-            logger.info(f"Создание смен завершено. Создано: {len(created_shifts)}")
-            
-            return {
-                "status": "success",
-                "message": f"Создано {len(created_shifts)} смен",
-                "created_count": len(created_shifts),
-                "created_items": created_shifts
-            }
-            
-        except Exception as e:
-            db.session.rollback()
-            logger.error(f"Ошибка создания смен: {str(e)}")
-            return {
-                "status": "error",
-                "message": f"Ошибка создания смен: {str(e)}",
-                "created_count": 0
-            }
+
     
     @staticmethod
     def seed_orders() -> Dict[str, Any]:
@@ -436,25 +346,25 @@ class TestDataSeeder:
             
             logger.info("Создаем назначения столов...")
             
-            # Получаем активные смены и столы
-            active_shifts = StaffShift.query.filter_by(is_active=True).all()
+            # Получаем официантов и столы
+            waiters = Staff.query.filter_by(role='waiter', is_active=True).all()
             tables = Table.query.all()
             
-            if not active_shifts or not tables:
+            if not waiters or not tables:
                 return {
                     "status": "info",
-                    "message": "Нет активных смен или столов для назначений",
+                    "message": "Нет официантов или столов для назначений",
                     "created_count": 0
                 }
             
             created_assignments = []
             
             # Распределяем столы между официантами
-            tables_per_waiter = len(tables) // len(active_shifts)
-            remaining_tables = len(tables) % len(active_shifts)
+            tables_per_waiter = len(tables) // len(waiters)
+            remaining_tables = len(tables) % len(waiters)
             
             table_index = 0
-            for i, shift in enumerate(active_shifts):
+            for i, waiter in enumerate(waiters):
                 # Количество столов для этого официанта
                 tables_count = tables_per_waiter
                 if i < remaining_tables:
@@ -466,20 +376,18 @@ class TestDataSeeder:
                         table = tables[table_index]
                         
                         assignment = TableAssignment(
-                            waiter_id=shift.staff_id,
+                            waiter_id=waiter.id,
                             table_id=table.id,
-                            shift_id=shift.id,
-                            assigned_at=shift.shift_start + timedelta(minutes=random.randint(0, 30)),
                             is_active=True
                         )
                         
                         db.session.add(assignment)
                         created_assignments.append({
-                            'waiter': shift.staff.name,
+                            'waiter': waiter.name,
                             'table': table.table_number
                         })
                         
-                        logger.info(f"Назначен стол {table.table_number} официанту {shift.staff.name}")
+                        logger.info(f"Назначен стол {table.table_number} официанту {waiter.name}")
                         table_index += 1
             
             db.session.commit()
@@ -513,7 +421,7 @@ class TestDataSeeder:
             Order.query.delete()
             WaiterCall.query.delete()
             TableAssignment.query.delete()
-            StaffShift.query.delete()
+
             Table.query.delete()
             
             db.session.commit()
@@ -561,7 +469,7 @@ def main():
         
         print("\n✨ Готово! Тестовые данные созданы.")
         print("\n🔧 Теперь можно тестировать:")
-        print("  - Смены официантов")
+
         print("  - Столы и их статусы") 
         print("  - Заказы с позициями")
         print("  - Вызовы официанта")

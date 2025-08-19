@@ -142,15 +142,15 @@ class CarouselManager {
             slide.style.backgroundImage = `url('${banner.image_url}')`;
             
             // Добавляем контент баннера
-            slide.innerHTML = `
-                <div class="slide-content">
-                    <h2 class="slide-title">${banner.title}</h2>
-                    ${banner.description ? `<p class="slide-description">${banner.description}</p>` : ''}
-                    ${banner.link_url && banner.link_text ? 
-                        `<a href="${banner.link_url}" class="slide-link">${banner.link_text}</a>` : 
-                        ''}
-                </div>
-            `;
+            // slide.innerHTML = `
+            //     <div class="slide-content">
+            //         <h2 class="slide-title">${banner.title}</h2>
+            //         ${banner.description ? `<p class="slide-description">${banner.description}</p>` : ''}
+            //         ${banner.link_url && banner.link_text ? 
+            //             `<a href="${banner.link_url}" class="slide-link">${banner.link_text}</a>` : 
+            //             ''}
+            //     </div>
+            // `;
             
             track.appendChild(slide);
         });
