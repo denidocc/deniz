@@ -998,6 +998,10 @@ def assign_table_to_waiter():
         waiter_id = data.get('waiter_id')
         is_active = data.get('is_active', True)
         
+        # Отладочная информация
+        current_app.logger.info(f"Assign waiter request data: {data}")
+        current_app.logger.info(f"is_active from frontend: {is_active} (type: {type(is_active)})")
+        
         if not table_id or not waiter_id:
             return jsonify({
                 'status': 'error',
@@ -1032,17 +1036,24 @@ def assign_table_to_waiter():
             existing_assignment.is_active = False
             current_app.logger.info(f"Deactivated existing assignment: table {table_id} -> waiter {existing_assignment.waiter_id}")
         
-        # Создаем новое назначение
+        # Создаем новое назначение - всегда активно при назначении
         new_assignment = TableAssignment(
             table_id=table_id,
             waiter_id=waiter_id,
-            is_active=is_active
+            is_active=True  # Всегда активно при назначении
         )
         
         db.session.add(new_assignment)
         db.session.commit()
         
-        current_app.logger.info(f"Assigned table {table_id} to waiter {waiter_id}")
+        current_app.logger.info(f"Assigned table {table_id} to waiter {waiter_id}, assignment_id: {new_assignment.id}, is_active: {new_assignment.is_active}")
+        
+        # Проверяем, что назначение действительно активно
+        verification = TableAssignment.query.filter_by(
+            table_id=table_id,
+            is_active=True
+        ).first()
+        current_app.logger.info(f"Verification: active assignment for table {table_id}: {verification.id if verification else 'None'}")
         
         return jsonify({
             'status': 'success',
@@ -1083,13 +1094,19 @@ def get_tables():
             
             if assignment:
                 waiter = Staff.query.get(assignment.waiter_id)
-                table_data['assigned_waiter'] = {
-                    'id': waiter.id,
-                    'name': waiter.name,
-                    'login': waiter.login
-                } if waiter else None
+                if waiter:
+                    table_data['assigned_waiter'] = {
+                        'id': waiter.id,
+                        'name': waiter.name,
+                        'login': waiter.login
+                    }
+                    current_app.logger.debug(f"Table {table.table_number}: assigned to waiter {waiter.name} (ID: {waiter.id})")
+                else:
+                    table_data['assigned_waiter'] = None
+                    current_app.logger.warning(f"Table {table.table_number}: assignment found but waiter not found (waiter_id: {assignment.waiter_id})")
             else:
                 table_data['assigned_waiter'] = None
+                current_app.logger.debug(f"Table {table.table_number}: no active assignment")
             
             tables_data.append(table_data)
         

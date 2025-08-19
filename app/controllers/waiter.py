@@ -166,8 +166,10 @@ def get_orders():
         table_filter = request.args.get('table')
         current_app.logger.info(f"Filters - status: {status_filter}, table: {table_filter}")
         
-        # Базовый запрос заказов для текущего официанта
-        query = Order.query.filter_by(waiter_id=current_user.id)
+        # Базовый запрос заказов для текущего официанта (исключаем отмененные)
+        query = Order.query.filter_by(waiter_id=current_user.id).filter(
+            Order.status != 'cancelled'
+        )
         current_app.logger.info(f"Base query for waiter_id: {current_user.id}")
         
         # Применяем фильтры
@@ -177,11 +179,15 @@ def get_orders():
         if table_filter and table_filter != 'all':
             query = query.filter_by(table_id=int(table_filter))
         
-        # Получаем заказы с join к таблице
-        orders = query.join(Table).all()
+        # Получаем заказы с join к таблице и правильной сортировкой
+        orders = query.join(Table).order_by(
+            # Сначала по времени создания (новые первыми)
+            Order.created_at.desc()
+        ).all()
+        
         current_app.logger.info(f"Found {len(orders)} orders for waiter {current_user.id}")
         
-        # Формируем данные ответа
+        # Формируем данные ответа с группировкой
         orders_data = []
         for order in orders:
             orders_data.append({
@@ -232,11 +238,15 @@ def get_tables():
         
         assigned_tables = Table.query.filter(
             Table.id.in_(assigned_table_ids)
-        ).all()
+        ).order_by(Table.table_number).all()
         
         # Формируем данные ответа только для назначенных столов
         assigned_data = []
         for table in assigned_tables:
+            # Принудительно обновляем статус стола из базы данных
+            db.session.refresh(table)
+            current_app.logger.info(f"Table {table.table_number} (ID: {table.id}) status: {table.status}")
+            
             assigned_data.append({
                 'id': table.id,
                 'table_number': table.table_number,
@@ -274,10 +284,15 @@ def update_order_status(order_id):
             }), 400
         
         new_status = data['status']
+        current_app.logger.info(f"Updating order {order_id} status to: '{new_status}'")
         
         # Проверяем допустимые статусы
-        allowed_statuses = ['новый', 'оплачен']
+        allowed_statuses = ['completed']
+        current_app.logger.info(f"Allowed statuses: {allowed_statuses}")
+        current_app.logger.info(f"New status '{new_status}' in allowed: {new_status in allowed_statuses}")
+        
         if new_status not in allowed_statuses:
+            current_app.logger.error(f"Invalid status '{new_status}' for order {order_id}")
             return jsonify({
                 'status': 'error',
                 'message': f'Недопустимый статус. Разрешены: {", ".join(allowed_statuses)}'
@@ -302,16 +317,17 @@ def update_order_status(order_id):
         # Логика изменения статуса
         old_status = order.status
         
-        # Только разрешенные переходы статусов
-        if old_status == 'новый' and new_status == 'оплачен':
-            order.status = new_status
-            if new_status == 'оплачен':
-                from datetime import datetime
-                order.completed_at = datetime.utcnow()
-        elif old_status == new_status:
+        # Только переход с pending на completed
+        if old_status == 'pending' and new_status == 'completed':
+            order.status = 'completed'
+            order.completed_at = datetime.utcnow()
+            # При завершении заказа освобождаем стол
+            if order.table:
+                order.table.status = 'available'
+        elif old_status == 'completed':
             return jsonify({
                 'status': 'info',
-                'message': f'Заказ уже имеет статус "{new_status}"'
+                'message': 'Заказ уже завершен'
             })
         else:
             return jsonify({

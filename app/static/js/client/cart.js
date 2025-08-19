@@ -94,38 +94,49 @@ class CartManager {
         });
     }
 
-    static addItem(dishId, quantity = 1) {
-
+    static async addItem(dishId, quantity = 1) {
+        console.log('🛒 CartManager.addItem called:', { dishId, quantity, currentItems: Array.from(this.items.entries()) });
         
-        // Получаем данные блюда из меню
-        const dish = this.getDishById(dishId);
-        if (!dish) {
+        try {
+            // Получаем данные блюда из меню
+            const dish = await this.getDishById(dishId);
+            if (!dish) {
+                NotificationManager.showError('Блюдо не найдено');
+                return;
+            }
 
-            NotificationManager.showError('Блюдо не найдено');
-            return;
+            const currentQuantity = this.items.get(dishId) || 0;
+            const newQuantity = currentQuantity + quantity;
+            
+            console.log('🛒 Quantity calculation:', { currentQuantity, newQuantity });
+            
+            if (newQuantity <= 0) {
+                this.removeItem(dishId);
+                return;
+            }
+
+            this.items.set(dishId, newQuantity);
+            
+            console.log('🛒 Item added, new cart state:', Array.from(this.items.entries()));
+            
+            // Триггерим событие обновления
+            await this.triggerUpdate();
+            
+            // Показываем уведомление
+            NotificationManager.showSuccess(`${dish.name} добавлено в корзину`);
+            
+                    // Обновляем кнопки в карточках блюд
+        await this.updateDishButtons();
+        
+        // Сохраняем в localStorage
+        this.saveToStorage();
+        } catch (error) {
+            console.error('🛒 Error adding item:', error);
+            NotificationManager.showError('Ошибка добавления блюда');
         }
-
-        const currentQuantity = this.items.get(dishId) || 0;
-        const newQuantity = currentQuantity + quantity;
-        
-        if (newQuantity <= 0) {
-            this.removeItem(dishId);
-            return;
-        }
-
-        this.items.set(dishId, newQuantity);
-        
-        // Триггерим событие обновления
-        this.triggerUpdate();
-        
-        // Показываем уведомление
-        NotificationManager.showSuccess(`${dish.name} добавлено в корзину`);
-        
-        // Обновляем кнопки в карточках блюд
-        this.updateDishButtons();
     }
 
-    static removeItem(dishId, quantity = 1) {
+    static async removeItem(dishId, quantity = 1) {
         
         const currentQuantity = this.items.get(dishId) || 0;
         const newQuantity = currentQuantity - quantity;
@@ -136,37 +147,37 @@ class CartManager {
             this.items.set(dishId, newQuantity);
         }
         
-        this.triggerUpdate();
-        this.updateDishButtons();
+        await this.triggerUpdate();
+        await this.updateDishButtons();
     }
 
-    static setItemQuantity(dishId, quantity) {
+    static async setItemQuantity(dishId, quantity) {
         if (quantity <= 0) {
             this.items.delete(dishId);
         } else {
             this.items.set(dishId, quantity);
         }
         
-        this.triggerUpdate();
-        this.updateDishButtons();
+        await this.triggerUpdate();
+        await this.updateDishButtons();
     }
 
     static getItemQuantity(dishId) {
         return this.items.get(dishId) || 0;
     }
 
-    static clear() {
+        static clear() {
         if (this.items.size === 0) {
             NotificationManager.showInfo('Корзина уже пуста');
             return;
         }
 
         // Показываем подтверждение
-        ModalManager.showConfirm('Очистить корзину?', 'Все товары будут удалены из корзины', () => {
+        ModalManager.showConfirm('Очистить корзину?', 'Все товары будут удалены из корзины', async () => {
             this.items.clear();
             this.bonusCard = null;
-            this.triggerUpdate();
-            this.updateDishButtons();
+            await this.triggerUpdate();
+            await this.updateDishButtons();
             NotificationManager.showSuccess('Корзина очищена');
         });
     }
@@ -179,38 +190,44 @@ class CartManager {
         return total;
     }
 
-    static getSubtotal() {
+    static async getSubtotal() {
         let subtotal = 0;
-        this.items.forEach((quantity, dishId) => {
-            const dish = this.getDishById(dishId);
+        for (const [dishId, quantity] of this.items.entries()) {
+            const dish = await this.getDishById(dishId);
             if (dish) {
                 subtotal += dish.price * quantity;
             }
-        });
+        }
         return subtotal;
     }
 
-    static getServiceCharge() {
+    static async getServiceCharge() {
         if (!this.serviceChargeEnabled) return 0;
-        return this.getSubtotal() * (this.serviceChargePercent / 100);
+        const subtotal = await this.getSubtotal();
+        return subtotal * (this.serviceChargePercent / 100);
     }
 
-    static getDiscount() {
+    static async getDiscount() {
         if (!this.bonusCard) return 0;
-        return this.getSubtotal() * (this.bonusCard.discount_percent / 100);
+        const subtotal = await this.getSubtotal();
+        return subtotal * (this.bonusCard.discount_percent / 100);
     }
 
-    static getTotal() {
-        return this.getSubtotal() + this.getServiceCharge() - this.getDiscount();
+    static async getTotal() {
+        const subtotal = await this.getSubtotal();
+        const serviceCharge = await this.getServiceCharge();
+        const discount = await this.getDiscount();
+        return subtotal + serviceCharge - discount;
     }
 
-    static render() {
+    static async render() {
+        console.log('🛒 CartManager.render called, items count:', this.items.size, 'items:', Array.from(this.items.entries()));
         if (!this.cartContent) return;
 
         if (this.items.size === 0) {
             this.renderEmpty();
         } else {
-            this.renderItems();
+            await this.renderItems();
         }
     }
 
@@ -233,50 +250,61 @@ class CartManager {
         }
     }
 
-    static renderItems() {
-        const itemsHTML = Array.from(this.items.entries()).map(([dishId, quantity]) => {
-            const dish = this.getDishById(dishId);
-            if (!dish) return '';
+    static async renderItems() {
+        try {
+            const itemsHTMLPromises = Array.from(this.items.entries()).map(async ([dishId, quantity]) => {
+                const dish = await this.getDishById(dishId);
+                if (!dish) {
+                    console.warn('🛒 Dish not found for rendering, dishId:', dishId);
+                    return '';
+                }
+                
+                return `
+                    <div class="cart-item" data-dish-id="${dishId}">
+                        <button class="cart-item-remove" onclick="CartManager.removeItem(${dishId}, ${quantity})" title="Удалить блюдо">×</button>
+                        
+                        <img class="cart-item-image" 
+                             src="${dish.image_url || '/static/assets/images/fish.png'}" 
+                             alt="${this.escapeHTML(dish.name)}">
+                        
+                        <div class="cart-item-info">
+                            <div class="cart-item-name">${this.escapeHTML(dish.name)}</div>
+                            <div class="cart-item-price">${APIUtils.formatPrice(dish.price)}</div>
+                        </div>
+                        
+                        <div class="cart-item-controls">
+                            <button class="btn-round btn-minus" onclick="CartManager.removeItem(${dishId})" title="Убрать одно">−</button>
+                            <span class="quantity-display">${quantity}</span>
+                            <button class="btn-round btn-plus" onclick="CartManager.addItem(${dishId})" title="Добавить еще">+</button>
+                        </div>
+                    </div>
+                `;
+            });
             
-            return `
-                <div class="cart-item" data-dish-id="${dishId}">
-                    <button class="cart-item-remove" onclick="CartManager.removeItem(${dishId}, ${quantity})" title="Удалить блюдо">×</button>
-                    
-                    <img class="cart-item-image" 
-                         src="${dish.image_url || '/static/assets/images/fish.png'}" 
-                         alt="${this.escapeHTML(dish.name)}">
-                    
-                    <div class="cart-item-info">
-                        <div class="cart-item-name">${this.escapeHTML(dish.name)}</div>
-                        <div class="cart-item-price">${APIUtils.formatPrice(dish.price)}</div>
-                    </div>
-                    
-                    <div class="cart-item-controls">
-                        <button class="btn-round btn-minus" onclick="CartManager.removeItem(${dishId})" title="Убрать одно">−</button>
-                        <span class="quantity-display">${quantity}</span>
-                        <button class="btn-round btn-plus" onclick="CartManager.addItem(${dishId})" title="Добавить еще">+</button>
-                    </div>
+            const itemsHTML = await Promise.all(itemsHTMLPromises);
+            const filteredItemsHTML = itemsHTML.filter(html => html !== '');
+
+            this.cartContent.innerHTML = `
+                <div class="cart-items">
+                    ${filteredItemsHTML.join('')}
                 </div>
+                <div class="rudder-pattern"></div>
             `;
-        }).join('');
 
-        this.cartContent.innerHTML = `
-            <div class="cart-items">
-                ${itemsHTML}
-            </div>
-            <div class="rudder-pattern"></div>
-        `;
-
-        this.renderFooter();
+            await this.renderFooter();
+        } catch (error) {
+            console.error('🛒 Error rendering items:', error);
+            this.renderEmpty();
+        }
     }
 
-    static renderFooter() {
+    static async renderFooter() {
         if (!this.cartFooter) return;
 
-        const subtotal = this.getSubtotal();
-        const serviceCharge = this.getServiceCharge();
-        const discount = this.getDiscount();
-        const total = this.getTotal();
+        const subtotal = await this.getSubtotal();
+        const serviceCharge = await this.getServiceCharge();
+        const discount = await this.getDiscount();
+        const total = await this.getTotal();
 
         const discountHTML = discount > 0 ? `
             <div class="summary-line discount">
@@ -319,27 +347,33 @@ class CartManager {
         this.cartFooter.style.display = 'block';
     }
 
-    static updateDishButtons() {
-        // Обновляем кнопки во всех карточках блюд
-        document.querySelectorAll('.dish-card').forEach(card => {
-            const dishId = parseInt(card.dataset.dishId);
-            const quantity = this.getItemQuantity(dishId);
-            const actionsDiv = card.querySelector('.dish-footer .dish-actions');
+    static async updateDishButtons() {
+        try {
+            // Обновляем кнопки во всех карточках блюд
+            const dishCards = document.querySelectorAll('.dish-card');
             
-            if (actionsDiv) {
-                if (quantity > 0) {
-                    actionsDiv.innerHTML = `
-                        <button class="btn-round btn-minus" onclick="CartManager.removeItem(${dishId})">−</button>
-                        <span class="quantity-display">${quantity}</span>
-                        <button class="btn-round btn-plus" onclick="CartManager.addItem(${dishId})">+</button>
-                    `;
-                } else {
-                    actionsDiv.innerHTML = `
-                        <button class="btn-round btn-plus" onclick="CartManager.addItem(${dishId})">+</button>
-                    `;
+            for (const card of dishCards) {
+                const dishId = parseInt(card.dataset.dishId);
+                const quantity = this.getItemQuantity(dishId);
+                const actionsDiv = card.querySelector('.dish-footer .dish-actions');
+                
+                if (actionsDiv) {
+                    if (quantity > 0) {
+                        actionsDiv.innerHTML = `
+                            <button class="btn-round btn-minus" onclick="CartManager.removeItem(${dishId})">−</button>
+                            <span class="quantity-display">${quantity}</span>
+                            <button class="btn-round btn-plus" onclick="CartManager.addItem(${dishId})">+</button>
+                        `;
+                    } else {
+                        actionsDiv.innerHTML = `
+                            <button class="btn-round btn-plus" onclick="CartManager.addItem(${dishId})">+</button>
+                        `;
+                    }
                 }
             }
-        });
+        } catch (error) {
+            console.error('🛒 Error updating dish buttons:', error);
+        }
     }
 
     static setTable(tableId, tableNumber) {
@@ -380,21 +414,26 @@ class CartManager {
         }
 
         try {
-            // Подготавливаем данные заказа
-            const orderData = {
-                table_id: this.tableId,
-                items: Array.from(this.items.entries()).map(([dishId, quantity]) => ({
-                    dish_id: dishId,
-                    quantity: quantity
-                })),
-                bonus_card: this.bonusCard ? this.bonusCard.card_number : null,
-                language: MenuManager.currentLanguage || 'ru'
-            };
+                    // Подготавливаем данные заказа
+        const orderData = {
+            table_id: this.tableId,
+            items: Array.from(this.items.entries()).map(([dishId, quantity]) => ({
+                dish_id: dishId,
+                quantity: quantity
+            })),
+            bonus_card: this.bonusCard ? this.bonusCard.card_number : null,
+            language: window.MenuManager?.currentLanguage || 'ru'
+        };
 
+            // Проверяем готовность API
+            if (!window.ClientAPI || typeof window.ClientAPI.createOrder !== 'function') {
+                throw new Error('API не готов. Попробуйте обновить страницу.');
+            }
+            
             // Отправляем заказ
             APIUtils.showLoading(document.querySelector('.continue-order-btn'), 'Отправляем...');
             
-            const response = await ClientAPI.createOrder(orderData);
+            const response = await window.ClientAPI.createOrder(orderData);
             
             if (response.status === 'success') {
                 // Показываем экран подтверждения
@@ -403,8 +442,8 @@ class CartManager {
                 // Очищаем корзину
                 this.items.clear();
                 this.bonusCard = null;
-                this.render();
-                this.updateDishButtons();
+                await this.render();
+                await this.updateDishButtons();
                 
                 NotificationManager.showSuccess('Заказ отправлен!');
             } else {
@@ -412,25 +451,61 @@ class CartManager {
             }
             
         } catch (error) {
-            APIUtils.handleError(error, 'Не удалось отправить заказ');
+            // Проверяем, является ли это ошибкой о существующем заказе
+            if (error.message && error.message.includes('уже есть активный заказ')) {
+                ModalManager.showExistingOrderModal(error.message);
+            } else {
+                APIUtils.handleError(error, 'Не удалось отправить заказ');
+            }
         } finally {
             APIUtils.hideLoading(document.querySelector('.continue-order-btn'));
         }
     }
 
-    static getDishById(dishId) {
-        if (!window.MenuManager || !window.MenuManager.menuData) return null;
-        return window.MenuManager.menuData.dishes.find(dish => dish.id === dishId);
+    static async getDishById(dishId) {
+        if (!window.MenuManager) {
+            console.log('🛒 MenuManager not ready, dishId:', dishId);
+            return null;
+        }
+        
+        // Сначала пытаемся найти в текущем меню
+        if (window.MenuManager.menuData && window.MenuManager.menuData.dishes) {
+            const dish = window.MenuManager.menuData.dishes.find(dish => dish.id === dishId);
+            if (dish) {
+                console.log('🛒 getDishById found in current menu:', { dishId, dish });
+                return dish;
+            }
+        }
+        
+        // Если не найдено, загружаем все блюда
+        console.log('🛒 Dish not found in current menu, loading all dishes for dishId:', dishId);
+        const allDishesData = await window.MenuManager.loadAllDishes();
+        
+        if (allDishesData && allDishesData.dishes) {
+            const dish = allDishesData.dishes.find(dish => dish.id === dishId);
+            console.log('🛒 getDishById result from all dishes:', { dishId, dish });
+            return dish;
+        }
+        
+        console.log('🛒 Dish not found anywhere, dishId:', dishId);
+        return null;
     }
 
-    static triggerUpdate() {
+    static async triggerUpdate() {
         document.dispatchEvent(new CustomEvent('cartUpdated', {
             detail: {
                 items: this.items,
-                total: this.getTotal(),
+                total: await this.getTotal(),
                 count: this.getTotalItems()
             }
         }));
+    }
+    
+    // Метод для обновления корзины после загрузки меню
+    static async updateAfterMenuLoad() {
+        console.log('🛒 Updating cart after menu load, current items:', Array.from(this.items.entries()));
+        await this.render();
+        await this.updateDishButtons();
     }
 
     static saveToStorage() {
@@ -444,16 +519,21 @@ class CartManager {
     }
 
     static loadFromStorage() {
+        console.log('🛒 CartManager.loadFromStorage called');
         const cartData = StorageManager.get('cart');
+        console.log('🛒 Cart data from storage:', cartData);
+        
         if (cartData && cartData.timestamp) {
             // Проверяем, не слишком ли старые данные (24 часа)
             const isExpired = Date.now() - cartData.timestamp > 24 * 60 * 60 * 1000;
+            console.log('🛒 Cart data expired:', isExpired);
             
             if (!isExpired) {
                 this.items = new Map(cartData.items || []);
-            this.tableId = cartData.tableId || this.tableId;
-            this.tableNumber = StorageManager.get('tableNumber') || this.tableId;
+                this.tableId = cartData.tableId || this.tableId;
+                this.tableNumber = StorageManager.get('tableNumber') || this.tableId;
                 this.bonusCard = cartData.bonusCard || null;
+                console.log('🛒 Cart loaded from storage:', Array.from(this.items.entries()));
             }
         }
         
@@ -469,6 +549,8 @@ class CartManager {
             // Отложенно определим по справочнику столов
             this.tableNumber = undefined;
         }
+        
+        console.log('🛒 Final cart state after loading:', Array.from(this.items.entries()));
     }
 
     static async ensureTableNumberConsistency() {
@@ -508,15 +590,15 @@ class CartManager {
     }
 
     // Публичные методы для внешнего использования
-    static getCartData() {
+    static async getCartData() {
         return {
             items: Array.from(this.items.entries()),
             tableId: this.tableId,
             bonusCard: this.bonusCard,
-            subtotal: this.getSubtotal(),
-            serviceCharge: this.getServiceCharge(),
-            discount: this.getDiscount(),
-            total: this.getTotal(),
+            subtotal: await this.getSubtotal(),
+            serviceCharge: await this.getServiceCharge(),
+            discount: await this.getDiscount(),
+            total: await this.getTotal(),
             totalItems: this.getTotalItems()
         };
     }

@@ -115,11 +115,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         <div class="table-zone">Зона: <strong>Основная зона</strong></div>
                     </div>
-                    <div class="table-actions">
-                        <button class="btn btn-sm btn-primary" onclick="showTableDetails(${table.id})">
-                            Подробнее
-                        </button>
-                    </div>
+                    <!-- Кнопка "Подробнее" убрана по требованию -->
                 </div>
             `).join('');
             
@@ -171,19 +167,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return statusTexts[status] || status;
     }
     
-    // Глобальная функция для показа деталей стола
-    window.showTableDetails = function(tableId) {
-        console.log('Showing details for table:', tableId);
-        waiterModals.show('tableDetailModal');
-        
-        document.getElementById('tableDetailContent').innerHTML = `
-            <div class="table-detail">
-                <h4>Стол ${tableId}</h4>
-                <p>Детальная информация о столе будет здесь...</p>
-                <p><em>Функционал в разработке</em></p>
-            </div>
-        `;
-    };
+    // Функция showTableDetails убрана по требованию
     
     // Обработчики событий
     document.getElementById('refreshTables').addEventListener('click', loadTables);

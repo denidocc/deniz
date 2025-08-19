@@ -9,12 +9,26 @@ class ClientAPI {
             'Content-Type': 'application/json',
             'X-Requested-With': 'XMLHttpRequest'
         };
+        this.updateCSRFToken();
+    }
+    
+    /**
+     * Обновление CSRF токена из meta тега
+     */
+    updateCSRFToken() {
+        const metaTag = document.querySelector('meta[name="csrf-token"]');
+        if (metaTag) {
+            this.defaultHeaders['X-CSRFToken'] = metaTag.getAttribute('content');
+        }
     }
 
     /**
      * Выполнение HTTP запроса
      */
     async request(endpoint, options = {}) {
+        // Обновляем CSRF токен перед каждым запросом
+        this.updateCSRFToken();
+        
         // Если endpoint начинается с /api/, используем абсолютный путь без baseUrl
         const url = endpoint.startsWith('/api/') ? endpoint : `${this.baseUrl}${endpoint}`;
         const config = {
@@ -174,8 +188,13 @@ class APIUtils {
             message = error;
         }
 
-        // Показываем уведомление об ошибке
-        NotificationManager.showError(message);
+        // Показываем уведомление об ошибке, если NotificationManager доступен
+        if (window.NotificationManager && typeof window.NotificationManager.showError === 'function') {
+            window.NotificationManager.showError(message);
+        } else {
+            console.warn('NotificationManager not available, showing alert instead');
+            alert(message);
+        }
         
         console.error('API Error:', error);
         return message;
@@ -248,8 +267,10 @@ class APIUtils {
 try {
     window.ClientAPI = new ClientAPI();
     window.ClientAPI._ready = true;
+    console.log('✅ ClientAPI initialized successfully:', window.ClientAPI);
+    console.log('✅ Available methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(window.ClientAPI)));
 } catch (error) {
-    console.error('Failed to initialize ClientAPI:', error);
+    console.error('❌ Failed to initialize ClientAPI:', error);
 }
 
 // Экспортируем утилиты

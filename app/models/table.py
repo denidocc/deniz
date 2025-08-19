@@ -64,10 +64,21 @@ class Table(BaseModel):
     def get_current_order(self) -> Optional["Order"]:
         """Получение текущего заказа для стола."""
         from .order import Order
-        return Order.query.filter(
+        from flask import current_app
+        
+        # Логируем поиск заказов для отладки
+        if current_app:
+            current_app.logger.info(f"Searching for active orders on table {self.table_number} (ID: {self.id})")
+            
+        orders = Order.query.filter(
             Order.table_id == self.id,
             Order.status.in_(['pending', 'confirmed'])
-        ).first()
+        ).all()
+        
+        if current_app:
+            current_app.logger.info(f"Found {len(orders)} orders for table {self.table_number}: {[o.id for o in orders]}")
+            
+        return orders[0] if orders else None
     
     def get_assigned_waiter(self) -> Optional["Staff"]:
         """Получение назначенного официанта."""

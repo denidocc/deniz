@@ -4,6 +4,7 @@ from flask import Blueprint, render_template, request, jsonify, current_app
 from app.models import Table, MenuItem, MenuCategory, SystemSetting, WaiterCall, TableAssignment
 from app import db, csrf
 from sqlalchemy import func
+from datetime import datetime
 import json
 import hashlib
 import re
@@ -472,19 +473,50 @@ def create_order():
         bonus_card = data.get('bonus_card')
         language = data.get('language', 'ru')
         
-        # Проверяем стол
-        table = Table.query.get(table_id)
+        # Добавляем отладочную информацию
+        current_app.logger.info(f"Creating order for table_id: {table_id}")
+        current_app.logger.info(f"Order data: {data}")
+        
+        # Проверяем стол - сначала пытаемся найти по номеру стола, потом по ID
+        try:
+            table_id_int = int(table_id)
+            current_app.logger.info(f"Searching for table with number: {table_id_int}")
+            table = Table.query.filter_by(table_number=table_id_int).first()
+            if not table:
+                # Если не найден по номеру, пытаемся по ID
+                current_app.logger.info(f"Table not found by number, trying by ID: {table_id_int}")
+                table = Table.query.get(table_id_int)
+                current_app.logger.info(f"Table search by ID result: {table}")
+            else:
+                current_app.logger.info(f"Table found by number: {table.id} (number: {table.table_number})")
+        except (ValueError, TypeError) as e:
+            current_app.logger.error(f"Invalid table_id format: {table_id}, error: {e}")
+            return jsonify({
+                "status": "error",
+                "message": "Неверный формат ID стола"
+            }), 400
+        
         if not table:
+            current_app.logger.error(f"Table not found: table_id={table_id}")
+            # Получаем все столы для отладки
+            all_tables = Table.query.all()
+            current_app.logger.error(f"Available tables: {[(t.id, t.table_number) for t in all_tables]}")
             return jsonify({
                 "status": "error",
                 "message": "Стол не найден"
             }), 404
         
-        if not table.is_available():
+        # Проверяем, есть ли уже активный заказ для этого стола
+        current_app.logger.info(f"Checking for active orders on table {table.table_number} (ID: {table.id})")
+        current_order = table.get_current_order()
+        if current_order:
+            current_app.logger.info(f"Table {table.table_number} has active order {current_order.id} with status {current_order.status}")
             return jsonify({
                 "status": "error",
-                "message": "Стол недоступен"
+                "message": f"Для стола {table.table_number} уже есть активный заказ. Дождитесь завершения текущего заказа."
             }), 400
+        else:
+            current_app.logger.info(f"Table {table.table_number} has no active orders")
         
         # Проверяем блюда
         if not items:
@@ -524,24 +556,133 @@ def create_order():
         service_charge = total_amount * (service_charge_percent / 100)
         final_amount = total_amount + service_charge
         
-        # TODO: Здесь нужно создать запись в базе данных (модель Order)
-        # Пока возвращаем успешный ответ с деталями заказа
+        # Создаем заказ в базе данных
+        from app.models.order import Order, OrderItem
+        from app.models.bonus_card import BonusCard
+        
+        # Получаем назначенного официанта для стола
+        waiter = table.get_assigned_waiter()
+        current_app.logger.info(f"Assigned waiter for table {table.table_number}: {waiter.name if waiter else 'None'}")
+        
+        # Создаем заказ
+        current_app.logger.info(f"Creating order with table_id={table.id}, waiter_id={waiter.id if waiter else None}")
+        order = Order(
+            table_id=table.id,
+            guest_count=4,  # По умолчанию, можно добавить в запрос
+            status='pending',
+            subtotal=total_amount,
+            service_charge=service_charge,
+            total_amount=final_amount,
+            waiter_id=waiter.id if waiter else None,
+            language=language,
+            comments=notes
+        )
+        
+        # Если указана бонусная карта
+        if bonus_card:
+            bonus_card_obj = BonusCard.query.filter_by(card_number=bonus_card).first()
+            if bonus_card_obj and bonus_card_obj.is_active:
+                order.bonus_card_id = bonus_card_obj.id
+                # Применяем скидку
+                discount_amount = total_amount * (bonus_card_obj.discount_percent / 100)
+                order.discount_amount = discount_amount
+                final_amount -= discount_amount
+                order.total_amount = final_amount
+        
+        # Сохраняем заказ
+        current_app.logger.info(f"Adding order to session: {order}")
+        db.session.add(order)
+        current_app.logger.info("Flushing to get order ID...")
+        db.session.flush()  # Получаем ID заказа
+        current_app.logger.info(f"Order ID after flush: {order.id}")
+        
+        # Создаем элементы заказа
+        current_app.logger.info(f"Creating {len(items)} order items...")
+        for i, item_data in enumerate(items):
+            dish_id = item_data.get('dish_id')
+            quantity = item_data.get('quantity', 1)
+            
+            # Получаем информацию о блюде
+            current_app.logger.info(f"Looking for MenuItem with ID: {dish_id}")
+            menu_item = MenuItem.query.get(dish_id)
+            if not menu_item:
+                current_app.logger.error(f"MenuItem with ID {dish_id} not found")
+                return jsonify({
+                    "status": "error",
+                    "message": f"Блюдо с ID {dish_id} не найдено"
+                }), 400
+            
+            current_app.logger.info(f"Found MenuItem: {menu_item.name_ru} (ID: {menu_item.id})")
+            
+            # Создаем элемент заказа
+            order_item = OrderItem(
+                order_id=order.id,
+                menu_item_id=dish_id,
+                quantity=quantity,
+                unit_price=menu_item.price,
+                total_price=menu_item.price * quantity,
+                preparation_type='стандарт'  # По умолчанию
+            )
+            
+            current_app.logger.info(f"Order item {i+1}: {order_item}")
+            db.session.add(order_item)
+        
+        # Изменяем статус стола на "занят" при создании заказа
+        current_app.logger.info(f"Setting table {table.table_number} status to 'occupied'")
+        
+        # Обновляем статус стола в базе данных
+        current_app.logger.info(f"Updating table status in database for table {table.table_number}")
+        result = db.session.execute(
+            db.text("UPDATE tables SET status = 'occupied' WHERE id = :table_id"),
+            {"table_id": table.id}
+        )
+        current_app.logger.info(f"Table status update result: {result.rowcount} rows affected")
+        
+        # Также обновляем объект таблицы для синхронизации
+        table.status = 'occupied'
+        
+        # Сохраняем все изменения
+        current_app.logger.info("Committing all changes to database...")
+        db.session.commit()
+        current_app.logger.info("Database commit successful")
+        
+        # Проверяем, что статус стола действительно обновился
+        db.session.refresh(table)
+        current_app.logger.info(f"Table {table.table_number} status after commit: {table.status}")
+        
+        # Дополнительная проверка через прямой запрос
+        table_status_check = db.session.execute(
+            db.text("SELECT status FROM tables WHERE id = :table_id"),
+            {"table_id": table.id}
+        ).scalar()
+        current_app.logger.info(f"Table {table.table_number} status from direct query: {table_status_check}")
+        
+        # Аудирование
+        from app.utils.decorators import audit_action
+        audit_action(
+            action='create_order',
+            table_affected=True,
+            order_affected=True
+        )
         
         order_data = {
-            'order_id': 'ORD' + str(int(table_id) * 1000 + len(items)),  # Временный ID
-            'table_id': table_id,
+            'order_id': order.id,
+            'table_id': table.id,
             'table_number': table.table_number,
-            'items': order_items,
-            'subtotal': total_amount,
+            'items': items,  # Используем оригинальные items
+            'subtotal': float(total_amount),
             'service_charge_percent': service_charge_percent,
-            'service_charge': service_charge,
-            'total_amount': final_amount,
-            'status': 'pending',
+            'service_charge': float(service_charge),
+            'total_amount': float(final_amount),
+            'status': order.status,
             'notes': notes,
             'bonus_card': bonus_card,
-            'estimated_time': max([30] + [item.get('estimated_time', 30) for item in items]),  # Максимальное время
-            'created_at': 'now'  # В реальности - datetime.utcnow()
+            'waiter_id': waiter.id if waiter else None,
+            'waiter_name': waiter.name if waiter else None,
+            'created_at': order.created_at.isoformat()
         }
+        
+        current_app.logger.info(f"Order {order.id} created successfully for table {table.table_number}")
         
         return jsonify({
             "status": "success",
@@ -550,7 +691,9 @@ def create_order():
         })
         
     except Exception as e:
-        current_app.logger.error(f"Error creating order: {e}")
+        current_app.logger.error(f"Error creating order: {e}", exc_info=True)
+        current_app.logger.error(f"Order data: {data}")
+        current_app.logger.error(f"Table found: {table if 'table' in locals() else 'Not found'}")
         return jsonify({
             "status": "error",
             "message": "Ошибка создания заказа"
@@ -744,3 +887,133 @@ def get_localized_description(obj, language):
         return obj.description_en
     else:
         return obj.description_ru or ""
+
+@client_bp.route('/api/orders/<int:order_id>/complete', methods=['POST'])
+@csrf.exempt
+def complete_order(order_id):
+    """Завершение заказа (оплата)."""
+    try:
+        from app.models.order import Order
+        
+        # Получаем заказ
+        order = Order.query.get(order_id)
+        if not order:
+            return jsonify({
+                "status": "error",
+                "message": "Заказ не найден"
+            }), 404
+        
+        # Проверяем, что заказ еще не завершен
+        if order.status in ['completed', 'cancelled']:
+            return jsonify({
+                "status": "error",
+                "message": "Заказ уже завершен"
+            }), 400
+        
+        # Изменяем статус заказа на "завершен"
+        order.status = 'completed'
+        order.completed_at = datetime.utcnow()
+        
+        # Получаем стол
+        table = order.table
+        if table:
+            # Изменяем статус стола на "свободен"
+            table.status = 'available'
+        
+        # Сохраняем изменения
+        db.session.commit()
+        
+        # Аудирование
+        from app.utils.audit_middleware import audit_action
+        audit_action(
+            action='complete_order',
+            target_type='order',
+            target_id=order.id,
+            details=f'Order {order.id} completed for table {table.table_number if table else "unknown"}'
+        )
+        
+        current_app.logger.info(f"Order {order.id} completed successfully")
+        
+        return jsonify({
+            "status": "success",
+            "message": "Заказ успешно завершен",
+            "data": {
+                'order_id': order.id,
+                'table_id': table.id if table else None,
+                'table_number': table.table_number if table else None,
+                'status': order.status,
+                'completed_at': order.completed_at.isoformat()
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error completing order: {e}")
+        return jsonify({
+            "status": "error",
+            "message": "Ошибка завершения заказа"
+        }), 500
+
+@client_bp.route('/api/orders/<int:order_id>/cancel', methods=['POST'])
+@csrf.exempt
+def cancel_order(order_id):
+    """Отмена заказа."""
+    try:
+        from app.models.order import Order
+        
+        # Получаем заказ
+        order = Order.query.get(order_id)
+        if not order:
+            return jsonify({
+                "status": "error",
+                "message": "Заказ не найден"
+            }), 404
+        
+        # Проверяем, что заказ еще не завершен или отменен
+        if order.status in ['completed', 'cancelled']:
+            return jsonify({
+                "status": "error",
+                "message": "Заказ уже завершен или отменен"
+            }), 400
+        
+        # Изменяем статус заказа на "отменен"
+        order.status = 'cancelled'
+        order.cancelled_at = datetime.utcnow()
+        
+        # Получаем стол
+        table = order.table
+        if table:
+            # Изменяем статус стола на "свободен"
+            table.status = 'available'
+        
+        # Сохраняем изменения
+        db.session.commit()
+        
+        # Аудирование
+        from app.utils.audit_middleware import audit_action
+        audit_action(
+            action='cancel_order',
+            target_type='order',
+            target_id=order.id,
+            details=f'Order {order.id} cancelled for table {table.table_number if table else "unknown"}'
+        )
+        
+        current_app.logger.info(f"Order {order_id} cancelled successfully")
+        
+        return jsonify({
+            "status": "success",
+            "message": "Заказ успешно отменен",
+            "data": {
+                'order_id': order.id,
+                'table_id': table.id if table else None,
+                'table_number': table.table_number if table else None,
+                'status': order.status,
+                'cancelled_at': order.cancelled_at.isoformat()
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error cancelling order: {e}")
+        return jsonify({
+            "status": "error",
+            "message": "Ошибка отмены заказа"
+        }), 500

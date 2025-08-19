@@ -123,9 +123,19 @@ class ModalManager {
     }
 
     static closeAll() {
-        while (this.overlay.children.length > 0) {
-            this.closeActive();
+        // Закрываем все модалки без анимации
+        if (this.activeModal) {
+            const { element } = this.activeModal;
+            if (element.parentNode) {
+                element.parentNode.removeChild(element);
+            }
+            this.activeModal = null;
         }
+        
+        // Очищаем overlay
+        this.overlay.innerHTML = '';
+        this.overlay.classList.remove('show');
+        document.body.style.overflow = '';
     }
 
     // PIN-код модальное окно
@@ -435,9 +445,23 @@ class ModalManager {
                 'Заказ будет полностью отменен',
                 async () => {
                     try {
-                        await ClientAPI.cancelOrder(orderData.order_id);
+                        // Проверяем доступность ClientAPI
+                        if (!window.ClientAPI || typeof window.ClientAPI.cancelOrder !== 'function') {
+                            throw new Error('API не готов. Попробуйте обновить страницу.');
+                        }
+                        
+                        await window.ClientAPI.cancelOrder(orderData.order_id);
                         clearInterval(countdownInterval);
+                        
+                        // Закрываем модалку подтверждения
                         this.closeActive();
+                        
+                        // Небольшая задержка перед закрытием основной модалки
+                        setTimeout(() => {
+                            // Закрываем основную модалку заказа
+                            this.closeActive();
+                        }, 100);
+                        
                         NotificationManager.showSuccess('Заказ отменен');
                     } catch (error) {
                         APIUtils.handleError(error, 'Не удалось отменить заказ');
@@ -473,7 +497,14 @@ class ModalManager {
             </div>
         `;
         
-        const modalId = this.show(content, { className: 'confirm-modal' });
+        // Закрываем все активные модалки перед показом подтверждения
+        this.closeAll();
+        
+        const modalId = this.show(content, { 
+            className: 'confirm-modal',
+            hideClose: true,
+            overlayClass: 'confirm-overlay'
+        });
         
         const modal = document.querySelector(`[data-modal-id="${modalId}"]`);
         
@@ -523,6 +554,38 @@ class ModalManager {
                 APIUtils.handleError(error, 'Ошибка проверки PIN-кода');
             });
         }, "Введите PIN-код для доступа к столам");
+    }
+
+    // Показ модалки с информацией о существующем заказе
+    static showExistingOrderModal(message) {
+        const content = `
+            <div class="modal-header">
+                <h2 class="modal-title">Заказ уже существует</h2>
+            </div>
+            <div class="modal-content">
+                <div class="info-icon">ℹ️</div>
+                <div class="info-message">${message}</div>
+                <div class="info-details">
+                    <p>Для этого стола уже создан заказ. Дождитесь его завершения или выберите другой стол.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="existingOrderOk">Понятно</button>
+            </div>
+        `;
+        
+        const modalId = this.show(content, { 
+            className: 'info-modal',
+            hideClose: false
+        });
+        
+        const modal = document.querySelector(`[data-modal-id="${modalId}"]`);
+        
+        modal.querySelector('#existingOrderOk').addEventListener('click', () => {
+            this.closeActive();
+        });
+        
+        return modalId;
     }
 }
 

@@ -339,6 +339,20 @@
 .confirm-modal {
   width: 400px;
   text-align: center;
+  z-index: 9999;
+}
+
+.confirm-modal .modal-overlay {
+  z-index: 9998;
+}
+
+.confirm-overlay {
+  z-index: 9998 !important;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.confirm-modal {
+  z-index: 9999 !important;
 }
 
 .confirm-icon {
@@ -478,4 +492,36 @@
 [data-theme="dark"] .pin-key:hover,
 [data-theme="dark"] .table-option:hover {
   background: var(--deep-blue);
+}
+
+/* Стили для информационной модалки */
+.info-modal {
+  max-width: 500px;
+}
+
+.info-icon {
+  font-size: 48px;
+  text-align: center;
+  margin-bottom: var(--gap-medium);
+}
+
+.info-message {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+  color: var(--dark-text);
+  text-align: center;
+  margin-bottom: var(--gap-medium);
+}
+
+.info-details {
+  background: var(--light-gray);
+  padding: var(--gap-medium);
+  border-radius: var(--border-radius);
+  margin-bottom: var(--gap-medium);
+}
+
+.info-details p {
+  margin: 0;
+  color: var(--medium-text);
+  line-height: 1.5;
 }

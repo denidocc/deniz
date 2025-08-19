@@ -64,6 +64,10 @@ class Order(BaseModel):
         sa.DateTime(timezone=True),
         nullable=True
     )
+    cancelled_at: so.Mapped[Optional[datetime]] = so.mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=True
+    )
     
     # Отношения
     table: so.Mapped["Table"] = so.relationship(
@@ -286,7 +290,10 @@ class OrderItem(BaseModel):
     
     def __repr__(self) -> str:
         """Строковое представление."""
-        return f'<OrderItem {self.menu_item.name_ru} x{self.quantity}>'
+        if self.menu_item:
+            return f'<OrderItem {self.menu_item.name_ru} x{self.quantity}>'
+        else:
+            return f'<OrderItem menu_item_id:{self.menu_item_id} x{self.quantity}>'
     
     def calculate_total(self) -> None:
         """Расчет общей стоимости позиции."""

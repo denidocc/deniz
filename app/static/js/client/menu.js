@@ -87,6 +87,11 @@ class MenuManager {
                 this.menuData = response.data;
                 this.renderMenu();
                 this.hideGlobalPreloader();
+                
+                // Обновляем корзину после загрузки меню
+                if (window.CartManager && typeof window.CartManager.updateAfterMenuLoad === 'function') {
+                    window.CartManager.updateAfterMenuLoad();
+                }
             } else {
                 throw new Error(response.message || 'Ошибка загрузки меню');
             }
@@ -97,6 +102,24 @@ class MenuManager {
             this.hideGlobalPreloader();
             APIUtils.handleError(error, 'Не удалось загрузить меню');
         }
+    }
+    
+    // Метод для загрузки всех блюд (для корзины)
+    static async loadAllDishes() {
+        try {
+            if (!window.ClientAPI || typeof window.ClientAPI.getMenu !== 'function') {
+                return null;
+            }
+            
+            const response = await window.ClientAPI.getMenu({ lang: this.currentLanguage });
+            
+            if (response.status === 'success') {
+                return response.data;
+            }
+        } catch (error) {
+            console.error('Error loading all dishes:', error);
+        }
+        return null;
     }
 
     static renderMenu() {
