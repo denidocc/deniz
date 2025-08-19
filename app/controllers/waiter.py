@@ -2,11 +2,11 @@
 
 from flask import Blueprint, render_template, jsonify, request, current_app
 from flask_login import current_user
-from app.utils.decorators import waiter_required
+from app.utils.decorators import waiter_required, audit_action
 from app.models import Order, WaiterCall, Table
+from app.models.order import Order as OrderModel
 from app import db
 from datetime import datetime
-from app.utils.decorators import audit_action
 
 waiter_bp = Blueprint('waiter', __name__)
 
@@ -506,4 +506,70 @@ def print_final_receipt(order_id):
         return jsonify({
             'status': 'error',
             'message': f'Ошибка печати финального чека: {str(e)}'
+        }), 500
+
+@waiter_bp.route('/api/orders/<int:order_id>/cancel', methods=['POST'])
+@waiter_required
+def cancel_order(order_id):
+    """Отмена заказа официантом."""
+    try:
+        from app.models.order import Order
+        
+        # Получаем заказ
+        order = OrderModel.query.get(order_id)
+        if not order:
+            return jsonify({
+                "status": "error",
+                "message": "Заказ не найден"
+            }), 404
+        
+        # Проверяем, что заказ принадлежит текущему официанту
+        if order.waiter_id != current_user.id:
+            return jsonify({
+                "status": "error",
+                "message": "У вас нет прав для отмены этого заказа"
+            }), 403
+        
+        # Проверяем, что заказ еще не завершен или отменен
+        if order.status in ['completed', 'cancelled']:
+            return jsonify({
+                "status": "error",
+                "message": "Заказ уже завершен или отменен"
+            }), 400
+        
+        # Изменяем статус заказа на "отменен"
+        order.status = 'cancelled'
+        order.cancelled_at = datetime.utcnow()
+        
+        # Получаем стол
+        table = order.table
+        if table:
+            # Изменяем статус стола на "свободен"
+            table.status = 'available'
+        
+        # Сохраняем изменения
+        db.session.commit()
+        
+        # Логирование действия
+        current_app.logger.info(f"Order {order.id} cancelled by waiter {current_user.id} for table {table.table_number if table else 'unknown'}")
+        
+        current_app.logger.info(f"Order {order_id} cancelled by waiter {current_user.id}")
+        
+        return jsonify({
+            "status": "success",
+            "message": "Заказ успешно отменен",
+            "data": {
+                'order_id': order.id,
+                'table_id': table.id if table else None,
+                'table_number': table.table_number if table else None,
+                'status': order.status,
+                'cancelled_at': order.cancelled_at.isoformat()
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error cancelling order: {e}")
+        return jsonify({
+            "status": "error",
+            "message": "Ошибка отмены заказа"
         }), 500 

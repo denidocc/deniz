@@ -469,7 +469,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Отправляем запрос на отмену
-        fetch(`/api/orders/${orderId}/cancel`, {
+        fetch(`/waiter/api/orders/${orderId}/cancel`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
