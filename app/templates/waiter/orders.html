@@ -25,6 +25,11 @@
     color: white;
 }
 
+.confirmed-title {
+    background: linear-gradient(135deg, #ffc107, #e0a800);
+    color: black;
+}
+
 .completed-title {
     background: linear-gradient(135deg, #6c757d, #495057);
     color: white;
@@ -68,10 +73,20 @@
     background: #dc3545 !important;
 }
 
+.order-status.confirmed {
+    background: #ffc107 !important;
+}
+
 /* Стили для кнопок действий */
 .btn-success {
     background-color: #28a745;
     border-color: #28a745;
+    color: white;
+}
+
+.btn-info {
+    background-color: #17a2b8;
+    border-color: #17a2b8;
     color: white;
 }
 
@@ -93,6 +108,16 @@
     opacity: 0.6;
     cursor: not-allowed;
 }
+
+/* Стили для спиннера */
+.fa-spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
 </style>
 
 <div class="orders-container">
@@ -111,6 +136,7 @@
             <select id="statusFilter" class="form-control">
                 <option value="">Все</option>
                 <option value="pending">Pending - Новые</option>
+                <option value="confirmed">Confirmed - Подтвержденные</option>
                 <option value="completed">Completed - Оплаченные</option>
                 <option value="cancelled">Cancelled - Отмененные</option>
             </select>
@@ -200,11 +226,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log(`📊 Получено ${response.data.orders.length} заказов`);
                 console.log(`📋 Статусы заказов:`, response.data.orders.map(o => ({id: o.id, status: o.status})));
                 
-                // Сортируем заказы: сначала pending, потом completed, потом cancelled
+                // Сортируем заказы: сначала pending, потом confirmed, потом completed, потом cancelled
                 const sortedOrders = response.data.orders.sort((a, b) => {
-                    const statusOrder = { 'pending': 1, 'completed': 2, 'cancelled': 3 };
-                    const aOrder = statusOrder[a.status] || 4;
-                    const bOrder = statusOrder[b.status] || 4;
+                    const statusOrder = { 'pending': 1, 'confirmed': 2, 'completed': 3, 'cancelled': 4 };
+                    const aOrder = statusOrder[a.status] || 5;
+                    const bOrder = statusOrder[b.status] || 5;
                     
                     if (aOrder !== bOrder) {
                         return aOrder - bOrder;
@@ -217,6 +243,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Группируем заказы по статусам
                 const ordersByStatus = {
                     pending: [],
+                    confirmed: [],
                     completed: [],
                     cancelled: []
                 };
@@ -227,7 +254,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 });
                 
-                console.log(`📊 Группировка: pending=${ordersByStatus.pending.length}, completed=${ordersByStatus.completed.length}`);
+                console.log(`📊 Группировка: pending=${ordersByStatus.pending.length}, confirmed=${ordersByStatus.confirmed.length}, completed=${ordersByStatus.completed.length}, cancelled=${ordersByStatus.cancelled.length}`);
                 
                 // Отображаем заказы с группировкой
                 let ordersHtml = '';
@@ -238,6 +265,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     ordersHtml += '<div class="status-group pending-group">';
                     ordersHtml += '<h3 class="status-group-title pending-title">🟢 Pending - Новые заказы</h3>';
                     ordersByStatus.pending.forEach(order => {
+                        ordersHtml += createOrderCard(order);
+                    });
+                    ordersHtml += '</div>';
+                }
+                
+                // Confirmed заказы (подтвержденные) - желтый цвет
+                if (ordersByStatus.confirmed.length > 0) {
+                    console.log(`📋 Обрабатываем ${ordersByStatus.confirmed.length} confirmed заказов`);
+                    ordersHtml += '<div class="status-group confirmed-group">';
+                    ordersHtml += '<h3 class="status-group-title confirmed-title">✅ Confirmed - Подтвержденные заказы</h3>';
+                    ordersByStatus.confirmed.forEach(order => {
                         ordersHtml += createOrderCard(order);
                     });
                     ordersHtml += '</div>';
@@ -330,6 +368,16 @@ document.addEventListener('DOMContentLoaded', function() {
                         <i class="fas fa-eye"></i> Подробности
                     </button>
                     ${order.status === 'pending' ? `
+                        <button class="btn btn-info" onclick="window.printOrderReceiptsFromCard(${order.id})">
+                            <i class="fas fa-print"></i> Отправить на печать
+                        </button>
+                        <button class="btn btn-success" onclick="window.updateOrderStatus(${order.id})">
+                            <i class="fas fa-check"></i> Отметить как оплаченный
+                        </button>
+                        <button class="btn btn-danger" onclick="window.cancelOrder(${order.id})">
+                            <i class="fas fa-times"></i> Отменить заказ
+                        </button>
+                    ` : order.status === 'confirmed' ? `
                         <button class="btn btn-success" onclick="window.updateOrderStatus(${order.id})">
                             <i class="fas fa-check"></i> Отметить как оплаченный
                         </button>
@@ -354,6 +402,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function getStatusColor(status) {
         switch(status) {
             case 'pending': return '#28a745'; // Зеленый для pending
+            case 'confirmed': return '#ffc107'; // Желтый для confirmed
             case 'completed': return '#6c757d'; // Серый для completed
             case 'cancelled': return '#dc3545'; // Красный для отмененных
             default: return '#6c757d';
@@ -364,6 +413,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function getStatusIcon(status) {
         switch(status) {
             case 'pending': return '🟢';
+            case 'confirmed': return '✅';
             case 'completed': return '⚫';
             case 'cancelled': return '❌';
             default: return '❓';
@@ -662,7 +712,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('✅ Модальное окно должно быть видимым');
     }
 
-    // Функция печати чеков заказа
+    // Функция печати чеков заказа (для модального окна)
     function printOrderReceipts() {
         const modal = document.getElementById('orderDetailModal');
         const orderId = modal.dataset.orderId;
@@ -776,6 +826,56 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Функция печати чеков заказа (для карточки заказа)
+    function printOrderReceiptsFromCard(orderId) {
+        console.log(`🖨️ Печать чеков для заказа ${orderId}`);
+        
+        // Показываем индикатор загрузки
+        const printButton = event.target;
+        const originalText = printButton.innerHTML;
+        printButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Печать...';
+        printButton.disabled = true;
+        
+        fetch(`/waiter/api/orders/${orderId}/print`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                waiterNotifications.showSuccess('Чеки отправлены на печать!');
+                
+                // Обновляем статус заказа на "confirmed"
+                const orderCard = document.querySelector(`[data-order-id="${orderId}"]`);
+                if (orderCard) {
+                    const statusElement = orderCard.querySelector('.order-status');
+                    if (statusElement) {
+                        statusElement.textContent = '✅ CONFIRMED';
+                        statusElement.style.background = '#ffc107';
+                        statusElement.className = 'order-status confirmed';
+                    }
+                }
+                
+                // Перезагружаем список заказов для обновления статусов
+                loadOrders();
+            } else {
+                waiterNotifications.showError(data.message || 'Ошибка печати');
+            }
+        })
+        .catch(error => {
+            console.error('Error printing receipts:', error);
+            waiterNotifications.showError('Ошибка соединения с сервером');
+        })
+        .finally(() => {
+            // Восстанавливаем кнопку
+            printButton.innerHTML = originalText;
+            printButton.disabled = false;
+        });
+    }
+
     // Функция печати финального чека
     function printFinalReceipt() {
         const modal = document.getElementById('orderDetailModal');
@@ -862,6 +962,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.updateOrderStatus = updateOrderStatus;
     window.viewOrderDetails = viewOrderDetails;
     window.printOrderReceipts = printOrderReceipts;
+    window.printOrderReceiptsFromCard = printOrderReceiptsFromCard;
     window.printFinalReceipt = printFinalReceipt;
     window.applyBonusCard = applyBonusCard;
     window.cancelOrder = cancelOrder;
