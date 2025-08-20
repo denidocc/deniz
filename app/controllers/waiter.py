@@ -126,6 +126,9 @@ def get_calls():
         # Сортируем по времени создания (новые первыми)
         calls = query.order_by(WaiterCall.created_at.desc()).limit(50).all()
         
+        current_app.logger.info(f"Found {len(calls)} calls for waiter {current_user.id}")
+        current_app.logger.info(f"Call statuses: {[call.status for call in calls]}")
+        
         # Формируем ответ
         calls_data = []
         for call in calls:
@@ -134,6 +137,8 @@ def get_calls():
                 'table_id': call.table_id,
                 'table_number': call.table.table_number if call.table else None,
                 'status': call.status,
+                'priority': getattr(call, 'priority', 'средний'),  # Приоритет по умолчанию
+                'message': getattr(call, 'message', 'Вызов официанта'),  # Сообщение по умолчанию
                 'created_at': call.created_at.isoformat(),
                 'responded_at': call.responded_at.isoformat() if call.responded_at else None,
             })

@@ -3,6 +3,251 @@
 {% block title %}Вызовы - Официант - DENIZ Restaurant{% endblock %}
 
 {% block content %}
+<style>
+/* Стили для статусов вызовов */
+.call-pending {
+    border-left: 4px solid #28a745;
+}
+
+.call-processing {
+    border-left: 4px solid #ffc107;
+}
+
+.call-completed {
+    border-left: 4px solid #6c757d;
+}
+
+.call-archived {
+    border-left: 4px solid #6c757d;
+    opacity: 0.7;
+}
+
+.status-pending {
+    background-color: #28a745;
+    color: white;
+}
+
+.status-processing {
+    background-color: #ffc107;
+    color: black;
+}
+
+.status-completed {
+    background-color: #6c757d;
+    color: white;
+}
+
+.status-archived {
+    background-color: #6c757d;
+    color: white;
+    opacity: 0.7;
+}
+
+/* Стили для приоритетов */
+.priority-высокий {
+    background-color: #dc3545;
+    color: white;
+}
+
+.priority-средний {
+    background-color: #ffc107;
+    color: black;
+}
+
+.priority-низкий {
+    background-color: #6c757d;
+    color: white;
+}
+
+/* Стили для бейджей статусов */
+.status-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+/* Стили для карточек вызовов */
+.call-card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.call-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.call-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.call-content {
+    margin-bottom: 1rem;
+}
+
+.call-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.call-table, .call-time, .call-priority {
+    font-weight: 500;
+}
+
+.call-priority {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+}
+
+.call-message {
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.call-from {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.no-data {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #6c757d;
+}
+
+.no-data i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.no-data h3 {
+    margin-bottom: 0.5rem;
+    color: #495057;
+}
+
+.loading-placeholder {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #6c757d;
+}
+
+.spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.calls-filters {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.filter-group label {
+    font-weight: 500;
+    color: #495057;
+}
+
+.form-control {
+    padding: 0.5rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.header-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-success {
+    background-color: #28a745;
+    color: white;
+}
+
+.btn:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+    transition: all 0.2s ease;
+}
+
+.calls-container {
+    width: 100%;
+    padding: 1rem;
+}
+
+.calls-list {
+    min-height: 400px;
+}
+
+.fas {
+    margin-right: 0.5rem;
+}
+</style>
+
 <div class="calls-container">
     <div class="page-header">
         <h1>Вызовы официанта</h1>
@@ -21,9 +266,9 @@
             <label>Статус:</label>
             <select id="statusFilter" class="form-control">
                 <option value="">Все</option>
-                <option value="новый">Новые</option>
-                <option value="обрабатывается">В обработке</option>
-                <option value="выполнен">Выполненные</option>
+                <option value="pending">Новые</option>
+                <option value="processing">В обработке</option>
+                <option value="completed">Выполненные</option>
             </select>
         </div>
         <div class="filter-group">
@@ -84,6 +329,13 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🔔 Calls page initialized');
     
+    // Заглушка для уведомлений
+    const waiterNotifications = {
+        showSuccess: (msg) => console.log('✅', msg),
+        showError: (msg) => console.error('❌', msg),
+        showInfo: (msg) => console.log('ℹ️', msg)
+    };
+    
     let currentCallId = null;
     
     // Функция загрузки вызовов
@@ -99,39 +351,15 @@ document.addEventListener('DOMContentLoaded', function() {
             const callsList = document.getElementById('callsList');
             callsList.innerHTML = '<div class="loading-placeholder"><div class="spinner"></div><p>Загрузка вызовов...</p></div>';
             
-            // Пока используем заглушку
-            setTimeout(() => {
-                const sampleCalls = [
-                    { 
-                        id: 1, 
-                        table_number: 5, 
-                        message: 'Нужна помощь с меню', 
-                        status: 'новый', 
-                        priority: 'средний',
-                        created_at: new Date(Date.now() - 5 * 60000),
-                        customer_name: 'Клиент стола 5'
-                    },
-                    { 
-                        id: 2, 
-                        table_number: 12, 
-                        message: 'Счет, пожалуйста', 
-                        status: 'новый', 
-                        priority: 'высокий',
-                        created_at: new Date(Date.now() - 2 * 60000),
-                        customer_name: 'Клиент стола 12'
-                    },
-                    { 
-                        id: 3, 
-                        table_number: 3, 
-                        message: 'Заказ готов к подаче', 
-                        status: 'выполнен', 
-                        priority: 'высокий',
-                        created_at: new Date(Date.now() - 15 * 60000),
-                        customer_name: 'Кухня'
-                    }
-                ];
+            // Загружаем реальные вызовы из API
+            const response = await fetch('/waiter/api/calls?' + new URLSearchParams(filters));
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                const calls = data.data.calls;
+                console.log(`📞 Загружено ${calls.length} вызовов:`, calls);
                 
-                let filteredCalls = sampleCalls;
+                let filteredCalls = calls;
                 if (statusFilter) {
                     filteredCalls = filteredCalls.filter(c => c.status === statusFilter);
                 }
@@ -151,43 +379,52 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 const callsHtml = filteredCalls.map(call => `
-                    <div class="call-card call-${call.status} priority-${call.priority}" data-call-id="${call.id}">
+                    <div class="call-card call-${call.status} priority-${call.priority || 'средний'}" data-call-id="${call.id}">
                         <div class="call-header">
                             <div class="call-table">
                                 <i class="fas fa-utensils"></i>
-                                Стол ${call.table_number}
+                                <strong>Стол ${call.table_number || 'Неизвестно'}</strong>
                             </div>
                             <div class="call-time">
-                                ${WaiterUtils.formatTime(call.created_at)}
+                                <i class="fas fa-clock"></i>
+                                ${formatTime(new Date(call.created_at))}
                             </div>
-                            <div class="call-priority priority-${call.priority}">
-                                ${getPriorityText(call.priority)}
+                            <div class="call-priority priority-${call.priority || 'средний'}">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                ${getPriorityText(call.priority || 'средний')}
                             </div>
                         </div>
                         <div class="call-content">
-                            <div class="call-message">${call.message}</div>
-                            <div class="call-from">От: ${call.customer_name}</div>
+                            <div class="call-message">
+                                <i class="fas fa-comment"></i>
+                                ${call.message || 'Вызов официанта'}
+                            </div>
+                            <div class="call-from">
+                                <i class="fas fa-user"></i>
+                                Клиент стола ${call.table_number || 'Неизвестно'}
+                            </div>
                         </div>
-                        <div class="call-status">
-                            <span class="status-badge status-${call.status}">
-                                ${getStatusText(call.status)}
-                            </span>
-                        </div>
-                        <div class="call-actions">
-                            ${call.status === 'новый' ? `
-                                <button class="btn btn-sm btn-primary" onclick="respondToCall(${call.id})">
-                                    Ответить
-                                </button>
-                            ` : ''}
-                            <button class="btn btn-sm btn-secondary" onclick="showCallDetails(${call.id})">
-                                Подробнее
-                            </button>
+                        <div class="call-footer">
+                            <div class="call-status">
+                                <span class="status-badge status-${call.status}">
+                                    ${getStatusText(call.status)}
+                                </span>
+                            </div>
+                            <div class="call-actions">
+                                ${call.status === 'pending' ? `
+                                    <button class="btn btn-success" onclick="markAsRead(${call.id})">
+                                        <i class="fas fa-check"></i> Прочитан
+                                    </button>
+                                ` : ''}
+                            </div>
                         </div>
                     </div>
                 `).join('');
                 
                 callsList.innerHTML = callsHtml;
-            }, 1000);
+            } else {
+                throw new Error(data.message || 'Ошибка загрузки вызовов');
+            }
             
         } catch (error) {
             console.error('Error loading calls:', error);
@@ -196,11 +433,29 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Вспомогательные функции
+    function formatTime(date) {
+        const now = new Date();
+        const diff = now - date;
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(minutes / 60);
+        
+        if (minutes < 1) return 'Только что';
+        if (minutes < 60) return `${minutes} мин назад`;
+        if (hours < 24) return `${hours} ч назад`;
+        
+        return date.toLocaleString('ru-RU', {
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+    
     function getStatusText(status) {
         const statusTexts = {
-            'новый': 'Новый',
-            'обрабатывается': 'В обработке',
-            'выполнен': 'Выполнен'
+            'pending': 'Новый',
+            'processing': 'В обработке',
+            'completed': 'Выполнен'
         };
         return statusTexts[status] || status;
     }
@@ -226,7 +481,8 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `;
         
-        waiterModals.show('callResponseModal');
+        // Заглушка для модалок
+        console.log('Показываем модалку для вызова:', callId);
     };
     
     window.showCallDetails = function(callId) {
@@ -246,7 +502,8 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Submitting response:', { callId: currentCallId, action, comment });
             
             waiterNotifications.showSuccess('Ответ на вызов отправлен');
-            waiterModals.hide(document.getElementById('callResponseModal'));
+            // Заглушка для модалок
+            console.log('Скрываем модалку');
             
             // Обновляем список
             loadCalls();
