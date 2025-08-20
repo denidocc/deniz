@@ -135,10 +135,10 @@
             <label>Статус:</label>
             <select id="statusFilter" class="form-control">
                 <option value="">Все</option>
-                <option value="pending">Pending - Новые</option>
-                <option value="confirmed">Confirmed - Подтвержденные</option>
-                <option value="completed">Completed - Оплаченные</option>
-                <option value="cancelled">Cancelled - Отмененные</option>
+                <option value="pending">Новые заказы</option>
+                <option value="confirmed">Подтвержденные заказы</option>
+                <option value="completed">Оплаченные заказы</option>
+                <option value="cancelled">Отмененные заказы</option>
             </select>
         </div>
         <div class="filter-group">
@@ -203,8 +203,35 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute
 // Объявляем функции глобально
 let updateOrderStatus, viewOrderDetails, printOrderReceipts, printFinalReceipt, applyBonusCard;
 
+// Глобальные переменные для справочника статусов
+let statusReference = {};
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log('📋 Orders page initialized');
+    
+    // Загружаем справочник статусов
+    loadStatusReference();
+    
+    // Функция загрузки справочника статусов
+    async function loadStatusReference() {
+        try {
+            console.log('📚 Загружаем справочник статусов...');
+            const response = await fetch('/waiter/api/order-statuses');
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                statusReference = {};
+                data.data.forEach(status => {
+                    statusReference[status.code] = status;
+                });
+                console.log('✅ Справочник статусов загружен:', statusReference);
+            } else {
+                console.error('❌ Ошибка загрузки справочника статусов:', data.message);
+            }
+        } catch (error) {
+            console.error('❌ Ошибка загрузки справочника статусов:', error);
+        }
+    }
     
     // Функция загрузки заказов
     async function loadOrders() {
@@ -262,8 +289,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Pending заказы (новые) - зеленый цвет
                 if (ordersByStatus.pending.length > 0) {
                     console.log(`📋 Обрабатываем ${ordersByStatus.pending.length} pending заказов`);
+                    const statusInfo = statusReference['pending'] || { name: 'Новые заказы', icon: '🟢' };
                     ordersHtml += '<div class="status-group pending-group">';
-                    ordersHtml += '<h3 class="status-group-title pending-title">🟢 Pending - Новые заказы</h3>';
+                    ordersHtml += `<h3 class="status-group-title pending-title">${statusInfo.icon} ${statusInfo.name}</h3>`;
                     ordersByStatus.pending.forEach(order => {
                         ordersHtml += createOrderCard(order);
                     });
@@ -273,8 +301,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Confirmed заказы (подтвержденные) - желтый цвет
                 if (ordersByStatus.confirmed.length > 0) {
                     console.log(`📋 Обрабатываем ${ordersByStatus.confirmed.length} confirmed заказов`);
+                    const statusInfo = statusReference['confirmed'] || { name: 'Подтвержденные заказы', icon: '✅' };
                     ordersHtml += '<div class="status-group confirmed-group">';
-                    ordersHtml += '<h3 class="status-group-title confirmed-title">✅ Confirmed - Подтвержденные заказы</h3>';
+                    ordersHtml += `<h3 class="status-group-title confirmed-title">${statusInfo.icon} ${statusInfo.name}</h3>`;
                     ordersByStatus.confirmed.forEach(order => {
                         ordersHtml += createOrderCard(order);
                     });
@@ -284,8 +313,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Completed заказы (оплаченные) - серый цвет
                 if (ordersByStatus.completed.length > 0) {
                     console.log(`📋 Обрабатываем ${ordersByStatus.completed.length} completed заказов`);
+                    const statusInfo = statusReference['completed'] || { name: 'Оплаченные заказы', icon: '⚫' };
                     ordersHtml += '<div class="status-group completed-group">';
-                    ordersHtml += '<h3 class="status-group-title completed-title">⚫ Completed - Оплаченные заказы</h3>';
+                    ordersHtml += `<h3 class="status-group-title completed-title">${statusInfo.icon} ${statusInfo.name}</h3>`;
                     ordersByStatus.completed.forEach(order => {
                         ordersHtml += createOrderCard(order);
                     });
@@ -295,8 +325,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Cancelled заказы (отмененные) - красный цвет
                 if (ordersByStatus.cancelled.length > 0) {
                     console.log(`📋 Обрабатываем ${ordersByStatus.cancelled.length} cancelled заказов`);
+                    const statusInfo = statusReference['cancelled'] || { name: 'Отмененные заказы', icon: '❌' };
                     ordersHtml += '<div class="status-group cancelled-group">';
-                    ordersHtml += '<h3 class="status-group-title cancelled-title">❌ Cancelled - Отмененные заказы</h3>';
+                    ordersHtml += `<h3 class="status-group-title cancelled-title">${statusInfo.icon} ${statusInfo.name}</h3>`;
                     ordersByStatus.cancelled.forEach(order => {
                         ordersHtml += createOrderCard(order);
                     });
@@ -398,26 +429,34 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
     }
     
-    // Функция получения цвета статуса
+    // Функция получения цвета статуса из справочника
     function getStatusColor(status) {
-        switch(status) {
-            case 'pending': return '#28a745'; // Зеленый для pending
-            case 'confirmed': return '#ffc107'; // Желтый для confirmed
-            case 'completed': return '#6c757d'; // Серый для completed
-            case 'cancelled': return '#dc3545'; // Красный для отмененных
-            default: return '#6c757d';
+        if (statusReference[status] && statusReference[status].color) {
+            return statusReference[status].color;
         }
+        // Fallback цвета
+        const fallbackColors = {
+            'pending': '#28a745',    // Зеленый
+            'confirmed': '#ffc107',  // Желтый
+            'completed': '#6c757d',  // Серый
+            'cancelled': '#dc3545'   // Красный
+        };
+        return fallbackColors[status] || '#6c757d';
     }
     
-    // Функция получения иконки статуса
+    // Функция получения иконки статуса из справочника
     function getStatusIcon(status) {
-        switch(status) {
-            case 'pending': return '🟢';
-            case 'confirmed': return '✅';
-            case 'completed': return '⚫';
-            case 'cancelled': return '❌';
-            default: return '❓';
+        if (statusReference[status] && statusReference[status].icon) {
+            return statusReference[status].icon;
         }
+        // Fallback иконки
+        const fallbackIcons = {
+            'pending': '🟢',
+            'confirmed': '✅',
+            'completed': '⚫',
+            'cancelled': '❌'
+        };
+        return fallbackIcons[status] || '⚫';
     }
     
     // Функция изменения статуса заказа
@@ -461,13 +500,24 @@ document.addEventListener('DOMContentLoaded', function() {
         let actionText;
         
         // Проверяем статус, игнорируя эмодзи и пробелы
-        const cleanStatus = currentStatus.replace(/[🟢⚫🔴]/g, '').trim().toLowerCase();
+        const cleanStatus = currentStatus.replace(/[🟢⚫🔴✅❌]/g, '').trim().toLowerCase();
         console.log(`🧹 Очищенный статус: "${cleanStatus}"`);
         
-        if (cleanStatus === 'pending') {
+        // Получаем информацию о текущем статусе из справочника
+        const currentStatusInfo = statusReference[cleanStatus];
+        if (!currentStatusInfo) {
+            console.error(`❌ Статус "${cleanStatus}" не найден в справочнике`);
+            waiterNotifications.showError('Неизвестный статус заказа');
+            return;
+        }
+        
+        console.log(`📚 Информация о статусе:`, currentStatusInfo);
+        
+        // Проверяем возможность перехода к статусу completed
+        if (canTransitionTo(cleanStatus, 'completed')) {
             newStatus = 'completed';
             actionText = 'отметить как оплаченный';
-            console.log(`✅ Статус pending, меняем на completed`);
+            console.log(`✅ Переход разрешен: ${cleanStatus} → ${newStatus}`);
         } else if (cleanStatus === 'completed') {
             console.log(`ℹ️ Заказ уже completed`);
             waiterNotifications.showInfo('Заказ уже оплачен');
@@ -477,8 +527,10 @@ document.addEventListener('DOMContentLoaded', function() {
             waiterNotifications.showInfo('Заказ уже отменен');
             return;
         } else {
-            console.error(`❌ Неизвестный статус: "${currentStatus}" (очищенный: "${cleanStatus}")`);
-            waiterNotifications.showError('Неизвестный статус заказа');
+            console.error(`❌ Переход к completed не разрешен для статуса "${cleanStatus}"`);
+            const currentStatusName = getStatusName(cleanStatus);
+            const targetStatusName = getStatusName('completed');
+            waiterNotifications.showError(`Невозможно изменить статус заказа с "${currentStatusName}" на "${targetStatusName}"`);
             return;
         }
         
@@ -509,6 +561,38 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Функция проверки возможности перехода статуса
+    function canTransitionTo(currentStatus, targetStatus) {
+        if (!statusReference[currentStatus]) {
+            console.warn(`⚠️ Статус "${currentStatus}" не найден в справочнике`);
+            return false;
+        }
+        
+        const allowedTransitions = statusReference[currentStatus].can_transition_to || [];
+        const canTransition = allowedTransitions.includes(targetStatus);
+        
+        console.log(`🔍 Проверка перехода: ${currentStatus} → ${targetStatus}`);
+        console.log(`📋 Разрешенные переходы:`, allowedTransitions);
+        console.log(`✅ Результат:`, canTransition);
+        
+        return canTransition;
+    }
+    
+    // Функция получения названия статуса на русском языке
+    function getStatusName(statusCode) {
+        if (statusReference[statusCode] && statusReference[statusCode].name) {
+            return statusReference[statusCode].name;
+        }
+        // Fallback названия
+        const fallbackNames = {
+            'pending': 'Новый заказ',
+            'confirmed': 'Подтвержден',
+            'completed': 'Завершен',
+            'cancelled': 'Отменен'
+        };
+        return fallbackNames[statusCode] || statusCode;
+    }
+    
     // Функция отмены заказа
     function cancelOrder(orderId) {
         console.log(`❌ Отмена заказа ${orderId}`);
@@ -853,8 +937,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (orderCard) {
                     const statusElement = orderCard.querySelector('.order-status');
                     if (statusElement) {
-                        statusElement.textContent = '✅ CONFIRMED';
-                        statusElement.style.background = '#ffc107';
+                        const statusInfo = statusReference['confirmed'];
+                        if (statusInfo) {
+                            statusElement.textContent = `${statusInfo.icon} ${statusInfo.name.toUpperCase()}`;
+                            statusElement.style.background = statusInfo.color;
+                        } else {
+                            // Fallback если справочник не загружен
+                            const statusIcon = getStatusIcon('confirmed');
+                            const statusColor = getStatusColor('confirmed');
+                            statusElement.textContent = `${statusIcon} CONFIRMED`;
+                            statusElement.style.background = statusColor;
+                        }
                         statusElement.className = 'order-status confirmed';
                     }
                 }

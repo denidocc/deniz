@@ -292,7 +292,7 @@ def update_order_status(order_id):
         current_app.logger.info(f"Updating order {order_id} status to: '{new_status}'")
         
         # Проверяем допустимые статусы
-        allowed_statuses = ['completed']
+        allowed_statuses = ['completed', 'confirmed']
         current_app.logger.info(f"Allowed statuses: {allowed_statuses}")
         current_app.logger.info(f"New status '{new_status}' in allowed: {new_status in allowed_statuses}")
         
@@ -322,23 +322,24 @@ def update_order_status(order_id):
         # Логика изменения статуса
         old_status = order.status
         
-        # Только переход с pending на completed
-        if old_status == 'pending' and new_status == 'completed':
-            order.status = 'completed'
-            order.completed_at = datetime.utcnow()
-            # При завершении заказа освобождаем стол
-            if order.table:
-                order.table.status = 'available'
-        elif old_status == 'completed':
-            return jsonify({
-                'status': 'info',
-                'message': 'Заказ уже завершен'
-            })
-        else:
+        # Проверяем возможность перехода к новому статусу
+        if not order.can_transition_to(new_status):
             return jsonify({
                 'status': 'error',
                 'message': f'Недопустимый переход статуса с "{old_status}" на "{new_status}"'
             }), 400
+        
+        # Изменяем статус заказа
+        order.status = new_status
+        
+        # Устанавливаем соответствующие временные метки
+        if new_status == 'completed':
+            order.completed_at = datetime.utcnow()
+            # При завершении заказа освобождаем стол
+            if order.table:
+                order.table.status = 'available'
+        elif new_status == 'confirmed':
+            order.confirmed_at = datetime.utcnow()
         
         # Сохраняем изменения
         db.session.commit()
@@ -402,6 +403,13 @@ def print_order_receipts(order_id):
         bar_success = False
         if bar_items:
             bar_success = print_service.print_bar_receipt(order, bar_items)
+        
+        # Проверяем возможность перехода к статусу confirmed
+        if not order.can_transition_to('confirmed'):
+            return jsonify({
+                'status': 'error',
+                'message': 'Невозможно изменить статус заказа'
+            }), 500
         
         # Обновляем статус заказа
         order.status = 'confirmed'
@@ -493,6 +501,13 @@ def print_final_receipt(order_id):
         success = print_service.print_final_receipt(order)
         
         if success:
+            # Проверяем возможность перехода к статусу completed
+            if not order.can_transition_to('completed'):
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Невозможно изменить статус заказа'
+                }), 500
+            
             # Обновляем статус заказа
             order.status = 'completed'
             order.completed_at = datetime.now()
@@ -542,6 +557,13 @@ def cancel_order(order_id):
                 "message": "Заказ уже завершен или отменен"
             }), 400
         
+        # Проверяем возможность перехода к статусу cancelled
+        if not order.can_transition_to('cancelled'):
+            return jsonify({
+                "status": "error",
+                "message": "Невозможно отменить заказ в текущем статусе"
+            }), 400
+        
         # Изменяем статус заказа на "отменен"
         order.status = 'cancelled'
         order.cancelled_at = datetime.utcnow()
@@ -578,3 +600,34 @@ def cancel_order(order_id):
             "status": "error",
             "message": "Ошибка отмены заказа"
         }), 500 
+
+@waiter_bp.route('/api/order-statuses', methods=['GET'])
+@waiter_required
+def get_order_statuses():
+    """Получение справочника статусов заказов."""
+    try:
+        from app.models.c_order_status import C_OrderStatus
+        statuses = C_OrderStatus.get_active()
+        
+        statuses_data = []
+        for status in statuses:
+            statuses_data.append({
+                'id': status.id,
+                'code': status.code,
+                'name': status.name,
+                'description': status.description,
+                'color': status.color,
+                'icon': status.icon,
+                'sort_order': status.sort_order,
+                'can_transition_to': status.get_transition_targets()
+            })
+        
+        current_app.logger.info(f"Found {len(statuses)} order statuses")
+        return jsonify({
+            "status": "success",
+            "data": statuses_data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting order statuses: {e}")
+        return jsonify({"status": "error", "message": "Ошибка получения статусов"}), 500 

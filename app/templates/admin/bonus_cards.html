@@ -1,0 +1,369 @@
+{% extends "admin/base.html" %}
+
+{% block page_title %}Бонусные карты{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card-creation-form {
+        background: var(--admin-light);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .bonus-cards-table {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .card-status {
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        text-align: center;
+        min-width: 100px;
+    }
+    
+    .status-active { background-color: #28a745; color: white; }
+    .status-inactive { background-color: #6c757d; color: white; }
+    
+    .discount-badge {
+        background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 500;
+    }
+    
+    .loading-placeholder {
+        text-align: center;
+        padding: 3rem;
+        color: #6c757d;
+    }
+    
+    .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 1rem;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-credit-card"></i> Бонусные карты</h2>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-success" onclick="exportCards('excel')">
+            <i class="bi bi-file-earmark-excel"></i> Excel
+        </button>
+        <button class="btn btn-outline-danger" onclick="exportCards('pdf')">
+            <i class="bi bi-file-earmark-pdf"></i> PDF
+        </button>
+    </div>
+</div>
+
+<!-- Card Creation Form -->
+<div class="card-creation-form">
+    <h5 class="mb-3"><i class="bi bi-plus-circle"></i> Создать новую карту</h5>
+    <form id="createCardForm">
+        <div class="row">
+            <div class="col-md-4">
+                <label for="cardNumber" class="form-label">Номер карты *</label>
+                <input type="text" class="form-control" id="cardNumber" required 
+                       placeholder="Например: BC001234">
+                <div class="form-text">Уникальный номер карты</div>
+            </div>
+            <div class="col-md-3">
+                <label for="discountPercent" class="form-label">Скидка (%) *</label>
+                <input type="number" class="form-control" id="discountPercent" required 
+                       min="1" max="100" value="10">
+                <div class="form-text">От 1 до 100%</div>
+            </div>
+            <div class="col-md-3">
+                <label for="cardType" class="form-label">Тип карты</label>
+                <select class="form-select" id="cardType">
+                    <option value="standard">Стандартная</option>
+                    <option value="premium">Премиум</option>
+                    <option value="vip">VIP</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-plus"></i> Создать
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Cards Table -->
+<div class="bonus-cards-table">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>Номер карты</th>
+                    <th>Скидка</th>
+                    <th>Статус</th>
+                    <th>Использований</th>
+                    <th>Создана</th>
+                    <th>Создал</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody id="cardsTableBody">
+                <tr>
+                    <td colspan="7" class="text-center py-4">
+                        <div class="loading-placeholder">
+                            <div class="spinner"></div>
+                            <p>Загрузка карт...</p>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Pagination -->
+<div class="d-flex justify-content-between align-items-center mt-3">
+    <div class="pagination-controls">
+        <button class="btn btn-outline-primary btn-sm" onclick="changePage(-1)" id="prevBtn" disabled>
+            <i class="bi bi-chevron-left"></i> Назад
+        </button>
+        <span class="mx-3" id="pageInfo">Страница 1 из 1</span>
+        <button class="btn btn-outline-primary btn-sm" onclick="changePage(1)" id="nextBtn" disabled>
+            Вперед <i class="bi bi-chevron-right"></i>
+        </button>
+    </div>
+    <div class="pagination-size">
+        <label for="perPageSelect" class="form-label me-2">Показать:</label>
+        <select class="form-select form-select-sm" id="perPageSelect" style="width: auto;">
+            <option value="10">10</option>
+            <option value="20" selected>20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+        </select>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentPage = 1;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Загружаем карты
+        loadBonusCards();
+        
+        // Обработчики событий
+        document.getElementById('perPageSelect').addEventListener('change', function() {
+            currentPage = 1;
+            loadBonusCards();
+        });
+        
+        // Обработчик формы создания карты
+        document.getElementById('createCardForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            createBonusCard();
+        });
+    });
+    
+    async function createBonusCard() {
+        try {
+            const formData = {
+                card_number: document.getElementById('cardNumber').value.trim(),
+                discount_percent: parseInt(document.getElementById('discountPercent').value),
+                card_type: document.getElementById('cardType').value
+            };
+            
+            // Валидация
+            if (!formData.card_number) {
+                showAlert('Введите номер карты', 'danger');
+                return;
+            }
+            
+            if (formData.discount_percent < 1 || formData.discount_percent > 100) {
+                showAlert('Скидка должна быть от 1 до 100%', 'danger');
+                return;
+            }
+            
+            // Отправляем запрос
+            const response = await fetch('/admin/api/bonus-cards', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                showAlert('Бонусная карта успешно создана!', 'success');
+                
+                // Очищаем форму
+                document.getElementById('createCardForm').reset();
+                document.getElementById('discountPercent').value = '10';
+                
+                // Перезагружаем список карт
+                loadBonusCards();
+            } else {
+                showAlert(data.message || 'Ошибка создания карты', 'danger');
+            }
+        } catch (error) {
+            console.error('Error creating bonus card:', error);
+            showAlert('Ошибка соединения с сервером', 'danger');
+        }
+    }
+    
+    async function loadBonusCards() {
+        try {
+            const tableBody = document.getElementById('cardsTableBody');
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center py-4">
+                        <div class="loading-placeholder">
+                            <div class="spinner"></div>
+                            <p>Загрузка карт...</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            
+            // Формируем параметры запроса
+            const params = new URLSearchParams({
+                page: currentPage,
+                per_page: document.getElementById('perPageSelect').value
+            });
+            
+            const response = await fetch(`/admin/api/bonus-cards?${params}`);
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                displayBonusCards(data.data.cards);
+                updatePagination(data.data.pagination);
+            } else {
+                throw new Error(data.message);
+            }
+        } catch (error) {
+            console.error('Error loading bonus cards:', error);
+            document.getElementById('cardsTableBody').innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center py-4 text-danger">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <p>Ошибка загрузки карт: ${error.message}</p>
+                    </td>
+                </tr>
+            `;
+        }
+    }
+    
+    function displayBonusCards(cards) {
+        const tableBody = document.getElementById('cardsTableBody');
+        
+        if (cards.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center py-4 text-muted">
+                        <i class="bi bi-credit-card"></i>
+                        <p>Бонусные карты не найдены</p>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        tableBody.innerHTML = cards.map(card => `
+            <tr>
+                <td><strong>${card.card_number}</strong></td>
+                <td>
+                    <span class="discount-badge">
+                        ${card.discount_percent}%
+                    </span>
+                </td>
+                <td>
+                    <span class="card-status status-${card.is_active ? 'active' : 'inactive'}">
+                        ${card.is_active ? 'Активна' : 'Неактивна'}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge bg-info">
+                        ${card.usage_count || 0}
+                    </span>
+                </td>
+                <td>${new Date(card.created_at).toLocaleDateString('ru-RU')}</td>
+                <td>${card.created_by}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary" onclick="viewCardDetails(${card.id})">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-warning" onclick="toggleCardStatus(${card.id})">
+                        <i class="bi bi-toggle-${card.is_active ? 'on' : 'off'}"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+    
+    function updatePagination(pagination) {
+        document.getElementById('pageInfo').textContent = `Страница ${pagination.page} из ${pagination.pages}`;
+        document.getElementById('prevBtn').disabled = !pagination.has_prev;
+        document.getElementById('nextBtn').disabled = !pagination.has_next;
+    }
+    
+    function changePage(delta) {
+        currentPage += delta;
+        if (currentPage < 1) currentPage = 1;
+        loadBonusCards();
+    }
+    
+    function viewCardDetails(cardId) {
+        // TODO: Реализовать просмотр деталей карты
+        showAlert(`Просмотр деталей карты #${cardId} в разработке`, 'info');
+    }
+    
+    function toggleCardStatus(cardId) {
+        // TODO: Реализовать изменение статуса карты
+        showAlert(`Изменение статуса карты #${cardId} в разработке`, 'info');
+    }
+    
+    function exportCards(format) {
+        // TODO: Реализовать экспорт
+        showAlert(`Экспорт в ${format.toUpperCase()} в разработке`, 'info');
+    }
+    
+    function showAlert(message, type) {
+        // Простая функция для показа уведомлений
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.querySelector('.container-fluid').insertBefore(alertDiv, document.querySelector('.container-fluid').firstChild);
+        
+        // Автоматически скрываем через 5 секунд
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+</script>
+{% endblock %}
