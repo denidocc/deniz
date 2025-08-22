@@ -204,7 +204,7 @@
     async function loadFilterOptions() {
         try {
             // Загружаем столы
-            const tablesResponse = await fetch('/admin/api/tables');
+            const tablesResponse = await fetch('/admin/api/tables/filters');
             if (tablesResponse.ok) {
                 const tablesData = await tablesResponse.json();
                 const tableSelect = document.getElementById('tableFilter');

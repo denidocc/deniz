@@ -31,6 +31,8 @@ class BaseConfig:
         'pool_recycle': 300,
         'pool_pre_ping': True,
     }
+    ENCRYPTION_KEY: str = os.environ.get('ENCRYPTION_KEY')
+    ENCRYPTION_OPTIONS: str = os.environ.get('ENCRYPTION_OPTIONS')
     
     # JWT настройки
     JWT_SECRET_KEY: str = os.environ.get('JWT_SECRET_KEY') or SECRET_KEY

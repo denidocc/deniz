@@ -75,34 +75,110 @@
     </div>
 </div>
 
-<!-- Card Creation Form -->
-<div class="card-creation-form">
-    <h5 class="mb-3"><i class="bi bi-plus-circle"></i> Создать новую карту</h5>
-    <form id="createCardForm">
+<!-- Create Card Button -->
+<div class="mb-3">
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createCardModal">
+        <i class="bi bi-plus-circle"></i> Создать новую карту
+    </button>
+</div>
+
+<!-- Create Card Modal -->
+<div class="modal fade" id="createCardModal" tabindex="-1" aria-labelledby="createCardModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createCardModalLabel">
+                    <i class="bi bi-plus-circle"></i> Создать новую карту
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createCardForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label for="cardNumber" class="form-label">Номер карты *</label>
+                            <input type="text" class="form-control" id="cardNumber" required 
+                                   placeholder="Например: 654654">
+                            <div class="form-text">Уникальный номер карты</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="discountPercent" class="form-label">Скидка (%) *</label>
+                            <input type="number" class="form-control" id="discountPercent" required 
+                                   min="1" max="100" value="10">
+                            <div class="form-text">От 1 до 100%</div>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <label for="firstName" class="form-label">Имя *</label>
+                            <input type="text" class="form-control" id="firstName" required 
+                                   placeholder="Имя клиента">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="lastName" class="form-label">Фамилия *</label>
+                            <input type="text" class="form-control" id="lastName" required 
+                                   placeholder="Фамилия клиента">
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <label for="activatedAt" class="form-label">Дата активации *</label>
+                            <input type="date" class="form-control" id="activatedAt" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="deactivatedAt" class="form-label">Дата деактивации *</label>
+                            <input type="date" class="form-control" id="deactivatedAt" required>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="createBonusCard()">
+                    <i class="bi bi-plus-circle"></i> Создать карту
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Card Edit Form (Hidden by default) -->
+<div class="card-creation-form" id="editCardForm" style="display: none;">
+    <h5 class="mb-3"><i class="bi bi-pencil"></i> Редактировать карту</h5>
+    <form id="updateCardForm">
+        <input type="hidden" id="editCardId">
         <div class="row">
-            <div class="col-md-4">
-                <label for="cardNumber" class="form-label">Номер карты *</label>
-                <input type="text" class="form-control" id="cardNumber" required 
-                       placeholder="Например: BC001234">
-                <div class="form-text">Уникальный номер карты</div>
+            <div class="col-md-3">
+                <label for="editCardNumber" class="form-label">Номер карты *</label>
+                <input type="text" class="form-control" id="editCardNumber" required>
+            </div>
+            <div class="col-md-2">
+                <label for="editDiscountPercent" class="form-label">Скидка (%) *</label>
+                <input type="number" class="form-control" id="editDiscountPercent" required 
+                       min="1" max="100">
+            </div>
+            <div class="col-md-2">
+                <label for="editFirstName" class="form-label">Имя *</label>
+                <input type="text" class="form-control" id="editFirstName" required>
+            </div>
+            <div class="col-md-2">
+                <label for="editLastName" class="form-label">Фамилия *</label>
+                <input type="text" class="form-control" id="editLastName" required>
             </div>
             <div class="col-md-3">
-                <label for="discountPercent" class="form-label">Скидка (%) *</label>
-                <input type="number" class="form-control" id="discountPercent" required 
-                       min="1" max="100" value="10">
-                <div class="form-text">От 1 до 100%</div>
+                <label for="editActivatedAt" class="form-label">Дата активации *</label>
+                <input type="date" class="form-control" id="editActivatedAt" required>
             </div>
             <div class="col-md-3">
-                <label for="cardType" class="form-label">Тип карты</label>
-                <select class="form-select" id="cardType">
-                    <option value="standard">Стандартная</option>
-                    <option value="premium">Премиум</option>
-                    <option value="vip">VIP</option>
-                </select>
+                <label for="editDeactivatedAt" class="form-label">Дата деактивации *</label>
+                <input type="date" class="form-control" id="editDeactivatedAt" required>
             </div>
-            <div class="col-md-2 d-flex align-items-end">
-                <button type="submit" class="btn btn-primary w-100">
-                    <i class="bi bi-plus"></i> Создать
+            <div class="col-md-2 d-flex align-items-end gap-2">
+                <button type="submit" class="btn btn-warning">
+                    <i class="bi bi-check"></i> Сохранить
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="cancelEdit()">
+                    <i class="bi bi-x"></i> Отмена
                 </button>
             </div>
         </div>
@@ -117,16 +193,19 @@
                 <tr>
                     <th>Номер карты</th>
                     <th>Скидка</th>
+                    <th>Имя</th>
+                    <th>Фамилия</th>
                     <th>Статус</th>
+                    <th>Дата активации</th>
+                    <th>Дата деактивации</th>
                     <th>Использований</th>
                     <th>Создана</th>
-                    <th>Создал</th>
                     <th>Действия</th>
                 </tr>
             </thead>
             <tbody id="cardsTableBody">
                 <tr>
-                    <td colspan="7" class="text-center py-4">
+                    <td colspan="10" class="text-center py-4">
                         <div class="loading-placeholder">
                             <div class="spinner"></div>
                             <p>Загрузка карт...</p>
@@ -166,6 +245,15 @@
     let currentPage = 1;
     
     document.addEventListener('DOMContentLoaded', function() {
+        // Инициализируем даты по умолчанию
+        const today = new Date().toISOString().split('T')[0];
+        const nextMonth = new Date();
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+        const nextMonthStr = nextMonth.toISOString().split('T')[0];
+        
+        document.getElementById('activatedAt').value = today;
+        document.getElementById('deactivatedAt').value = nextMonthStr;
+        
         // Загружаем карты
         loadBonusCards();
         
@@ -175,10 +263,10 @@
             loadBonusCards();
         });
         
-        // Обработчик формы создания карты
-        document.getElementById('createCardForm').addEventListener('submit', function(e) {
+        // Обработчик формы редактирования карты
+        document.getElementById('updateCardForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            createBonusCard();
+            updateBonusCard();
         });
     });
     
@@ -187,7 +275,10 @@
             const formData = {
                 card_number: document.getElementById('cardNumber').value.trim(),
                 discount_percent: parseInt(document.getElementById('discountPercent').value),
-                card_type: document.getElementById('cardType').value
+                first_name: document.getElementById('firstName').value.trim(),
+                last_name: document.getElementById('lastName').value.trim(),
+                activated_at: document.getElementById('activatedAt').value,
+                deactivated_at: document.getElementById('deactivatedAt').value
             };
             
             // Валидация
@@ -198,6 +289,31 @@
             
             if (formData.discount_percent < 1 || formData.discount_percent > 100) {
                 showAlert('Скидка должна быть от 1 до 100%', 'danger');
+                return;
+            }
+            
+            if (!formData.first_name) {
+                showAlert('Введите имя клиента', 'danger');
+                return;
+            }
+            
+            if (!formData.last_name) {
+                showAlert('Введите фамилию клиента', 'danger');
+                return;
+            }
+            
+            if (!formData.activated_at) {
+                showAlert('Выберите дату активации', 'danger');
+                return;
+            }
+            
+            if (!formData.deactivated_at) {
+                showAlert('Выберите дату деактивации', 'danger');
+                return;
+            }
+            
+            if (formData.activated_at >= formData.deactivated_at) {
+                showAlert('Дата деактивации должна быть позже даты активации', 'danger');
                 return;
             }
             
@@ -219,6 +335,15 @@
                 // Очищаем форму
                 document.getElementById('createCardForm').reset();
                 document.getElementById('discountPercent').value = '10';
+                // Устанавливаем сегодняшнюю дату как дату активации по умолчанию
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('activatedAt').value = today;
+                
+                // Закрываем модальное окно
+                const modal = bootstrap.Modal.getInstance(document.getElementById('createCardModal'));
+                if (modal) {
+                    modal.hide();
+                }
                 
                 // Перезагружаем список карт
                 loadBonusCards();
@@ -296,23 +421,29 @@
                         ${card.discount_percent}%
                     </span>
                 </td>
+                <td>${card.first_name || 'N/A'}</td>
+                <td>${card.last_name || 'N/A'}</td>
                 <td>
                     <span class="card-status status-${card.is_active ? 'active' : 'inactive'}">
                         ${card.is_active ? 'Активна' : 'Неактивна'}
                     </span>
                 </td>
+                <td>${card.activated_at ? new Date(card.activated_at).toLocaleDateString('ru-RU') : 'N/A'}</td>
+                <td>${card.deactivated_at ? new Date(card.deactivated_at).toLocaleDateString('ru-RU') : 'N/A'}</td>
                 <td>
                     <span class="badge bg-info">
                         ${card.usage_count || 0}
                     </span>
                 </td>
                 <td>${new Date(card.created_at).toLocaleDateString('ru-RU')}</td>
-                <td>${card.created_by}</td>
                 <td>
                     <button class="btn btn-sm btn-outline-primary" onclick="viewCardDetails(${card.id})">
                         <i class="bi bi-eye"></i>
                     </button>
-                    <button class="btn btn-sm btn-outline-warning" onclick="toggleCardStatus(${card.id})">
+                    <button class="btn btn-sm btn-outline-warning" onclick="editCard(${card.id})">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-success" onclick="toggleCardStatus(${card.id})">
                         <i class="bi bi-toggle-${card.is_active ? 'on' : 'off'}"></i>
                     </button>
                 </td>
@@ -332,19 +463,152 @@
         loadBonusCards();
     }
     
-    function viewCardDetails(cardId) {
-        // TODO: Реализовать просмотр деталей карты
-        showAlert(`Просмотр деталей карты #${cardId} в разработке`, 'info');
+    async function viewCardDetails(cardId) {
+        try {
+            const response = await fetch(`/admin/api/bonus-cards/${cardId}`);
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                const card = data.data;
+                const details = `
+                    <strong>Номер карты:</strong> ${card.card_number}<br>
+                    <strong>Скидка:</strong> ${card.discount_percent}%<br>
+                    <strong>Имя:</strong> ${card.first_name || 'N/A'}<br>
+                    <strong>Фамилия:</strong> ${card.last_name || 'N/A'}<br>
+                    <strong>Статус:</strong> ${card.is_active ? 'Активна' : 'Неактивна'}<br>
+                    <strong>Дата активации:</strong> ${card.activated_at ? new Date(card.activated_at).toLocaleDateString('ru-RU') : 'N/A'}<br>
+                    <strong>Дата деактивации:</strong> ${card.deactivated_at ? new Date(card.deactivated_at).toLocaleDateString('ru-RU') : 'N/A'}<br>
+                    <strong>Использований:</strong> ${card.usage_count || 0}<br>
+                    <strong>Создана:</strong> ${new Date(card.created_at).toLocaleDateString('ru-RU')}<br>
+                    <strong>Обновлена:</strong> ${card.updated_at ? new Date(card.updated_at).toLocaleDateString('ru-RU') : 'N/A'}
+                `;
+                
+                showAlert(`<div class="text-start">${details}</div><br><button class="btn btn-sm btn-secondary" onclick="this.parentElement.parentElement.remove()">Закрыть</button>`, 'info');
+            } else {
+                showAlert(data.message || 'Ошибка загрузки данных карты', 'danger');
+            }
+        } catch (error) {
+            console.error('Error loading card details:', error);
+            showAlert('Ошибка загрузки данных карты', 'danger');
+        }
     }
     
-    function toggleCardStatus(cardId) {
-        // TODO: Реализовать изменение статуса карты
-        showAlert(`Изменение статуса карты #${cardId} в разработке`, 'info');
+    async function toggleCardStatus(cardId) {
+        try {
+            const response = await fetch(`/admin/api/bonus-cards/${cardId}/toggle`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                showAlert(data.message, 'success');
+                loadBonusCards(); // Перезагружаем список
+            } else {
+                showAlert(data.message || 'Ошибка изменения статуса', 'danger');
+            }
+        } catch (error) {
+            console.error('Error toggling card status:', error);
+            showAlert('Ошибка соединения с сервером', 'danger');
+        }
     }
     
     function exportCards(format) {
         // TODO: Реализовать экспорт
         showAlert(`Экспорт в ${format.toUpperCase()} в разработке`, 'info');
+    }
+    
+    async function editCard(cardId) {
+        try {
+            const response = await fetch(`/admin/api/bonus-cards/${cardId}`);
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                const card = data.data;
+                
+                // Заполняем форму редактирования
+                document.getElementById('editCardId').value = card.id;
+                document.getElementById('editCardNumber').value = card.card_number;
+                document.getElementById('editDiscountPercent').value = card.discount_percent;
+                document.getElementById('editFirstName').value = card.first_name || '';
+                document.getElementById('editLastName').value = card.last_name || '';
+                document.getElementById('editActivatedAt').value = card.activated_at ? card.activated_at.split('T')[0] : '';
+                document.getElementById('editDeactivatedAt').value = card.deactivated_at ? card.deactivated_at.split('T')[0] : '';
+                
+                // Показываем форму редактирования
+                document.getElementById('createCardForm').style.display = 'none';
+                document.getElementById('editCardForm').style.display = 'block';
+                
+                // Прокручиваем к форме
+                document.getElementById('editCardForm').scrollIntoView({ behavior: 'smooth' });
+            } else {
+                showAlert(data.message || 'Ошибка загрузки данных карты', 'danger');
+            }
+        } catch (error) {
+            console.error('Error loading card for edit:', error);
+            showAlert('Ошибка загрузки данных карты', 'danger');
+        }
+    }
+    
+    async function updateBonusCard() {
+        try {
+            const cardId = document.getElementById('editCardId').value;
+            const formData = {
+                card_number: document.getElementById('editCardNumber').value.trim(),
+                discount_percent: parseInt(document.getElementById('editDiscountPercent').value),
+                first_name: document.getElementById('editFirstName').value.trim(),
+                last_name: document.getElementById('editLastName').value.trim(),
+                activated_at: document.getElementById('editActivatedAt').value,
+                deactivated_at: document.getElementById('editDeactivatedAt').value
+            };
+            
+            // Валидация
+            if (!formData.card_number || !formData.discount_percent || !formData.first_name || 
+                !formData.last_name || !formData.activated_at || !formData.deactivated_at) {
+                showAlert('Все поля обязательны для заполнения', 'danger');
+                return;
+            }
+            
+            if (formData.activated_at >= formData.deactivated_at) {
+                showAlert('Дата деактивации должна быть позже даты активации', 'danger');
+                return;
+            }
+            
+            const response = await fetch(`/admin/api/bonus-cards/${cardId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                showAlert('Бонусная карта успешно обновлена!', 'success');
+                cancelEdit();
+                loadBonusCards();
+            } else {
+                showAlert(data.message || 'Ошибка обновления карты', 'danger');
+            }
+        } catch (error) {
+            console.error('Error updating bonus card:', error);
+            showAlert('Ошибка соединения с сервером', 'danger');
+        }
+    }
+    
+    function cancelEdit() {
+        // Скрываем форму редактирования
+        document.getElementById('editCardForm').style.display = 'none';
+        // Показываем форму создания
+        document.getElementById('createCardForm').style.display = 'block';
+        // Очищаем форму редактирования
+        document.getElementById('updateCardForm').reset();
     }
     
     function showAlert(message, type) {
@@ -358,12 +622,14 @@
         
         document.querySelector('.container-fluid').insertBefore(alertDiv, document.querySelector('.container-fluid').firstChild);
         
-        // Автоматически скрываем через 5 секунд
-        setTimeout(() => {
-            if (alertDiv.parentNode) {
-                alertDiv.remove();
-            }
-        }, 5000);
+        // Автоматически скрываем через 5 секунд (кроме info - там не скрываем)
+        if (type !== 'info') {
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
     }
 </script>
 {% endblock %}

@@ -981,10 +981,10 @@ def get_waiters():
             'message': 'Ошибка получения списка официантов'
         }), 500
 
-@admin_bp.route('/api/tables')
+@admin_bp.route('/api/tables/filters')
 @admin_required
 @audit_action("get_tables_list")
-def get_tables():
+def get_tables_for_filters():
     """Получение списка таблиц для фильтров."""
     try:
         from app.models.table import Table
@@ -1743,6 +1743,30 @@ def create_bonus_card():
                 'message': 'Процент скидки должен быть от 1 до 100'
             }), 400
         
+        if not data.get('first_name'):
+            return jsonify({
+                'status': 'error',
+                'message': 'Имя клиента обязательно'
+            }), 400
+        
+        if not data.get('last_name'):
+            return jsonify({
+                'status': 'error',
+                'message': 'Фамилия клиента обязательна'
+            }), 400
+        
+        if not data.get('activated_at'):
+            return jsonify({
+                'status': 'error',
+                'message': 'Дата активации обязательна'
+            }), 400
+        
+        if not data.get('deactivated_at'):
+            return jsonify({
+                'status': 'error',
+                'message': 'Дата деактивации обязательна'
+            }), 400
+        
         # Проверка уникальности номера карты
         existing_card = BonusCard.query.filter_by(card_number=data['card_number']).first()
         if existing_card:
@@ -1755,9 +1779,14 @@ def create_bonus_card():
         bonus_card = BonusCard(
             card_number=data['card_number'],
             discount_percent=data['discount_percent'],
-            is_active=True,  # Автоактивация
-            created_by_id=current_user.id
+            activated_at=datetime.strptime(data['activated_at'], '%Y-%m-%d').date() if data.get('activated_at') else None,
+            deactivated_at=datetime.strptime(data['deactivated_at'], '%Y-%m-%d').date() if data.get('deactivated_at') else None,
+            is_active=True  # Автоактивация
         )
+        
+        # Устанавливаем зашифрованные поля
+        bonus_card.first_name = data.get('first_name')
+        bonus_card.last_name = data.get('last_name')
         
         db.session.add(bonus_card)
         db.session.commit()
@@ -1794,10 +1823,31 @@ def get_bonus_cards():
         
         cards_data = []
         for card in pagination.items:
-            card_data = card.to_dict()
-            card_data['created_by'] = card.created_by.username if card.created_by else 'N/A'
-            card_data['usage_count'] = len(card.orders)
-            cards_data.append(card_data)
+            try:
+                card_data = card.to_dict()
+                # Добавляем дополнительные поля
+                card_data['usage_count'] = len(card.orders) if hasattr(card, 'orders') else 0
+                # Добавляем имя и фамилию (расшифрованные)
+                card_data['first_name'] = card.first_name or 'N/A'
+                card_data['last_name'] = card.last_name or 'N/A'
+                # Проверяем валидность карты
+                card_data['is_valid'] = card.is_valid()
+                cards_data.append(card_data)
+            except Exception as e:
+                current_app.logger.error(f"Error processing card {card.id}: {e}")
+                # Добавляем карту с ошибкой
+                card_data = {
+                    'id': card.id,
+                    'card_number': card.card_number,
+                    'discount_percent': card.discount_percent,
+                    'is_active': card.is_active,
+                    'first_name': 'Ошибка расшифровки',
+                    'last_name': 'Ошибка расшифровки',
+                    'is_valid': False,
+                    'usage_count': 0,
+                    'error': True
+                }
+                cards_data.append(card_data)
         
         return jsonify({
             'status': 'success',
@@ -1819,4 +1869,148 @@ def get_bonus_cards():
         return jsonify({
             'status': 'error',
             'message': 'Ошибка получения бонусных карт'
+        }), 500
+
+# === ДОПОЛНИТЕЛЬНЫЕ CRUD ОПЕРАЦИИ ДЛЯ БОНУСНЫХ КАРТ ===
+
+@admin_bp.route('/api/bonus-cards/<int:card_id>', methods=['GET'])
+@admin_required
+@audit_action("get_bonus_card")
+def get_bonus_card(card_id):
+    """Получение конкретной бонусной карты."""
+    try:
+        card = BonusCard.query.get_or_404(card_id)
+        return jsonify({
+            'status': 'success',
+            'data': card.to_dict()
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error getting bonus card {card_id}: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка получения бонусной карты'
+        }), 500
+
+@admin_bp.route('/api/bonus-cards/<int:card_id>', methods=['PUT'])
+@admin_required
+@audit_action("update_bonus_card")
+@with_transaction
+def update_bonus_card(card_id):
+    """Обновление бонусной карты."""
+    try:
+        card = BonusCard.query.get_or_404(card_id)
+        data = request.get_json() or {}
+        
+        # Обновление полей
+        if 'card_number' in data:
+            # Проверка уникальности номера карты
+            existing_card = BonusCard.query.filter(
+                BonusCard.card_number == data['card_number'],
+                BonusCard.id != card_id
+            ).first()
+            if existing_card:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Карта с таким номером уже существует'
+                }), 400
+            card.card_number = data['card_number']
+        
+        if 'discount_percent' in data:
+            if not (0 < data['discount_percent'] <= 100):
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Процент скидки должен быть от 1 до 100'
+                }), 400
+            card.discount_percent = data['discount_percent']
+        
+        if 'first_name' in data:
+            card.first_name = data['first_name']
+        
+        if 'last_name' in data:
+            card.last_name = data['last_name']
+        
+        if 'activated_at' in data:
+            card.activated_at = datetime.strptime(data['activated_at'], '%Y-%m-%d').date() if data['activated_at'] else None
+        
+        if 'deactivated_at' in data:
+            card.deactivated_at = datetime.strptime(data['deactivated_at'], '%Y-%m-%d').date() if data['deactivated_at'] else None
+        
+        if 'is_active' in data:
+            card.is_active = bool(data['is_active'])
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Бонусная карта успешно обновлена',
+            'data': card.to_dict()
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error updating bonus card {card_id}: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка обновления бонусной карты'
+        }), 500
+
+@admin_bp.route('/api/bonus-cards/<int:card_id>', methods=['DELETE'])
+@admin_required
+@audit_action("delete_bonus_card")
+@with_transaction
+def delete_bonus_card(card_id):
+    """Удаление бонусной карты."""
+    try:
+        card = BonusCard.query.get_or_404(card_id)
+        
+        # Проверка, не используется ли карта в активных заказах
+        active_orders = Order.query.filter(
+            Order.bonus_card_id == card_id,
+            Order.status.in_(['pending', 'confirmed', 'active'])
+        ).first()
+        
+        if active_orders:
+            return jsonify({
+                'status': 'error',
+                'message': 'Нельзя удалить карту, которая используется в активных заказах'
+            }), 400
+        
+        card_number = card.card_number
+        db.session.delete(card)
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Бонусная карта {card_number} успешно удалена'
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error deleting bonus card {card_id}: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка удаления бонусной карты'
+        }), 500
+
+@admin_bp.route('/api/bonus-cards/<int:card_id>/toggle', methods=['PUT'])
+@admin_required
+@audit_action("toggle_bonus_card_status")
+@with_transaction
+def toggle_bonus_card_status(card_id):
+    """Переключение статуса бонусной карты."""
+    try:
+        card = BonusCard.query.get_or_404(card_id)
+        card.is_active = not card.is_active
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Статус карты {card.card_number} изменен на {"активна" if card.is_active else "неактивна"}',
+            'data': {'is_active': card.is_active}
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error toggling bonus card status {card_id}: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка изменения статуса карты'
         }), 500 
