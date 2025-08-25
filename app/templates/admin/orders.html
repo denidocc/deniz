@@ -173,6 +173,24 @@
         </select>
     </div>
 </div>
+
+<!-- Модальное окно для просмотра деталей заказа -->
+<div class="modal fade" id="orderDetailsModal" tabindex="-1" aria-labelledby="orderDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="orderDetailsModalLabel">Детали заказа #<span id="orderDetailsNumber"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Контент будет загружен динамически -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -355,8 +373,192 @@
     }
     
     function viewOrderDetails(orderId) {
-        // TODO: Реализовать просмотр деталей заказа
-        alert(`Просмотр деталей заказа #${orderId}`);
+        console.log('Загрузка деталей заказа:', orderId);
+        
+        // Показываем индикатор загрузки
+        const modal = document.getElementById('orderDetailsModal');
+        const modalBody = modal.querySelector('.modal-body');
+        const modalTitle = modal.querySelector('#orderDetailsModalLabel');
+        
+        // Обновляем заголовок с номером заказа
+        modalTitle.innerHTML = `Детали заказа #${orderId}`;
+        
+        modalBody.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Загрузка...</span></div></div>';
+        
+        // Открываем модальное окно
+        const bootstrapModal = new bootstrap.Modal(modal);
+        bootstrapModal.show();
+        
+        // Загружаем детали заказа
+        fetch(`/admin/api/orders/${orderId}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Получены данные заказа:', data);
+                if (data.status === 'success') {
+                    // Заменяем весь контент модального окна
+                    modalBody.innerHTML = generateOrderDetailsHTML(data.data);
+                } else {
+                    throw new Error(data.message || 'Неизвестная ошибка');
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка загрузки деталей заказа:', error);
+                modalBody.innerHTML = `
+                    <div class="alert alert-danger">
+                        <h6>Ошибка загрузки</h6>
+                        <p>Не удалось загрузить детали заказа: ${error.message}</p>
+                    </div>
+                `;
+            });
+    }
+
+    // Функция для генерации HTML деталей заказа
+    function generateOrderDetailsHTML(order) {
+        console.log('Структура заказа для отображения:', order);
+        console.log('Структура items:', order.items);
+        
+        const bonusCardHTML = order.bonus_card_info ? `
+            <strong>Номер карты:</strong> ${order.bonus_card_info.card_number}<br>
+            <strong>Владелец:</strong> ${order.bonus_card_info.first_name} ${order.bonus_card_info.last_name}<br>
+            <strong>Скидка:</strong> ${order.bonus_card_info.discount_percent}%
+        ` : '<em>Бонусная карта не использовалась</em>';
+
+        // Безопасная генерация HTML для позиций заказа
+        let itemsHTML = '';
+        if (order.items && Array.isArray(order.items)) {
+            itemsHTML = order.items.map(item => {
+                console.log('Обработка item:', item);
+                // Исправляем: используем правильные поля из данных
+                const itemName = item.menu_item_name || 'Неизвестное блюдо';
+                const quantity = item.quantity || 1;
+                const price = item.unit_price || 0;
+                const totalPrice = item.total_price || 0;
+                
+                return `
+                    <tr>
+                        <td>${itemName}</td>
+                        <td>${quantity}</td>
+                        <td>${price} TMT</td>
+                        <td>${totalPrice} TMT</td>
+                    </tr>
+                `;
+            }).join('');
+        } else {
+            itemsHTML = '<tr><td colspan="4" class="text-center">Позиции заказа не найдены</td></tr>';
+        }
+
+        return `
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Основная информация</h6>
+                    <table class="table table-sm">
+                        <tr>
+                            <td><strong>Стол:</strong></td>
+                            <td>${order.table_number || 'N/A'}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Гостей:</strong></td>
+                            <td>${order.guest_count || 'N/A'}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Статус:</strong></td>
+                            <td>${order.status || 'N/A'}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Создан:</strong></td>
+                            <td>${order.created_at ? new Date(order.created_at).toLocaleString('ru-RU') : 'N/A'}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Официант:</strong></td>
+                            <td>${order.waiter_name || 'N/A'}</td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h6>Финансовая информация</h6>
+                    <table class="table table-sm">
+                        <tr>
+                            <td><strong>Подытог:</strong></td>
+                            <td>${order.subtotal || 0} TMT</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Сервисный сбор:</strong></td>
+                            <td>${order.service_charge || 0} TMT</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Скидка:</strong></td>
+                            <td>${order.discount_amount || 0} TMT</td>
+                        </tr>
+                        <tr class="table-active">
+                            <td><strong>ИТОГО:</strong></td>
+                            <td>${order.total_amount || 0} TMT</td>
+                        </tr>
+                    </table>
+                    
+                    <h6 class="mt-3">Бонусная карта</h6>
+                    <div>${bonusCardHTML}</div>
+                </div>
+            </div>
+            
+            <h6 class="mt-4">Позиции заказа</h6>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Блюдо</th>
+                            <th>Количество</th>
+                            <th>Цена</th>
+                            <th>Сумма</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemsHTML}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    // Функция форматирования валюты
+    function formatCurrency(amount) {
+        return new Intl.NumberFormat('ru-RU', {
+            style: 'currency',
+            currency: 'TMT',
+            minimumFractionDigits: 2
+        }).format(amount);
+    }
+
+    // Функция получения класса для статуса
+    function getStatusClass(status) {
+        const statusClasses = {
+            'pending': 'bg-warning',
+            'confirmed': 'bg-info',
+            'active': 'bg-primary',
+            'completed': 'bg-success',
+            'cancelled': 'bg-danger'
+        };
+        return statusClasses[status] || 'bg-secondary';
+    }
+    
+    function showError(message) {
+        // Показываем ошибку в модальном окне или как уведомление
+        if (document.getElementById('orderDetailsModal').classList.contains('show')) {
+            const modalBody = document.querySelector('#orderDetailsModal .modal-body');
+            modalBody.innerHTML = `
+                <div class="alert alert-danger">
+                    <h6>Ошибка</h6>
+                    <p>${message}</p>
+                </div>
+            `;
+        } else {
+            // Показываем как toast или alert
+            alert(message);
+        }
     }
     
     function exportOrders(format) {

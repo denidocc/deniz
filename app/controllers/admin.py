@@ -964,8 +964,8 @@ def get_waiters():
         for waiter in waiters:
             waiters_data.append({
                 'id': waiter.id,
-                'username': waiter.username,
-                'full_name': waiter.full_name or waiter.username,
+                'username': waiter.login,
+                'full_name': waiter.name,
                 'is_active': waiter.is_active
             })
         
@@ -1687,7 +1687,7 @@ def get_filtered_orders():
                 'status': order.status,
                 'total_amount': float(order.total_amount),
                 'created_at': order.created_at.isoformat(),
-                'waiter_name': order.waiter.username if order.waiter else 'N/A',
+                'waiter_name': order.waiter.name if order.waiter else 'N/A',
                 'items_count': len(order.items)
             }
             orders_data.append(order_data)
@@ -1713,6 +1713,69 @@ def get_filtered_orders():
             'status': 'error',
             'message': 'Ошибка получения заказов'
         }), 500 
+
+@admin_bp.route('/api/orders/<int:order_id>')
+@admin_required
+@audit_action("get_order_details")
+def get_order_details(order_id):
+    """Получение деталей заказа."""
+    try:
+        order = Order.query.get_or_404(order_id)
+        
+        # Подготавливаем данные заказа
+        order_data = {
+            'id': order.id,
+            'table_number': order.table.table_number if order.table else 'N/A',
+            'guest_count': order.guest_count,
+            'status': order.status,
+            'subtotal': float(order.subtotal),
+            'service_charge': float(order.service_charge),
+            'discount_amount': float(order.discount_amount),
+            'total_amount': float(order.total_amount),
+            'created_at': order.created_at.isoformat(),
+            'waiter_name': order.waiter.name if order.waiter else 'N/A',
+            'comments': order.comments,
+            'language': order.language,
+            'bonus_card_info': None
+        }
+        
+        # Информация о бонусной карте
+        if order.bonus_card:
+            order_data['bonus_card_info'] = {
+                'card_number': order.bonus_card.card_number,
+                'discount_percent': order.bonus_card.discount_percent,
+                'first_name': order.bonus_card.first_name or 'N/A',
+                'last_name': order.bonus_card.last_name or 'N/A',
+                'is_active': order.bonus_card.is_active
+            }
+        
+        # Позиции заказа
+        items_data = []
+        for item in order.items:
+            item_data = {
+                'id': item.id,
+                'menu_item_name': item.menu_item.name_ru if item.menu_item else 'N/A',
+                'quantity': item.quantity,
+                'unit_price': float(item.unit_price),
+                'total_price': float(item.total_price),
+                'preparation_type': item.preparation_type,
+                'comments': item.comments
+            }
+            items_data.append(item_data)
+        
+        order_data['items'] = items_data
+        
+        return jsonify({
+            'status': 'success',
+            'data': order_data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting order details: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка получения деталей заказа'
+        }), 500
 
 @admin_bp.route('/bonus-cards')
 @admin_required
