@@ -8,6 +8,7 @@ from .menu_item import MenuItem, MenuItemSize
 from .order import Order, OrderItem
 from .table_assignment import TableAssignment
 from .waiter_call import WaiterCall
+from .c_order_status import C_OrderStatus
 
 from .daily_report import DailyReport
 from .audit_log import AuditLog
@@ -26,6 +27,7 @@ __all__ = [
     'OrderItem',
     'TableAssignment',
     'WaiterCall',
+    'C_OrderStatus',
 
     'DailyReport',
     'AuditLog',

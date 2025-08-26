@@ -950,26 +950,22 @@ def tables_page():
     tables = Table.query.order_by(Table.table_number).all()
     return render_template('admin/tables.html', tables=tables)
 
-@admin_bp.route('/api/staff/waiters')
+@admin_bp.route('/api/waiters')
 @admin_required
-@audit_action("view_waiters_list")
+@audit_action("get_waiters_list")
 def get_waiters():
-    """Получение списка официантов для назначения к столам."""
+    """Получение списка официантов для фильтров."""
     try:
-        from app.models import Staff
+        from app.models.staff import Staff
         
-        # Получаем только активных официантов
-        waiters = Staff.query.filter_by(
-            role='waiter',
-            is_active=True
-        ).order_by(Staff.name).all()
-        
+        waiters = Staff.query.filter_by(role='waiter').all()
         waiters_data = []
+        
         for waiter in waiters:
             waiters_data.append({
                 'id': waiter.id,
-                'name': waiter.name,
-                'login': waiter.login,
+                'username': waiter.login,
+                'full_name': waiter.name,
                 'is_active': waiter.is_active
             })
         
@@ -983,6 +979,37 @@ def get_waiters():
         return jsonify({
             'status': 'error',
             'message': 'Ошибка получения списка официантов'
+        }), 500
+
+@admin_bp.route('/api/tables/filters')
+@admin_required
+@audit_action("get_tables_list")
+def get_tables_for_filters():
+    """Получение списка таблиц для фильтров."""
+    try:
+        from app.models.table import Table
+        
+        tables = Table.query.all()
+        tables_data = []
+        
+        for table in tables:
+            tables_data.append({
+                'id': table.id,
+                'table_number': table.table_number,
+                'capacity': table.capacity,
+                'status': table.status
+            })
+        
+        return jsonify({
+            'status': 'success',
+            'data': tables_data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting tables: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка получения списка таблиц'
         }), 500
 
 @admin_bp.route('/api/tables/assign', methods=['POST'])
@@ -1599,4 +1626,458 @@ def create_menu_item_api():
         return jsonify({
             'status': 'error',
             'message': f'Ошибка создания блюда: {str(e)}'
+        }), 500 
+
+@admin_bp.route('/orders')
+@admin_required
+@audit_action("view_all_orders")
+def all_orders():
+    """Просмотр всех заказов с фильтрацией."""
+    return render_template('admin/orders.html')
+
+@admin_bp.route('/api/orders')
+@admin_required
+@audit_action("get_filtered_orders")
+def get_filtered_orders():
+    """API для получения отфильтрованных заказов."""
+    try:
+        # Параметры фильтрации
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        status = request.args.get('status')
+        table_id = request.args.get('table_id')
+        waiter_id = request.args.get('waiter_id')
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        # Базовый запрос
+        query = Order.query
+        
+        # Применяем фильтры
+        if status:
+            query = query.filter(Order.status == status)
+        if table_id:
+            query = query.filter(Order.table_id == table_id)
+        if waiter_id:
+            query = query.filter(Order.waiter_id == waiter_id)
+        if start_date:
+            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+            query = query.filter(func.date(Order.created_at) >= start_date_obj)
+        if end_date:
+            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+            query = query.filter(func.date(Order.created_at) <= end_date_obj)
+        
+        # Сортировка по дате создания (новые первыми)
+        query = query.order_by(desc(Order.created_at))
+        
+        # Пагинация
+        pagination = query.paginate(
+            page=page,
+            per_page=per_page,
+            error_out=False
+        )
+        
+        # Подготавливаем данные
+        orders_data = []
+        for order in pagination.items:
+            order_data = {
+                'id': order.id,
+                'table_number': order.table.table_number if order.table else 'N/A',
+                'guest_count': order.guest_count,
+                'status': order.status,
+                'total_amount': float(order.total_amount),
+                'created_at': order.created_at.isoformat(),
+                'waiter_name': order.waiter.name if order.waiter else 'N/A',
+                'items_count': len(order.items)
+            }
+            orders_data.append(order_data)
+        
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'orders': orders_data,
+                'pagination': {
+                    'page': page,
+                    'per_page': per_page,
+                    'total': pagination.total,
+                    'pages': pagination.pages,
+                    'has_next': pagination.has_next,
+                    'has_prev': pagination.has_prev
+                }
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting filtered orders: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка получения заказов'
+        }), 500 
+
+@admin_bp.route('/api/orders/<int:order_id>')
+@admin_required
+@audit_action("get_order_details")
+def get_order_details(order_id):
+    """Получение деталей заказа."""
+    try:
+        order = Order.query.get_or_404(order_id)
+        
+        # Подготавливаем данные заказа
+        order_data = {
+            'id': order.id,
+            'table_number': order.table.table_number if order.table else 'N/A',
+            'guest_count': order.guest_count,
+            'status': order.status,
+            'subtotal': float(order.subtotal),
+            'service_charge': float(order.service_charge),
+            'discount_amount': float(order.discount_amount),
+            'total_amount': float(order.total_amount),
+            'created_at': order.created_at.isoformat(),
+            'waiter_name': order.waiter.name if order.waiter else 'N/A',
+            'comments': order.comments,
+            'language': order.language,
+            'bonus_card_info': None
+        }
+        
+        # Информация о бонусной карте
+        if order.bonus_card:
+            order_data['bonus_card_info'] = {
+                'card_number': order.bonus_card.card_number,
+                'discount_percent': order.bonus_card.discount_percent,
+                'first_name': order.bonus_card.first_name or 'N/A',
+                'last_name': order.bonus_card.last_name or 'N/A',
+                'is_active': order.bonus_card.is_active
+            }
+        
+        # Позиции заказа
+        items_data = []
+        for item in order.items:
+            item_data = {
+                'id': item.id,
+                'menu_item_name': item.menu_item.name_ru if item.menu_item else 'N/A',
+                'quantity': item.quantity,
+                'unit_price': float(item.unit_price),
+                'total_price': float(item.total_price),
+                'preparation_type': item.preparation_type,
+                'comments': item.comments
+            }
+            items_data.append(item_data)
+        
+        order_data['items'] = items_data
+        
+        return jsonify({
+            'status': 'success',
+            'data': order_data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting order details: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка получения деталей заказа'
+        }), 500
+
+@admin_bp.route('/bonus-cards')
+@admin_required
+@audit_action("view_bonus_cards")
+def bonus_cards():
+    """Управление бонусными картами."""
+    return render_template('admin/bonus_cards.html')
+
+@admin_bp.route('/api/bonus-cards', methods=['POST'])
+@admin_required
+@audit_action("create_bonus_card")
+@with_transaction
+def create_bonus_card():
+    """Создание новой бонусной карты."""
+    try:
+        data = request.get_json() or {}
+        
+        # Валидация данных
+        if not data.get('card_number'):
+            return jsonify({
+                'status': 'error',
+                'message': 'Номер карты обязателен'
+            }), 400
+        
+        if not data.get('discount_percent') or not (0 < data['discount_percent'] <= 100):
+            return jsonify({
+                'status': 'error',
+                'message': 'Процент скидки должен быть от 1 до 100'
+            }), 400
+        
+        if not data.get('first_name'):
+            return jsonify({
+                'status': 'error',
+                'message': 'Имя клиента обязательно'
+            }), 400
+        
+        if not data.get('last_name'):
+            return jsonify({
+                'status': 'error',
+                'message': 'Фамилия клиента обязательна'
+            }), 400
+        
+        if not data.get('activated_at'):
+            return jsonify({
+                'status': 'error',
+                'message': 'Дата активации обязательна'
+            }), 400
+        
+        if not data.get('deactivated_at'):
+            return jsonify({
+                'status': 'error',
+                'message': 'Дата деактивации обязательна'
+            }), 400
+        
+        # Проверка уникальности номера карты
+        existing_card = BonusCard.query.filter_by(card_number=data['card_number']).first()
+        if existing_card:
+            return jsonify({
+                'status': 'error',
+                'message': 'Карта с таким номером уже существует'
+            }), 400
+        
+        # Создание карты
+        bonus_card = BonusCard(
+            card_number=data['card_number'],
+            discount_percent=data['discount_percent'],
+            activated_at=datetime.strptime(data['activated_at'], '%Y-%m-%d').date() if data.get('activated_at') else None,
+            deactivated_at=datetime.strptime(data['deactivated_at'], '%Y-%m-%d').date() if data.get('deactivated_at') else None,
+            is_active=True  # Автоактивация
+        )
+        
+        # Устанавливаем зашифрованные поля
+        bonus_card.first_name = data.get('first_name')
+        bonus_card.last_name = data.get('last_name')
+        
+        db.session.add(bonus_card)
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Бонусная карта успешно создана',
+            'data': bonus_card.to_dict()
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error creating bonus card: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка создания бонусной карты'
+        }), 500
+
+@admin_bp.route('/api/bonus-cards')
+@admin_required
+@audit_action("get_bonus_cards")
+def get_bonus_cards():
+    """Получение списка бонусных карт."""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        
+        query = BonusCard.query.order_by(desc(BonusCard.created_at))
+        
+        pagination = query.paginate(
+            page=page,
+            per_page=per_page,
+            error_out=False
+        )
+        
+        cards_data = []
+        for card in pagination.items:
+            try:
+                card_data = card.to_dict()
+                # Добавляем дополнительные поля
+                card_data['usage_count'] = len(card.orders) if hasattr(card, 'orders') else 0
+                # Добавляем имя и фамилию (расшифрованные)
+                card_data['first_name'] = card.first_name or 'N/A'
+                card_data['last_name'] = card.last_name or 'N/A'
+                # Проверяем валидность карты
+                card_data['is_valid'] = card.is_valid()
+                cards_data.append(card_data)
+            except Exception as e:
+                current_app.logger.error(f"Error processing card {card.id}: {e}")
+                # Добавляем карту с ошибкой
+                card_data = {
+                    'id': card.id,
+                    'card_number': card.card_number,
+                    'discount_percent': card.discount_percent,
+                    'is_active': card.is_active,
+                    'first_name': card.first_name,
+                    'last_name': card.last_name,
+                    'activated_at': card.activated_at,
+                    'deactivated_at': card.deactivated_at,
+                    'created_at': card.created_at,
+                    'updated_at': card.updated_at,
+                    'is_valid': False,
+                    'usage_count': 0,
+                    'error': True
+                }
+                cards_data.append(card_data)
+        
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'cards': cards_data,
+                'pagination': {
+                    'page': page,
+                    'per_page': per_page,
+                    'total': pagination.total,
+                    'pages': pagination.pages,
+                    'has_next': pagination.has_next,
+                    'has_prev': pagination.has_prev
+                }
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting bonus cards: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка получения бонусных карт'
+        }), 500
+
+# === ДОПОЛНИТЕЛЬНЫЕ CRUD ОПЕРАЦИИ ДЛЯ БОНУСНЫХ КАРТ ===
+
+@admin_bp.route('/api/bonus-cards/<int:card_id>', methods=['GET'])
+@admin_required
+@audit_action("get_bonus_card")
+def get_bonus_card(card_id):
+    """Получение конкретной бонусной карты."""
+    try:
+        card = BonusCard.query.get_or_404(card_id)
+        return jsonify({
+            'status': 'success',
+            'data': card.to_dict()
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error getting bonus card {card_id}: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка получения бонусной карты'
+        }), 500
+
+@admin_bp.route('/api/bonus-cards/<int:card_id>', methods=['PUT'])
+@admin_required
+@audit_action("update_bonus_card")
+@with_transaction
+def update_bonus_card(card_id):
+    """Обновление бонусной карты."""
+    try:
+        card = BonusCard.query.get_or_404(card_id)
+        data = request.get_json() or {}
+        
+        # Обновление полей
+        if 'card_number' in data:
+            # Проверка уникальности номера карты
+            existing_card = BonusCard.query.filter(
+                BonusCard.card_number == data['card_number'],
+                BonusCard.id != card_id
+            ).first()
+            if existing_card:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Карта с таким номером уже существует'
+                }), 400
+            card.card_number = data['card_number']
+        
+        if 'discount_percent' in data:
+            if not (0 < data['discount_percent'] <= 100):
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Процент скидки должен быть от 1 до 100'
+                }), 400
+            card.discount_percent = data['discount_percent']
+        
+        if 'first_name' in data:
+            card.first_name = data['first_name']
+        
+        if 'last_name' in data:
+            card.last_name = data['last_name']
+        
+        if 'activated_at' in data:
+            card.activated_at = datetime.strptime(data['activated_at'], '%Y-%m-%d').date() if data['activated_at'] else None
+        
+        if 'deactivated_at' in data:
+            card.deactivated_at = datetime.strptime(data['deactivated_at'], '%Y-%m-%d').date() if data['deactivated_at'] else None
+        
+        if 'is_active' in data:
+            card.is_active = bool(data['is_active'])
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Бонусная карта успешно обновлена',
+            'data': card.to_dict()
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error updating bonus card {card_id}: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка обновления бонусной карты'
+        }), 500
+
+@admin_bp.route('/api/bonus-cards/<int:card_id>', methods=['DELETE'])
+@admin_required
+@audit_action("delete_bonus_card")
+@with_transaction
+def delete_bonus_card(card_id):
+    """Удаление бонусной карты."""
+    try:
+        card = BonusCard.query.get_or_404(card_id)
+        
+        # Проверка, не используется ли карта в активных заказах
+        active_orders = Order.query.filter(
+            Order.bonus_card_id == card_id,
+            Order.status.in_(['pending', 'confirmed', 'active'])
+        ).first()
+        
+        if active_orders:
+            return jsonify({
+                'status': 'error',
+                'message': 'Нельзя удалить карту, которая используется в активных заказах'
+            }), 400
+        
+        card_number = card.card_number
+        db.session.delete(card)
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Бонусная карта {card_number} успешно удалена'
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error deleting bonus card {card_id}: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка удаления бонусной карты'
+        }), 500
+
+@admin_bp.route('/api/bonus-cards/<int:card_id>/toggle', methods=['PUT'])
+@admin_required
+@audit_action("toggle_bonus_card_status")
+@with_transaction
+def toggle_bonus_card_status(card_id):
+    """Переключение статуса бонусной карты."""
+    try:
+        card = BonusCard.query.get_or_404(card_id)
+        card.is_active = not card.is_active
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Статус карты {card.card_number} изменен на {"активна" if card.is_active else "неактивна"}',
+            'data': {'is_active': card.is_active}
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error toggling bonus card status {card_id}: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка изменения статуса карты'
         }), 500 

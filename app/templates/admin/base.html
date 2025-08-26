@@ -328,6 +328,22 @@
             </li>
             
             <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'admin.orders' %}active{% endif %}" 
+                   href="{{ url_for('admin.all_orders') }}">
+                    <i class="bi bi-list-ul"></i>
+                    <span class="sidebar-text">Все заказы</span>
+                </a>
+            </li>
+            
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'admin.bonus_cards' %}active{% endif %}" 
+                   href="{{ url_for('admin.bonus_cards') }}">
+                    <i class="bi bi-credit-card"></i>
+                    <span class="sidebar-text">Бонусные карты</span>
+                </a>
+            </li>
+            
+            <li class="nav-item">
                 <a class="nav-link {% if request.endpoint == 'admin.reports' %}active{% endif %}" 
                    href="{{ url_for('admin.reports') }}">
                     <i class="bi bi-graph-up"></i>

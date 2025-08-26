@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from .staff import Staff
     from .order_item import OrderItem
     from .bonus_card import BonusCard
+    from .c_order_status import C_OrderStatus
 
 class Order(BaseModel):
     """Модель заказа."""
@@ -26,8 +27,8 @@ class Order(BaseModel):
         sa.Integer, nullable=False
     )
     status: so.Mapped[str] = so.mapped_column(
-        sa.String(20), default='pending', nullable=False, index=True
-    )  # pending, confirmed, completed, cancelled
+        sa.String(50), default='pending', nullable=False, index=True
+    )  # Ссылка на код статуса из справочника
     subtotal: so.Mapped[Decimal] = so.mapped_column(
         sa.Numeric(10, 2), nullable=False
     )
@@ -91,6 +92,15 @@ class Order(BaseModel):
         lazy='selectin'
     )
     
+    # Связь со справочником статусов
+    status_info: so.Mapped[Optional["C_OrderStatus"]] = so.relationship(
+        "C_OrderStatus",
+        primaryjoin="Order.status == C_OrderStatus.code",
+        foreign_keys=[status],
+        lazy='selectin',
+        viewonly=True
+    )
+    
     def __repr__(self) -> str:
         """Строковое представление."""
         return f'<Order #{self.id} ({self.status})>'
@@ -110,6 +120,16 @@ class Order(BaseModel):
     def is_cancelled(self) -> bool:
         """Проверка, отменен ли заказ."""
         return self.status == 'cancelled'
+    
+    def get_status_info(self) -> Optional["C_OrderStatus"]:
+        """Получение информации о статусе."""
+        return self.status_info
+    
+    def can_transition_to(self, target_status: str) -> bool:
+        """Проверка возможности перехода к статусу."""
+        if not self.status_info:
+            return False
+        return target_status in self.status_info.get_transition_targets()
     
     def can_be_edited(self) -> bool:
         """Проверка возможности редактирования заказа."""
