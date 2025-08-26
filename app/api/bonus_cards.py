@@ -14,46 +14,80 @@ bonus_cards_bp = Blueprint('bonus_cards', __name__)
 def check_bonus_card():
     """Проверка бонусной карты."""
     try:
+        from flask import current_app
+        current_app.logger.info("=== BONUS CARD CHECK STARTED ===")
+        
         data = request.get_json()
+        current_app.logger.info(f"Request data: {data}")
         
         if not data or 'card_number' not in data:
             raise ValidationError("Номер карты обязателен")
         
         card_number = data['card_number'].strip()
+        current_app.logger.info(f"Card number: {card_number}")
         
         if len(card_number) != 6 or not card_number.isdigit():
             raise ValidationError("Номер карты должен содержать 6 цифр")
         
         # Ищем карту
-        bonus_card = BonusCard.find_by_number(card_number)
+        current_app.logger.info("Searching for bonus card...")
+        bonus_card = BonusCard.find_by_card_number(card_number)
+        current_app.logger.info(f"Found card: {bonus_card}")
         
         if not bonus_card:
+            current_app.logger.info("Card not found")
             return jsonify({
                 'status': 'error',
                 'message': 'Карта не найдена или неактивна',
                 'data': {}
             }), 404
         
+        # Проверяем валидность карты
+        current_app.logger.info("Checking card validity...")
+        is_valid = bonus_card.is_valid()
+        current_app.logger.info(f"Card is valid: {is_valid}")
+        
+        if not is_valid:
+            current_app.logger.info("Card is not valid")
+            return jsonify({
+                'status': 'error',
+                'message': 'Карта неактивна или срок действия истек',
+                'data': {}
+            }), 400
+        
+        # Сериализуем карту
+        current_app.logger.info("Serializing card...")
+        card_dict = bonus_card.to_dict()
+        current_app.logger.info(f"Card dict: {card_dict}")
+        
+        current_app.logger.info("=== BONUS CARD CHECK SUCCESS ===")
         return jsonify({
             'status': 'success',
             'message': 'Карта найдена',
             'data': {
-                'card': bonus_card.to_dict()
+                'card': card_dict
             }
         })
         
     except ValidationError as e:
+        current_app.logger.error(f"Validation error: {e}")
         return jsonify({
             'status': 'error',
             'message': str(e),
             'data': {}
         }), 400
     except Exception as e:
+        current_app.logger.error(f"Unexpected error: {e}", exc_info=True)
         return jsonify({
             'status': 'error',
             'message': 'Внутренняя ошибка сервера',
             'data': {}
         }), 500
+
+@bonus_cards_bp.route('/verify', methods=['POST'])
+def verify_bonus_card():
+    """Верификация бонусной карты (алиас для /check)."""
+    return check_bonus_card()
 
 @bonus_cards_bp.route('/apply/<int:order_id>', methods=['POST'])
 @auth_required
@@ -112,7 +146,7 @@ def apply_bonus_card(order_id):
             }), 400
         
         # Ищем карту
-        bonus_card = BonusCard.find_by_number(card_number)
+        bonus_card = BonusCard.find_by_card_number(card_number)
         
         if not bonus_card:
             return jsonify({

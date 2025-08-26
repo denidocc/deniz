@@ -355,7 +355,12 @@ class ModalManager {
             try {
                 APIUtils.showLoading(cardConfirm, 'Проверяем...');
                 
-                const response = await ClientAPI.verifyBonusCard(cardNumber);
+                // Проверяем доступность ClientAPI
+                if (!window.ClientAPI || typeof window.ClientAPI.verifyBonusCard !== 'function') {
+                    throw new Error('API не готов');
+                }
+                
+                const response = await window.ClientAPI.verifyBonusCard(cardNumber);
                 
                 if (response.status === 'success') {
                     callback(response.data);

@@ -121,7 +121,7 @@ class ClientAPI {
      * Проверка бонусной карты
      */
     async verifyBonusCard(cardNumber) {
-        return this.request('/api/bonus-cards/verify', {
+        return this.request('/api/bonus-cards/check', {
             method: 'POST',
             body: JSON.stringify({ card_number: cardNumber })
         });
