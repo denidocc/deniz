@@ -365,15 +365,16 @@ class ModalManager {
                 if (response.status === 'success') {
                     // Применяем бонусную карту к корзине
                     if (window.CartManager && typeof window.CartManager.setBonusCard === 'function') {
-                        window.CartManager.setBonusCard(response.data.card);
+                        window.CartManager.setBonusCard(response.data);
                     }
                     
                     callback(response.data);
                     this.closeActive();
                     NotificationManager.showSuccess('Бонусная карта применена!');
                 } else {
-                    // Показываем детальный модал
-                    ModalManager.showBonusCardDetails(response.data, true);
+                    // Показываем конкретную причину ошибки
+                    const errorMessage = response.data.reason || response.message || 'Неизвестная ошибка';
+                    NotificationManager.showError(errorMessage);
                 }
                 
             } catch (error) {

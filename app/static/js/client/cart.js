@@ -208,9 +208,20 @@ class CartManager {
     }
 
     static async getDiscount() {
-        if (!this.bonusCard || !this.bonusCard.discount_percent) return 0;
+        if (!this.bonusCard) return 0;
+        
+        // Получаем discount_percent из правильного места
+        const discountPercent = this.bonusCard.discount_percent || 
+                              (this.bonusCard.card && this.bonusCard.card.discount_percent);
+        
+        if (!discountPercent) return 0;
+        
+        // Скидка рассчитывается от (подытог + сервисный сбор)
         const subtotal = await this.getSubtotal();
-        return subtotal * (this.bonusCard.discount_percent / 100);
+        const serviceCharge = await this.getServiceCharge();
+        const totalBeforeDiscount = subtotal + serviceCharge;
+        
+        return totalBeforeDiscount * (discountPercent / 100);
     }
 
     static async getTotal() {
@@ -218,24 +229,32 @@ class CartManager {
             const subtotal = await this.getSubtotal();
             const serviceCharge = await this.getServiceCharge();
             
-            // Вычисляем скидку напрямую
+            // Сначала считаем сумму до скидки
+            const totalBeforeDiscount = subtotal + serviceCharge;
+            
+            // Затем применяем скидку
             let discount = 0;
-            if (this.bonusCard && this.bonusCard.discount_percent) {
-                discount = subtotal * (this.bonusCard.discount_percent / 100);
+            if (this.bonusCard) {
+                const discountPercent = this.bonusCard.discount_percent || 
+                                      (this.bonusCard.card && this.bonusCard.card.discount_percent);
+                if (discountPercent) {
+                    discount = totalBeforeDiscount * (discountPercent / 100);
+                }
             }
             
-            const total = subtotal + serviceCharge - discount;
+            // Итоговая сумма: (подытог + сервисный сбор) - скидка
+            const total = totalBeforeDiscount - discount;
             
             // Проверяем на корректность
             if (isNaN(total) || total < 0) {
                 console.error('Invalid total calculation:', { subtotal, serviceCharge, discount, total });
-                return subtotal + serviceCharge; // Возвращаем без скидки
+                return totalBeforeDiscount; // Возвращаем без скидки в случае ошибки
             }
             
             return total;
         } catch (error) {
             console.error('Error calculating total:', error);
-            // В случае ошибки возвращаем подытог без скидки
+            // В случае ошибки возвращаем подытог + сервисный сбор
             const subtotal = await this.getSubtotal();
             const serviceCharge = await this.getServiceCharge();
             return subtotal + serviceCharge;
@@ -339,7 +358,7 @@ class CartManager {
         // Показываем скидку если есть бонусная карта и скидка больше 0
         const discountHTML = (this.bonusCard && discount > 0) ? `
             <div class="summary-line discount">
-                <span class="summary-label">Скидка -${this.bonusCard.discount_percent}%</span>
+                <span class="summary-label">Скидка -${this.bonusCard.discount_percent || (this.bonusCard.card && this.bonusCard.card.discount_percent)}%</span>
                 <span class="summary-value">-${APIUtils.formatPrice(discount)}</span>
             </div>
         ` : '';
@@ -367,7 +386,7 @@ class CartManager {
             </div>
             
             <button class="btn bonus-card-btn" onclick="CartManager.openBonusCard()">
-                ${this.bonusCard ? `💳 Бонусная карта ${this.bonusCard.card_number} (${this.bonusCard.discount_percent}%)` : '💳 Бонусная карта'}
+                ${this.bonusCard ? '💳 Бонусная карта применена' : '💳 Бонусная карта'}
             </button>
             
             <button class="btn btn-primary continue-order-btn" onclick="CartManager.proceedToOrder()">
@@ -467,8 +486,10 @@ class CartManager {
             const response = await window.ClientAPI.createOrder(orderData);
             
             if (response.status === 'success') {
-                // Показываем экран подтверждения
-                ModalManager.openOrderConfirmation(response.data);
+                // Применяем бонусную карту к корзине
+                if (window.CartManager && typeof window.CartManager.setBonusCard === 'function') {
+                    window.CartManager.setBonusCard(response.data);
+                }
                 
                 // Очищаем корзину
                 this.items.clear();
