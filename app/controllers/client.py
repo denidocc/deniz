@@ -555,7 +555,8 @@ def create_order():
         
         # Добавляем сервисный сбор
         settings = get_system_settings()
-        service_charge_percent = settings.get('service_charge_percent', 5)
+        # ✅ ИСПРАВЛЯЕМ: используем правильный ключ
+        service_charge_percent = settings.get('service_charge')
         service_charge = total_amount * (service_charge_percent / 100)
         final_amount = total_amount + service_charge
         

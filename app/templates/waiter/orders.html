@@ -757,14 +757,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="total-item">
                         <strong>Подытог:</strong> ${order.subtotal} TMT
                     </div>
-                    ${order.discount_amount > 0 ? `
-                    <div class="total-item discount-item">
-                        <strong>Скидка по карте:</strong> -${order.discount_amount} TMT
-                    </div>
-                    ` : ''}
                     <div class="total-item">
                         <strong>Сервисный сбор:</strong> ${order.service_charge} TMT
                     </div>
+                    ${order.discount_amount > 0 ? `
+                    <div class="total-item discount-item">
+                        <strong>Скидка по карте (${order.discount_percent}%):</strong> -${order.discount_amount} TMT
+                    </div>
+                    ` : ''}
                     <div class="total-item total-final">
                         <strong>ИТОГО:</strong> ${order.total_amount} TMT
                     </div>
