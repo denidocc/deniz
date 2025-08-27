@@ -210,9 +210,8 @@ class CartManager {
     static async getDiscount() {
         if (!this.bonusCard) return 0;
         
-        // Получаем discount_percent из правильного места
-        const discountPercent = this.bonusCard.discount_percent || 
-                              (this.bonusCard.card && this.bonusCard.card.discount_percent);
+        // ✅ ИСПРАВЛЯЕМ: получаем discount_percent из правильного места
+        const discountPercent = this.bonusCard.card?.discount_percent;
         
         if (!discountPercent) return 0;
         
@@ -235,8 +234,8 @@ class CartManager {
             // Затем применяем скидку
             let discount = 0;
             if (this.bonusCard) {
-                const discountPercent = this.bonusCard.discount_percent || 
-                                      (this.bonusCard.card && this.bonusCard.card.discount_percent);
+                // ✅ ИСПРАВЛЯЕМ: получаем discount_percent из правильного места
+                const discountPercent = this.bonusCard.card?.discount_percent;
                 if (discountPercent) {
                     discount = totalBeforeDiscount * (discountPercent / 100);
                 }
@@ -356,9 +355,10 @@ class CartManager {
         });
 
         // Показываем скидку если есть бонусная карта и скидка больше 0
+        // ✅ ИСПРАВЛЯЕМ: получаем discount_percent из правильного места
         const discountHTML = (this.bonusCard && discount > 0) ? `
             <div class="summary-line discount">
-                <span class="summary-label">Скидка -${this.bonusCard.discount_percent || (this.bonusCard.card && this.bonusCard.card.discount_percent)}%</span>
+                <span class="summary-label">Скидка -${this.bonusCard.card?.discount_percent}%</span>
                 <span class="summary-value">-${APIUtils.formatPrice(discount)}</span>
             </div>
         ` : '';
@@ -471,16 +471,22 @@ class CartManager {
 
         try {
             // Подготавливаем данные заказа
+            // ✅ ДОБАВЬ ЭТУ ОТЛАДКУ
+            console.log('🛒 CartManager.bonusCard:', this.bonusCard);
+            console.log('🛒 CartManager.bonusCard.card:', this.bonusCard?.card);
+            console.log('🛒 CartManager.bonusCard.card.card_number:', this.bonusCard?.card?.card_number);
+            
             const orderData = {
                 table_id: this.tableId,
                 items: Array.from(this.items.entries()).map(([dishId, quantity]) => ({
                     dish_id: dishId,
                     quantity: quantity
                 })),
-                bonus_card: this.bonusCard ? this.bonusCard.card_number : null,
+                // ✅ ИСПРАВЛЯЕМ: получаем card_number из правильного места
+                bonus_card: this.bonusCard?.card?.card_number || null,
                 language: window.MenuManager?.currentLanguage || 'ru'
             };
-
+            
             console.log('🛒 Order data prepared:', orderData);
 
             // Проверяем готовность API

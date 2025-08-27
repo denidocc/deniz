@@ -1,7 +1,7 @@
 """Контроллер клиентского интерфейса для планшетов."""
 
 from flask import Blueprint, render_template, request, jsonify, current_app
-from app.models import Table, MenuItem, MenuCategory, SystemSetting, WaiterCall, TableAssignment, AuditLog
+from app.models import Table, MenuItem, MenuCategory, SystemSetting, WaiterCall, TableAssignment, AuditLog, Order, OrderItem, BonusCard
 from app import db, csrf
 from sqlalchemy import func
 from datetime import datetime
@@ -454,9 +454,12 @@ def get_carousel():
 
 @client_bp.route('/api/orders', methods=['POST'])
 def create_order():
-    """Создание нового заказа."""
+    """Создание заказа клиентом."""
     try:
         data = request.get_json()
+        current_app.logger.info(f"=== CREATE ORDER ROUTE CALLED ===")
+        current_app.logger.info(f"Request data: {data}")
+        current_app.logger.info(f"Bonus card: {data.get('bonus_card')}")
         
         # Валидация обязательных полей
         required_fields = ['table_id', 'items']
@@ -556,9 +559,21 @@ def create_order():
         service_charge = total_amount * (service_charge_percent / 100)
         final_amount = total_amount + service_charge
         
-        # Создаем заказ в базе данных
-        from app.models.order import Order, OrderItem
-        from app.models.bonus_card import BonusCard
+        # Если указана бонусная карта
+        discount_amount = 0
+        bonus_card_obj = None  # ✅ Инициализируем переменную
+
+        if bonus_card:
+            bonus_card_obj = BonusCard.query.filter_by(card_number=bonus_card).first()
+            if bonus_card_obj and bonus_card_obj.is_active:
+                # Скидка применяется к (подытог + сервисный сбор)
+                total_before_discount = total_amount + service_charge
+                discount_amount = total_before_discount * (bonus_card_obj.discount_percent / 100)
+                final_amount = total_before_discount - discount_amount
+            else:
+                final_amount = total_amount + service_charge
+        else:
+            final_amount = total_amount + service_charge
         
         # Получаем назначенного официанта для стола
         waiter = table.get_assigned_waiter()
@@ -572,22 +587,22 @@ def create_order():
             status='pending',
             subtotal=total_amount,
             service_charge=service_charge,
-            total_amount=final_amount,
+            total_amount=final_amount,  # Итоговая сумма после скидки
             waiter_id=waiter.id if waiter else None,
             language=language,
             comments=notes
         )
         
-        # Если указана бонусная карта
-        if bonus_card:
-            bonus_card_obj = BonusCard.query.filter_by(card_number=bonus_card).first()
-            if bonus_card_obj and bonus_card_obj.is_active:
-                order.bonus_card_id = bonus_card_obj.id
-                # Применяем скидку
-                discount_amount = total_amount * (bonus_card_obj.discount_percent / 100)
-                order.discount_amount = discount_amount
-                final_amount -= discount_amount
-                order.total_amount = final_amount
+        # Если указана бонусная карта, устанавливаем ID и сумму скидки
+        if bonus_card and bonus_card_obj and bonus_card_obj.is_active:
+            order.bonus_card_id = bonus_card_obj.id
+            order.discount_amount = discount_amount
+            
+            # ✅ ДОБАВЬ ЭТУ ОТЛАДКУ
+            current_app.logger.info(f"Setting bonus_card_id: {order.bonus_card_id}")
+            current_app.logger.info(f"Setting discount_amount: {order.discount_amount}")
+        else:
+            current_app.logger.info(f"Bonus card not applied: bonus_card={bonus_card}, bonus_card_obj={bonus_card_obj}")
         
         # Сохраняем заказ
         current_app.logger.info(f"Adding order to session: {order}")

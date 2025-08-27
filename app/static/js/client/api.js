@@ -127,6 +127,26 @@ class ClientAPI {
         });
     }
 
+    /**
+     * Применение бонусной карты
+     */
+    async applyBonusCard(cardNumber) {
+        // Сначала проверяем карту
+        const verifyResponse = await this.verifyBonusCard(cardNumber);
+        
+        if (verifyResponse.status === 'success') {
+            // Применяем карту через CartManager
+            if (window.CartManager && typeof window.CartManager.applyBonusCard === 'function') {
+                window.CartManager.applyBonusCard(verifyResponse.data);
+                return { status: 'success', message: 'Бонусная карта применена' };
+            } else {
+                throw new Error('CartManager не готов');
+            }
+        } else {
+            throw new Error(verifyResponse.message || 'Карта недействительна');
+        }
+    }
+
     // Метод verifyTablePin перенесен выше с заглушкой
 
     // Метод getTables перенесен выше с заглушкой
