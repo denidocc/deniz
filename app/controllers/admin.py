@@ -2316,3 +2316,81 @@ def get_category_distribution_report():
             'status': 'error',
             'message': f'Ошибка получения отчета по категориям: {str(e)}'
         }), 500
+
+@admin_bp.route('/api/reports/table-usage')
+@admin_required
+@audit_action("get_table_usage_report")
+def get_table_usage_report():
+    """Получение отчета по загрузке столов."""
+    try:
+        from app.models import Table, Order, TableAssignment, Staff
+        
+        # Получаем параметры запроса
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        current_app.logger.info(f"Getting table usage report: start_date={start_date}, end_date={end_date}")
+        
+        # Получаем все столы
+        tables = Table.query.all()
+        tables_data = []
+        
+        for table in tables:
+            # Получаем количество заказов за период
+            orders_query = Order.query.filter_by(table_id=table.id)
+            
+            if start_date:
+                orders_query = orders_query.filter(Order.created_at >= start_date)
+            if end_date:
+                orders_query = orders_query.filter(Order.created_at <= end_date)
+            
+            orders_count = orders_query.count()
+            
+            # Получаем текущее назначение официанта (если есть)
+            waiter_name = "Не назначен"
+            try:
+                # Ищем активное назначение для стола
+                current_assignment = TableAssignment.query.filter_by(
+                    table_id=table.id,
+                    is_active=True
+                ).first()
+                
+                # Если есть назначение, получаем имя официанта
+                if current_assignment and current_assignment.waiter_id:
+                    waiter = Staff.query.get(current_assignment.waiter_id)
+                    if waiter:
+                        waiter_name = waiter.name
+                        
+            except Exception as e:
+                current_app.logger.warning(f"Could not get assignment for table {table.id}: {e}")
+            
+            # Рассчитываем загруженность (процент времени с заказами)
+            # Упрощенный расчет - просто количество заказов
+            usage_percentage = min(orders_count * 10, 100)  # 10% за каждый заказ, максимум 100%
+            
+            tables_data.append({
+                'id': table.id,
+                'table_number': table.table_number,
+                'capacity': table.capacity,
+                'orders_count': orders_count,
+                'waiter_name': waiter_name,
+                'usage_percentage': usage_percentage,
+                'status': 'active' if orders_count > 0 else 'inactive'
+            })
+        
+        # Сортируем по количеству заказов (самые загруженные сверху)
+        tables_data.sort(key=lambda x: x['orders_count'], reverse=True)
+        
+        current_app.logger.info(f"Found {len(tables_data)} tables")
+        
+        return jsonify({
+            'status': 'success',
+            'data': tables_data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting table usage report: {str(e)}", exc_info=True)
+        return jsonify({
+            'status': 'error',
+            'message': f'Ошибка получения отчета по загрузке столов: {str(e)}'
+        }), 500

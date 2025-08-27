@@ -200,6 +200,34 @@
         </div>
     </div>
 </div>
+
+<!-- Table Usage Report -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="report-card">
+            <div class="report-header">
+                <h5><i class="bi bi-table"></i> Загрузка столов</h5>
+            </div>
+            <div id="tableUsage">
+                <!-- Will be populated dynamically -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- УДАЛЯЕМ весь этот блок -->
+    <!--
+    <div class="col-md-6">
+        <div class="report-card">
+            <div class="report-header">
+                <h5><i class="bi bi-bar-chart"></i> График загрузки столов</h5>
+            </div>
+            <div class="chart-container">
+                <canvas id="tableUsageChart"></canvas>
+            </div>
+        </div>
+    </div>
+    -->
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -288,16 +316,63 @@
                 }
             }
         });
+
+        // Table Usage Chart
+        // const tableCtx = document.getElementById('tableUsageChart').getContext('2d');
+        // if (tableCtx) {
+        //     tableUsageChart = new Chart(tableCtx, {
+        //         type: 'bar',
+        //         data: {
+        //             labels: ['Загрузка...'],
+        //             datasets: [{
+        //                 label: 'Количество заказов',
+        //                 data: [0],
+        //                 backgroundColor: 'rgba(52, 152, 219, 0.8)',
+        //                 borderColor: 'rgb(52, 152, 219)',
+        //                 borderWidth: 1
+        //             }]
+        //         },
+        //         options: {
+        //             responsive: true,
+        //             maintainAspectRatio: false,
+        //             scales: {
+        //                 y: {
+        //                     beginAtZero: true,
+        //                     title: {
+        //                         display: true,
+        //                         text: 'Количество заказов'
+        //                     }
+        //                 },
+        //                 x: {
+        //                     title: {
+        //                         display: true,
+        //                         text: 'Столы'
+        //                     }
+        //                 }
+        //             },
+        //             plugins: {
+        //                 legend: {
+        //                     display: false
+        //                 }
+        //             }
+        //         }
+        //     });
+        // }
     }
 
-    // Добавляем функцию форматирования валюты
+    // Добавляем функцию форматирования валюты, если её нет
     function formatCurrency(amount) {
         if (amount === null || amount === undefined) return '0 TMT';
-        return new Intl.NumberFormat('ru-RU', {
-            style: 'currency',
-            currency: 'TMT',
-            minimumFractionDigits: 2
-        }).format(amount);
+        try {
+            return new Intl.NumberFormat('ru-RU', {
+                style: 'currency',
+                currency: 'TMT',
+                minimumFractionDigits: 2
+            }).format(amount);
+        } catch (error) {
+            console.error('❌ Ошибка форматирования валюты:', error);
+            return `${amount} TMT`;
+        }
     }
 
     async function updateCategoryChart() {
@@ -331,7 +406,87 @@
         }
     }
 
-    // Обновляем функцию generateReport, чтобы она также загружала данные по категориям
+    // Функция для обновления отчета по столам
+    async function updateTableUsageReport() {
+        try {
+            console.log('📊 Загружаем отчет по столам...');
+            
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            console.log('📅 Период:', startDate, '-', endDate);
+            
+            const response = await apiRequest('/admin/api/reports/table-usage', 'GET', null, {
+                start_date: startDate,
+                end_date: endDate
+            });
+            
+            console.log('📊 Ответ API по столам:', response);
+            
+            if (response.status === 'success' && response.data) {
+                const container = document.getElementById('tableUsage');
+                if (!container) {
+                    console.error('❌ Контейнер для столов не найден');
+                    return;
+                }
+                
+                console.log('🎯 Контейнер для столов:', container);
+                console.log('📊 Данные столов:', response.data);
+                
+                // Проверяем, есть ли данные
+                if (response.data.length === 0) {
+                    container.innerHTML = '<div class="alert alert-info">Нет данных по столам за выбранный период</div>';
+                    return;
+                }
+                
+                // Создаем таблицу
+                let html = '<div class="table-responsive"><table class="table table-sm">';
+                html += '<thead><tr><th>Стол</th><th>Вместимость</th><th>Заказов</th><th>Официант</th><th>Загруженность</th></tr></thead><tbody>';
+                
+                response.data.forEach((table, index) => {
+                    console.log(`🎯 Обрабатываем стол ${index}:`, table);
+                    
+                    const rowClass = table.orders_count > 0 ? 'table-success' : 'table-light';
+                    const usageBar = `<div class="progress" style="height: 20px;">
+                        <div class="progress-bar ${table.usage_percentage > 70 ? 'bg-success' : table.usage_percentage > 30 ? 'bg-warning' : 'bg-info'}" 
+                             style="width: ${table.usage_percentage}%">
+                            ${table.usage_percentage}%
+                        </div>
+                    </div>`;
+                    
+                    html += `<tr class="${rowClass}">
+                        <td><strong>Стол ${table.table_number}</strong></td>
+                        <td>${table.capacity} чел.</td>
+                        <td>${table.orders_count}</td>
+                        <td>${table.waiter_name}</td>
+                        <td style="width: 150px;">${usageBar}</td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table></div>';
+                
+                console.log('📝 Сгенерированный HTML:', html);
+                container.innerHTML = html;
+                console.log('✅ Отчет по столам обновлен');
+                console.log('🔍 Финальное содержимое контейнера:', container.innerHTML);
+            } else {
+                console.error('❌ Неверный ответ API:', response);
+                const container = document.getElementById('tableUsage');
+                if (container) {
+                    container.innerHTML = '<div class="alert alert-danger">Ошибка загрузки данных</div>';
+                }
+            }
+            
+        } catch (error) {
+            console.error('❌ Ошибка загрузки отчета по столам:', error);
+            const container = document.getElementById('tableUsage');
+            if (container) {
+                container.innerHTML = '<div class="alert alert-danger">Ошибка: ' + error.message + '</div>';
+            }
+        }
+    }
+
+    // Обновляем функцию generateReport, чтобы она также загружала отчет по столам
     async function generateReport() {
         const button = event?.target;
         let originalText;
@@ -354,7 +509,8 @@
             // ✅ ВСЕГДА загружаем все отчеты, независимо от типа
             await updateMenuReport();
             await updateStaffReport();
-            await updateCategoryChart(); // ✅ Добавляем обновление диаграммы категорий
+            await updateCategoryChart();
+            await updateTableUsageReport(); // ✅ Добавляем отчет по столам
             
         } catch (error) {
             showAlert('Ошибка при загрузке отчета: ' + error.message, 'danger');
@@ -410,6 +566,18 @@
                 `;
                 body.appendChild(row);
             });
+        } else if (reportType === 'tables') {
+            // Table usage report table
+            headers.innerHTML = `
+                <th>Стол</th>
+                <th>Вместимость</th>
+                <th>Заказов</th>
+                <th>Выручка</th>
+                <th>Официант</th>
+            `;
+            
+            // Здесь можно добавить логику для отображения данных по столам
+            // или оставить пустым, так как у нас есть отдельный блок для столов
         }
     }
 
@@ -427,17 +595,22 @@
             if (response.status === 'success') {
                 const topDishesContainer = document.getElementById('topDishes');
                 console.log(' Контейнер для блюд:', topDishesContainer);
+                console.log('📊 Данные блюд:', response.data);
                 
                 let html = '<div class="table-responsive"><table class="table table-sm">';
                 html += '<thead><tr><th>Блюдо</th><th>Количество</th><th>Выручка</th></tr></thead><tbody>';
                 
                 if (response.data && response.data.length > 0) {
                     response.data.forEach((dish, index) => {
+                        console.log(`🍽️ Обрабатываем блюдо ${index}:`, dish);
                         const rowClass = index < 3 ? 'table-warning' : '';
+                        const formattedRevenue = formatCurrency(dish.revenue);
+                        console.log(`💰 Форматированная выручка: ${formattedRevenue}`);
+                        
                         html += `<tr class="${rowClass}">
                             <td><strong>${dish.name}</strong></td>
                             <td>${dish.quantity}</td>
-                            <td>${formatCurrency(dish.revenue)}</td>
+                            <td>${formattedRevenue}</td>
                         </tr>`;
                     });
                 } else {
@@ -445,8 +618,11 @@
                 }
                 
                 html += '</tbody></table></div>';
+                console.log('📝 Сгенерированный HTML:', html);
+                
                 topDishesContainer.innerHTML = html;
                 console.log('✅ Отчет по меню обновлен');
+                console.log('🔍 Финальное содержимое контейнера:', topDishesContainer.innerHTML);
             }
         } catch (error) {
             console.error('❌ Ошибка загрузки отчета по меню:', error);
@@ -502,11 +678,6 @@
         showAlert(`Экспорт в ${format.toUpperCase()} в разработке`, 'info');
     }
 
-    // Update category chart with sample data
-    // setTimeout(() => {
-    //     categoryChart.data.labels = ['Основные блюда', 'Напитки', 'Десерты', 'Закуски'];
-    //     categoryChart.data.datasets[0].data = [40, 25, 20, 15];
-    //     categoryChart.update();
-    // }, 1000);
+    
 </script>
 {% endblock %}
