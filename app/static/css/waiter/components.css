@@ -1109,6 +1109,9 @@
     border-bottom: none;
 }
 
+.order-summary .status-badge{
+  color: black;
+}
 .status-badge {
     padding: 4px 12px;
     border-radius: 20px;
@@ -1208,7 +1211,7 @@
 /* Стили для бонусных карт */
 .bonus-card-info {
     background: linear-gradient(135deg, #FF69B4, #FF8E53);
-    color: white;
+    color: black;
     border-radius: 8px;
     padding: 8px 12px;
     margin-top: 8px;

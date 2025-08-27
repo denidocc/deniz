@@ -456,9 +456,17 @@ def get_order_details(order_id):
         'subtotal': float(order.subtotal),
         'service_charge': float(order.service_charge),
         'total_amount': float(order.total_amount),
+        'discount_amount': float(order.discount_amount),  # ✅ Добавляем скидку
         'created_at': order.created_at.isoformat(),
         'items': []
     }
+    
+    # ✅ Добавляем информацию о бонусной карте
+    if order.bonus_card:
+        order_data['bonus_card'] = {
+            'card_number': order.bonus_card.card_number,
+            'discount_percent': order.bonus_card.discount_percent
+        }
     
     # Добавляем позиции заказа
     for item in order.items:

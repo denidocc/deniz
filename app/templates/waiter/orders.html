@@ -61,6 +61,15 @@
     text-transform: uppercase;
 }
 
+.order-close-btn {
+    color: black;
+    font-size: 1.5rem;
+    font-weight: 600;
+    cursor: pointer;
+    width: 60px;
+    border-radius: 15px;
+}
+
 .order-status.pending {
     background: #28a745 !important;
 }
@@ -161,7 +170,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Детали заказа</h3>
-                <button type="button" class="btn-close" data-dismiss="modal">&times;</button>
+                <button type="button" class="order-close-btn" data-dismiss="modal">&times;</button>
             </div>
             <div class="modal-body" id="orderDetailContent">
                 <!-- Содержимое будет загружено динамически -->
