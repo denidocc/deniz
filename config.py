@@ -39,9 +39,6 @@ class BaseConfig:
     JWT_ACCESS_TOKEN_EXPIRES: timedelta = timedelta(days=15)
     JWT_REFRESH_TOKEN_EXPIRES: timedelta = timedelta(days=30)
     
-    # Шифрование
-    ENCRYPTION_KEY: str = os.environ.get('ENCRYPTION_KEY', 'default-encryption-key')
-    
     # Многоязычность
     LANGUAGES = ['ru', 'tk', 'en']
     BABEL_DEFAULT_LOCALE = 'ru'

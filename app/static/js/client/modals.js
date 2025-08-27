@@ -363,11 +363,17 @@ class ModalManager {
                 const response = await window.ClientAPI.verifyBonusCard(cardNumber);
                 
                 if (response.status === 'success') {
+                    // Применяем бонусную карту к корзине
+                    if (window.CartManager && typeof window.CartManager.setBonusCard === 'function') {
+                        window.CartManager.setBonusCard(response.data.card);
+                    }
+                    
                     callback(response.data);
                     this.closeActive();
                     NotificationManager.showSuccess('Бонусная карта применена!');
                 } else {
-                    throw new Error(response.message || 'Карта не найдена');
+                    // Показываем детальный модал
+                    ModalManager.showBonusCardDetails(response.data, true);
                 }
                 
             } catch (error) {
@@ -592,7 +598,224 @@ class ModalManager {
         
         return modalId;
     }
+
+    /**
+     * Показ детальной информации о бонусной карте
+     */
+    static showBonusCardDetails(cardData, isError = false) {
+        const { card, reason, card_number } = cardData;
+        
+        let statusClass = 'success';
+        let statusIcon = '✅';
+        let title = 'Бонусная карта найдена';
+        
+        if (isError) {
+            statusClass = 'error';
+            statusIcon = '❌';
+            title = 'Проблема с бонусной картой';
+        }
+        
+        const content = `
+            <div class="modal-header ${statusClass}">
+                <h2 class="modal-title">
+                    ${statusIcon} ${title}
+                </h2>
+            </div>
+            <div class="modal-content">
+                <div class="card-info">
+                    <div class="card-number">
+                        <strong>Номер карты:</strong> ${card_number}
+                    </div>
+                    
+                    ${card ? `
+                        <div class="card-details">
+                            <div class="detail-row">
+                                <span class="label">Скидка:</span>
+                                <span class="value discount">${card.discount_percent}%</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="label">Статус:</span>
+                                <span class="value status ${card.is_active ? 'active' : 'inactive'}">
+                                    ${card.is_active ? 'Активна' : 'Неактивна'}
+                                </span>
+                            </div>
+                            ${card.activated_at ? `
+                                <div class="detail-row">
+                                    <span class="label">Активирована:</span>
+                                    <span class="value">${new Date(card.activated_at).toLocaleDateString('ru-RU')}</span>
+                                </div>
+                            ` : ''}
+                            ${card.deactivated_at ? `
+                                <div class="detail-row">
+                                    <span class="label">Действует до:</span>
+                                    <span class="value">${new Date(card.deactivated_at).toLocaleDateString('ru-RU')}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    ` : ''}
+                    
+                    ${reason ? `
+                        <div class="reason-box ${statusClass}">
+                            <strong>Причина:</strong> ${reason}
+                        </div>
+                    ` : ''}
+                </div>
+                
+                <div class="card-actions">
+                    <button class="btn btn-secondary" onclick="ModalManager.closeActive()">
+                        Закрыть
+                    </button>
+                    ${isError ? `
+                        <button class="btn btn-primary" onclick="ModalManager.showBonusCardInput()">
+                            Попробовать другую карту
+                        </button>
+                    ` : `
+                        <button class="btn btn-success" onclick="ModalManager.applyBonusCard('${card_number}')">
+                            Применить карту
+                        </button>
+                    `}
+                </div>
+            </div>
+        `;
+        
+        return this.show(content, { 
+            className: `bonus-card-modal ${statusClass}`,
+            hideClose: false
+        });
+    }
+
+    /**
+     * Показ модала ввода бонусной карты
+     */
+    static showBonusCardInput() {
+        const content = `
+            <div class="modal-header">
+                <h2 class="modal-title">
+                    💳 Введите номер бонусной карты
+                </h2>
+            </div>
+            <div class="modal-content">
+                <div class="input-group">
+                    <label for="bonusCardInput">Номер карты (6 цифр):</label>
+                    <input type="text" id="bonusCardInput" 
+                           maxlength="6" 
+                           placeholder="Например: 123456"
+                           pattern="[0-9]{6}"
+                           class="form-control">
+                    <div class="input-help">
+                        Введите 6-значный номер карты
+                    </div>
+                </div>
+                
+                <div class="card-actions">
+                    <button class="btn btn-secondary" onclick="ModalManager.closeActive()">
+                        Отмена
+                    </button>
+                    <button class="btn btn-primary" onclick="ModalManager.verifyBonusCard()">
+                        Проверить карту
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        const modalId = this.show(content, { 
+            className: 'bonus-card-input-modal',
+            hideClose: false
+        });
+        
+        // Фокус на поле ввода
+        setTimeout(() => {
+            const input = document.querySelector('#bonusCardInput');
+            if (input) input.focus();
+        }, 100);
+        
+        return modalId;
+    }
+
+    /**
+     * Проверка бонусной карты
+     */
+    static async verifyBonusCard() {
+        const input = document.querySelector('#bonusCardInput');
+        if (!input) return;
+        
+        const cardNumber = input.value.trim();
+        
+        if (cardNumber.length !== 6 || !/^\d{6}$/.test(cardNumber)) {
+            this.showAlert('Введите корректный 6-значный номер карты', 'error');
+            return;
+        }
+        
+        try {
+            const response = await window.ClientAPI.verifyBonusCard(cardNumber);
+            
+            if (response.status === 'success') {
+                // Закрываем текущий модал
+                this.closeActive();
+                // Показываем детали карты
+                this.showBonusCardDetails(response.data, false);
+            } else {
+                // Показываем ошибку с деталями
+                this.showBonusCardDetails(response.data, true);
+            }
+        } catch (error) {
+            this.showAlert('Ошибка проверки карты: ' + error.message, 'error');
+        }
+    }
+
+    // Подтверждение применения бонусной карты
+    static applyBonusCard(cardNumber) {
+        this.showConfirm(
+            'Применить бонусную карту?',
+            `Вы уверены, что хотите применить бонусную карту №${cardNumber}?`,
+            async () => {
+                try {
+                    APIUtils.showLoading(null, 'Применяем...'); // Скрываем кнопку, пока идет загрузка
+                    
+                    if (!window.ClientAPI || typeof window.ClientAPI.applyBonusCard !== 'function') {
+                        throw new Error('API не готов');
+                    }
+                    
+                    const response = await window.ClientAPI.applyBonusCard(cardNumber);
+                    
+                    if (response.status === 'success') {
+                        NotificationManager.showSuccess('Бонусная карта применена!');
+                        this.closeActive();
+                    } else {
+                        throw new Error(response.message || 'Не удалось применить карту');
+                    }
+                } catch (error) {
+                    APIUtils.handleError(error, 'Не удалось применить бонусную карту');
+                } finally {
+                    APIUtils.hideLoading(null); // Скрываем кнопку, пока идет загрузка
+                }
+            }
+        );
+    }
+
+    // Уведомление об ошибке
+    static showAlert(message, type = 'info') {
+        const alertContent = `
+            <div class="alert alert-${type}">
+                ${message}
+            </div>
+        `;
+        this.show(alertContent, { className: 'alert-modal' });
+    }
 }
 
 // Экспортируем в глобальную область
 window.ModalManager = ModalManager;
+
+// Глобальные функции для вызова из HTML
+window.showBonusCardDetails = function(cardData, isError = false) {
+    return ModalManager.showBonusCardDetails(cardData, isError);
+};
+
+window.showBonusCardInput = function() {
+    return ModalManager.showBonusCardInput();
+};
+
+window.verifyBonusCard = function() {
+    return ModalManager.verifyBonusCard();
+};

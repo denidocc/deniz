@@ -525,3 +525,133 @@
   color: var(--medium-text);
   line-height: 1.5;
 }
+
+/* Стили для модала бонусной карты */
+.bonus-card-modal .modal-header {
+    border-bottom: 3px solid;
+}
+
+.bonus-card-modal .modal-header.success {
+    border-color: #28a745;
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+}
+
+.bonus-card-modal .modal-header.error {
+    border-color: #dc3545;
+    background: linear-gradient(135deg, #dc3545, #fd7e14);
+    color: white;
+}
+
+.card-info {
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.card-number {
+    font-size: 1.2rem;
+    font-weight: bold;
+    text-align: center;
+    padding: 0.5rem;
+    background: white;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    border: 2px solid #dee2e6;
+}
+
+.card-details {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    background: white;
+    border-radius: 4px;
+}
+
+.detail-row .label {
+    font-weight: 500;
+    color: #6c757d;
+}
+
+.detail-row .value {
+    font-weight: bold;
+}
+
+.detail-row .value.discount {
+    color: #28a745;
+    font-size: 1.1rem;
+}
+
+.detail-row .value.status.active {
+    color: #28a745;
+}
+
+.detail-row .value.status.inactive {
+    color: #dc3545;
+}
+
+.reason-box {
+    padding: 1rem;
+    border-radius: 6px;
+    margin: 1rem 0;
+    border-left: 4px solid;
+}
+
+.reason-box.success {
+    background: #d4edda;
+    border-color: #28a745;
+    color: #155724;
+}
+
+.reason-box.error {
+    background: #f8d7da;
+    border-color: #dc3545;
+    color: #721c24;
+}
+
+.card-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 1.5rem;
+}
+
+.bonus-card-input-modal .input-group {
+    margin-bottom: 1.5rem;
+}
+
+.bonus-card-input-modal label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.bonus-card-input-modal .form-control {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
+    font-size: 1.1rem;
+    text-align: center;
+    letter-spacing: 2px;
+}
+
+.bonus-card-input-modal .form-control:focus {
+    border-color: #007bff;
+    outline: none;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.bonus-card-input-modal .input-help {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: #6c757d;
+    text-align: center;
+}

@@ -38,21 +38,29 @@ def check_bonus_card():
             current_app.logger.info("Card not found")
             return jsonify({
                 'status': 'error',
-                'message': 'Карта не найдена или неактивна',
-                'data': {}
+                'message': 'Карта не найдена',
+                'data': {
+                    'card_number': card_number,
+                    'reason': 'Карта с таким номером не существует'
+                }
             }), 404
         
-        # Проверяем валидность карты
+        # Проверяем валидность карты (с автоматической деактивацией)
         current_app.logger.info("Checking card validity...")
         is_valid = bonus_card.is_valid()
         current_app.logger.info(f"Card is valid: {is_valid}")
         
         if not is_valid:
             current_app.logger.info("Card is not valid")
+            reason = bonus_card.get_invalidity_reason()
             return jsonify({
                 'status': 'error',
                 'message': 'Карта неактивна или срок действия истек',
-                'data': {}
+                'data': {
+                    'card': bonus_card.to_dict(),
+                    'reason': reason,
+                    'card_number': card_number
+                }
             }), 400
         
         # Сериализуем карту

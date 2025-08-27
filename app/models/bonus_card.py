@@ -98,19 +98,54 @@ class BonusCard(BaseModel):
         return f'<BonusCard {self.card_number}>'
     
     def is_valid(self) -> bool:
-        """Проверка валидности карты."""
+        """Проверка валидности карты с автоматической деактивацией."""
         if not self.is_active:
             return False
         
         today = datetime.now().date()
         
-        if self.activated_at and today < self.activated_at:
-            return False
+        # Приводим даты к типу date для корректного сравнения
+        if self.activated_at:
+            activated_date = self.activated_at.date() if hasattr(self.activated_at, 'date') else self.activated_at
+            if today < activated_date:
+                return False
         
-        if self.deactivated_at and today > self.deactivated_at:
-            return False
+        if self.deactivated_at:
+            deactivated_date = self.deactivated_at.date() if hasattr(self.deactivated_at, 'date') else self.deactivated_at
+            if today > deactivated_date:
+                # Автоматически деактивируем карту при истечении срока
+                if self.is_active:
+                    self.is_active = False
+                    try:
+                        from app import db
+                        db.session.commit()
+                        from flask import current_app
+                        current_app.logger.info(f"Bonus card {self.card_number} automatically deactivated due to expired date")
+                    except Exception as e:
+                        current_app.logger.error(f"Failed to auto-deactivate card {self.card_number}: {e}")
+                        db.session.rollback()
+                return False
         
         return True
+    
+    def get_invalidity_reason(self) -> str:
+        """Получение причины невалидности карты."""
+        if not self.is_active:
+            return "Карта неактивна"
+        
+        today = datetime.now().date()
+        
+        if self.activated_at:
+            activated_date = self.activated_at.date() if hasattr(self.activated_at, 'date') else self.activated_at
+            if today < activated_date:
+                return f"Карта будет активна с {activated_date.strftime('%d.%m.%Y')}"
+        
+        if self.deactivated_at:
+            deactivated_date = self.deactivated_at.date() if hasattr(self.deactivated_at, 'date') else self.deactivated_at
+            if today > deactivated_date:
+                return f"Срок действия карты истек {deactivated_date.strftime('%d.%m.%Y')}"
+        
+        return "Карта валидна"
     
     def to_dict(self, include_sensitive: bool = False) -> Dict[str, Any]:
         """Сериализация в словарь."""

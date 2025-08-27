@@ -208,16 +208,38 @@ class CartManager {
     }
 
     static async getDiscount() {
-        if (!this.bonusCard) return 0;
+        if (!this.bonusCard || !this.bonusCard.discount_percent) return 0;
         const subtotal = await this.getSubtotal();
         return subtotal * (this.bonusCard.discount_percent / 100);
     }
 
     static async getTotal() {
-        const subtotal = await this.getSubtotal();
-        const serviceCharge = await this.getServiceCharge();
-        const discount = await this.getDiscount();
-        return subtotal + serviceCharge - discount;
+        try {
+            const subtotal = await this.getSubtotal();
+            const serviceCharge = await this.getServiceCharge();
+            
+            // Вычисляем скидку напрямую
+            let discount = 0;
+            if (this.bonusCard && this.bonusCard.discount_percent) {
+                discount = subtotal * (this.bonusCard.discount_percent / 100);
+            }
+            
+            const total = subtotal + serviceCharge - discount;
+            
+            // Проверяем на корректность
+            if (isNaN(total) || total < 0) {
+                console.error('Invalid total calculation:', { subtotal, serviceCharge, discount, total });
+                return subtotal + serviceCharge; // Возвращаем без скидки
+            }
+            
+            return total;
+        } catch (error) {
+            console.error('Error calculating total:', error);
+            // В случае ошибки возвращаем подытог без скидки
+            const subtotal = await this.getSubtotal();
+            const serviceCharge = await this.getServiceCharge();
+            return subtotal + serviceCharge;
+        }
     }
 
     static async render() {
@@ -306,7 +328,16 @@ class CartManager {
         const discount = await this.getDiscount();
         const total = await this.getTotal();
 
-        const discountHTML = discount > 0 ? `
+        console.log('🛒 renderFooter debug:', { 
+            subtotal, 
+            serviceCharge, 
+            discount, 
+            total, 
+            bonusCard: this.bonusCard 
+        });
+
+        // Показываем скидку если есть бонусная карта и скидка больше 0
+        const discountHTML = (this.bonusCard && discount > 0) ? `
             <div class="summary-line discount">
                 <span class="summary-label">Скидка -${this.bonusCard.discount_percent}%</span>
                 <span class="summary-value">-${APIUtils.formatPrice(discount)}</span>
@@ -336,7 +367,7 @@ class CartManager {
             </div>
             
             <button class="btn bonus-card-btn" onclick="CartManager.openBonusCard()">
-                ${this.bonusCard ? '💳 Бонусная карта применена' : '💳 Бонусная карта'}
+                ${this.bonusCard ? `💳 Бонусная карта ${this.bonusCard.card_number} (${this.bonusCard.discount_percent}%)` : '💳 Бонусная карта'}
             </button>
             
             <button class="btn btn-primary continue-order-btn" onclick="CartManager.proceedToOrder()">
@@ -619,6 +650,30 @@ class CartManager {
     }
 
     // Методы ниже переопределены выше: setTable, getCurrentTableId, placeOrder
+
+    // Добавить в CartManager:
+
+    static setBonusCard(bonusCardData) {
+        this.bonusCard = bonusCardData;
+        console.log('🛒 Bonus card set:', this.bonusCard);
+        
+        // Перерисовываем корзину с новой скидкой
+        this.render();
+        
+        // Сохраняем в localStorage
+        this.saveToStorage();
+    }
+
+    static clearBonusCard() {
+        this.bonusCard = null;
+        console.log('🛒 Bonus card cleared');
+        
+        // Перерисовываем корзину без скидки
+        this.render();
+        
+        // Сохраняем в localStorage
+        this.saveToStorage();
+    }
 }
 
 // Экспортируем в глобальную область
