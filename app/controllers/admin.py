@@ -981,6 +981,37 @@ def get_waiters():
             'message': 'Ошибка получения списка официантов'
         }), 500
 
+@admin_bp.route('/api/staff/waiters')
+@admin_required
+@audit_action("get_staff_waiters_list")
+def get_staff_waiters():
+    """Получение списка официантов для назначения к столам."""
+    try:
+        from app.models.staff import Staff
+        
+        waiters = Staff.query.filter_by(role='waiter').all()
+        waiters_data = []
+        
+        for waiter in waiters:
+            waiters_data.append({
+                'id': waiter.id,
+                'name': waiter.name,
+                'login': waiter.login,
+                'is_active': waiter.is_active
+            })
+        
+        return jsonify({
+            'status': 'success',
+            'data': waiters_data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting staff waiters: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка получения списка официантов'
+        }), 500
+
 @admin_bp.route('/api/tables/filters')
 @admin_required
 @audit_action("get_tables_list")
@@ -1310,11 +1341,28 @@ def banners_page():
 @audit_action("get_banners")
 def get_banners():
     """Получение списка всех баннеров."""
-    banners = Banner.query.order_by(Banner.sort_order).all()
-    return jsonify({
-        'status': 'success',
-        'data': [banner.to_dict() for banner in banners]
-    })
+    try:
+        # Получаем все баннеры
+        banners = Banner.query.order_by(Banner.sort_order).all()
+        
+        # Проверяем валидность каждого баннера (автоматически деактивируем истекшие)
+        banners_data = []
+        for banner in banners:
+            # Вызываем is_valid() для автоматической деактивации истекших баннеров
+            banner.is_valid()
+            banners_data.append(banner.to_dict())
+        
+        return jsonify({
+            'status': 'success',
+            'data': banners_data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting banners: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка получения списка баннеров'
+        }), 500
 
 @admin_bp.route('/api/banners', methods=['POST'])
 @admin_required
