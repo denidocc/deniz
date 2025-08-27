@@ -543,8 +543,12 @@ def cancel_order(order_id):
                 "message": "Заказ не найден"
             }), 404
         
+        # Добавляем логирование для отладки
+        current_app.logger.info(f"Cancel order {order_id}: status={order.status}, waiter_id={order.waiter_id}, current_user_id={current_user.id}")
+        
         # Проверяем, что заказ принадлежит текущему официанту
         if order.waiter_id != current_user.id:
+            current_app.logger.warning(f"Waiter {current_user.id} tried to cancel order {order_id} belonging to waiter {order.waiter_id}")
             return jsonify({
                 "status": "error",
                 "message": "У вас нет прав для отмены этого заказа"
@@ -552,13 +556,29 @@ def cancel_order(order_id):
         
         # Проверяем, что заказ еще не завершен или отменен
         if order.status in ['completed', 'cancelled']:
+            current_app.logger.warning(f"Order {order_id} already in final status: {order.status}")
             return jsonify({
                 "status": "error",
                 "message": "Заказ уже завершен или отменен"
             }), 400
         
         # Проверяем возможность перехода к статусу cancelled
-        if not order.can_transition_to('cancelled'):
+        status_info = order.get_status_info()
+        current_app.logger.info(f"Order {order_id} status_info: {status_info}")
+        
+        if status_info:
+            current_app.logger.info(f"Order {order_id} status_info.can_transition_to: {status_info.can_transition_to}")
+            transition_targets = status_info.get_transition_targets()
+            current_app.logger.info(f"Order {order_id} transition_targets: {transition_targets}")
+        else:
+            current_app.logger.warning(f"Order {order_id} has no status_info")
+            transition_targets = []
+        
+        can_cancel = order.can_transition_to('cancelled')
+        current_app.logger.info(f"Order {order_id} can_transition_to('cancelled'): {can_cancel}")
+        
+        if not can_cancel:
+            current_app.logger.warning(f"Order {order_id} cannot transition to cancelled from status {order.status}")
             return jsonify({
                 "status": "error",
                 "message": "Невозможно отменить заказ в текущем статусе"

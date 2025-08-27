@@ -1,7 +1,7 @@
 """Контроллер клиентского интерфейса для планшетов."""
 
 from flask import Blueprint, render_template, request, jsonify, current_app
-from app.models import Table, MenuItem, MenuCategory, SystemSetting, WaiterCall, TableAssignment
+from app.models import Table, MenuItem, MenuCategory, SystemSetting, WaiterCall, TableAssignment, AuditLog
 from app import db, csrf
 from sqlalchemy import func
 from datetime import datetime
@@ -658,12 +658,25 @@ def create_order():
         current_app.logger.info(f"Table {table.table_number} status from direct query: {table_status_check}")
         
         # Аудирование
-        from app.utils.decorators import audit_action
-        audit_action(
-            action='create_order',
-            table_affected=True,
-            order_affected=True
-        )
+        try:
+            audit_log = AuditLog(
+                action='create_order',
+                staff_id=None,  # Клиентский интерфейс
+                ip_address=request.remote_addr,
+                table_affected=table.id,
+                order_affected=order.id,
+                details=json.dumps({  # Преобразуем dict в JSON строку
+                    'message': f'Order {order.id} created for table {table.table_number}',
+                    'user_agent': request.headers.get('User-Agent'),
+                    'created_at': order.created_at.isoformat()
+                })
+            )
+            db.session.add(audit_log)
+            db.session.commit()
+            current_app.logger.info(f"Audit log created for order {order.id}")
+        except Exception as e:
+            current_app.logger.warning(f"Audit logging failed: {e}")
+            # Не прерываем выполнение из-за ошибки аудита
         
         order_data = {
             'order_id': order.id,
@@ -923,14 +936,25 @@ def complete_order(order_id):
         # Сохраняем изменения
         db.session.commit()
         
-        # Аудирование
-        from app.utils.audit_middleware import audit_action
-        audit_action(
-            action='complete_order',
-            target_type='order',
-            target_id=order.id,
-            details=f'Order {order.id} completed for table {table.table_number if table else "unknown"}'
-        )
+        # Аудирование - создаем запись напрямую
+        try:
+            audit_log = AuditLog(
+                action='complete_order',
+                staff_id=None,  # Клиентский интерфейс
+                ip_address=request.remote_addr,
+                table_affected=table.id if table else None,
+                order_affected=order.id,
+                details={
+                    'message': f'Order {order.id} completed for table {table.table_number if table else "unknown"}',
+                    'user_agent': request.headers.get('User-Agent'),
+                    'completed_at': order.completed_at.isoformat()
+                }
+            )
+            db.session.add(audit_log)
+            db.session.commit()
+        except Exception as audit_error:
+            current_app.logger.warning(f"Audit logging failed: {audit_error}")
+            # Не прерываем выполнение из-за ошибки аудита
         
         current_app.logger.info(f"Order {order.id} completed successfully")
         
@@ -988,14 +1012,25 @@ def cancel_order(order_id):
         # Сохраняем изменения
         db.session.commit()
         
-        # Аудирование
-        from app.utils.audit_middleware import audit_action
-        audit_action(
-            action='cancel_order',
-            target_type='order',
-            target_id=order.id,
-            details=f'Order {order.id} cancelled for table {table.table_number if table else "unknown"}'
-        )
+        # Аудирование - создаем запись напрямую
+        try:
+            audit_log = AuditLog(
+                action='cancel_order',
+                staff_id=None,  # Клиентский интерфейс
+                ip_address=request.remote_addr,
+                table_affected=table.id if table else None,
+                order_affected=order.id,
+                details={
+                    'message': f'Order {order.id} cancelled for table {table.table_number if table else "unknown"}',
+                    'user_agent': request.headers.get('User-Agent'),
+                    'cancelled_at': order.cancelled_at.isoformat()
+                }
+            )
+            db.session.add(audit_log)
+            db.session.commit()
+        except Exception as audit_error:
+            current_app.logger.warning(f"Audit logging failed: {audit_error}")
+            # Не прерываем выполнение из-за ошибки аудита
         
         current_app.logger.info(f"Order {order_id} cancelled successfully")
         

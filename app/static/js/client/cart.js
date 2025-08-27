@@ -8,8 +8,8 @@ class CartManager {
         
         this.items = new Map();
         // Используем tableId из конфигурации или значение по умолчанию
-        this.tableId = window.CLIENT_CONFIG?.tableId || null;
-        this.tableNumber = undefined;
+        this.tableId = window.CLIENT_CONFIG?.tableId || 1;
+        this.tableNumber = window.CLIENT_CONFIG?.tableNumber || 1;
         this.bonusCard = null;
         
         // Получаем настройки из конфигурации
@@ -463,17 +463,25 @@ class CartManager {
             return;
         }
 
+        // Проверяем, выбран ли стол
+        if (!this.tableId) {
+            NotificationManager.showError('Пожалуйста, выберите стол перед оформлением заказа');
+            return;
+        }
+
         try {
-                    // Подготавливаем данные заказа
-        const orderData = {
-            table_id: this.tableId,
-            items: Array.from(this.items.entries()).map(([dishId, quantity]) => ({
-                dish_id: dishId,
-                quantity: quantity
-            })),
-            bonus_card: this.bonusCard ? this.bonusCard.card_number : null,
-            language: window.MenuManager?.currentLanguage || 'ru'
-        };
+            // Подготавливаем данные заказа
+            const orderData = {
+                table_id: this.tableId,
+                items: Array.from(this.items.entries()).map(([dishId, quantity]) => ({
+                    dish_id: dishId,
+                    quantity: quantity
+                })),
+                bonus_card: this.bonusCard ? this.bonusCard.card_number : null,
+                language: window.MenuManager?.currentLanguage || 'ru'
+            };
+
+            console.log('🛒 Order data prepared:', orderData);
 
             // Проверяем готовность API
             if (!window.ClientAPI || typeof window.ClientAPI.createOrder !== 'function') {
@@ -486,18 +494,31 @@ class CartManager {
             const response = await window.ClientAPI.createOrder(orderData);
             
             if (response.status === 'success') {
-                // Применяем бонусную карту к корзине
-                if (window.CartManager && typeof window.CartManager.setBonusCard === 'function') {
-                    window.CartManager.setBonusCard(response.data);
-                }
+                // Сохраняем данные заказа для модалки
+                const orderInfo = {
+                    order_id: response.data.order_id || response.data.id,
+                    table_id: this.tableId,
+                    items: Array.from(this.items.entries()),
+                    total: await this.getTotal()
+                };
                 
                 // Очищаем корзину
                 this.items.clear();
                 this.bonusCard = null;
+                
+                // Сохраняем в localStorage
+                this.saveToStorage();
+                
+                // Обновляем интерфейс
                 await this.render();
                 await this.updateDishButtons();
                 
-                NotificationManager.showSuccess('Заказ отправлен!');
+                // Показываем модалку с таймером
+                if (window.ModalManager && typeof window.ModalManager.openOrderConfirmation === 'function') {
+                    window.ModalManager.openOrderConfirmation(orderInfo);
+                } else {
+                    NotificationManager.showSuccess('Заказ отправлен!');
+                }
             } else {
                 throw new Error(response.message || 'Ошибка создания заказа');
             }

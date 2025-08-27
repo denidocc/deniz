@@ -52,8 +52,17 @@ class C_OrderStatus(BaseModel):
         """Получение списка разрешенных переходов."""
         if not self.can_transition_to:
             return []
-        try:
-            import json
-            return json.loads(self.can_transition_to)
-        except (json.JSONDecodeError, TypeError):
-            return []
+        
+        # Если это уже список, возвращаем как есть
+        if isinstance(self.can_transition_to, list):
+            return self.can_transition_to
+        
+        # Если это строка, пытаемся распарсить JSON
+        if isinstance(self.can_transition_to, str):
+            try:
+                import json
+                return json.loads(self.can_transition_to)
+            except (json.JSONDecodeError, TypeError):
+                return []
+        
+        return []

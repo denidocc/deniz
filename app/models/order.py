@@ -7,12 +7,13 @@ from decimal import Decimal
 from datetime import datetime, timedelta
 from .base import BaseModel
 
+
 if TYPE_CHECKING:
     from .table import Table
     from .staff import Staff
-    from .order_item import OrderItem
     from .bonus_card import BonusCard
     from .c_order_status import C_OrderStatus
+    from .menu_item import MenuItem, MenuItemSize
 
 class Order(BaseModel):
     """Модель заказа."""
@@ -123,13 +124,19 @@ class Order(BaseModel):
     
     def get_status_info(self) -> Optional["C_OrderStatus"]:
         """Получение информации о статусе."""
-        return self.status_info
+        if hasattr(self, 'status_info') and self.status_info:
+            return self.status_info
+        
+        # Если связь не работает, делаем прямой запрос
+        from .c_order_status import C_OrderStatus
+        return C_OrderStatus.get_by_code(self.status)
     
     def can_transition_to(self, target_status: str) -> bool:
         """Проверка возможности перехода к статусу."""
-        if not self.status_info:
+        status_info = self.get_status_info()
+        if not status_info:
             return False
-        return target_status in self.status_info.get_transition_targets()
+        return target_status in status_info.get_transition_targets()
     
     def can_be_edited(self) -> bool:
         """Проверка возможности редактирования заказа."""
