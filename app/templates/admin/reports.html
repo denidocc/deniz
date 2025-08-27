@@ -105,28 +105,22 @@
 
 <!-- Quick Metrics -->
 <div class="row mb-4" id="quickMetrics">
-    <div class="col-md-3">
+    <div class="col-md-4">
         <div class="metric-box">
             <div class="metric-value" id="totalRevenue">0 {{ settings.get('currency', 'TMT') }}</div>
             <div class="metric-label">Общая выручка</div>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-md-4">
         <div class="metric-box" style="background: linear-gradient(135deg, var(--admin-success), #58d68d);">
             <div class="metric-value" id="totalOrders">0</div>
             <div class="metric-label">Всего заказов</div>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-md-4">
         <div class="metric-box" style="background: linear-gradient(135deg, var(--admin-warning), #f7dc6f);">
             <div class="metric-value" id="averageCheck">0 {{ settings.get('currency', 'TMT') }}</div>
             <div class="metric-label">Средний чек</div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="metric-box" style="background: linear-gradient(135deg, var(--admin-danger), #ec7063);">
-            <div class="metric-value" id="growthRate">0%</div>
-            <div class="metric-label">Рост к пред. периоду</div>
         </div>
     </div>
 </div>
@@ -275,9 +269,9 @@
         categoryChart = new Chart(categoryCtx, {
             type: 'doughnut',
             data: {
-                labels: [],
+                labels: ['Загрузка...'], // Начальное состояние
                 datasets: [{
-                    data: [],
+                    data: [1], // Начальное состояние
                     backgroundColor: [
                         '#3498db', '#e74c3c', '#f39c12', '#27ae60',
                         '#9b59b6', '#34495e', '#1abc9c', '#e67e22'
@@ -296,6 +290,48 @@
         });
     }
 
+    // Добавляем функцию форматирования валюты
+    function formatCurrency(amount) {
+        if (amount === null || amount === undefined) return '0 TMT';
+        return new Intl.NumberFormat('ru-RU', {
+            style: 'currency',
+            currency: 'TMT',
+            minimumFractionDigits: 2
+        }).format(amount);
+    }
+
+    async function updateCategoryChart() {
+        try {
+            console.log('📊 Загружаем данные по категориям...');
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            const response = await apiRequest(`/admin/api/reports/category-distribution?start_date=${startDate}&end_date=${endDate}`);
+            console.log('📊 Ответ API по категориям:', response);
+            
+            if (response.status === 'success' && response.data.categories.length > 0) {
+                // Обновляем диаграмму
+                categoryChart.data.labels = response.data.categories;
+                categoryChart.data.datasets[0].data = response.data.revenues;
+                categoryChart.update();
+                console.log('✅ Диаграмма по категориям обновлена');
+            } else {
+                // Если нет данных, показываем пустую диаграмму
+                categoryChart.data.labels = ['Нет данных'];
+                categoryChart.data.datasets[0].data = [1];
+                categoryChart.update();
+                console.log('⚠️ Нет данных для диаграммы категорий');
+            }
+        } catch (error) {
+            console.error('❌ Ошибка загрузки данных по категориям:', error);
+            // Показываем пустую диаграмму при ошибке
+            categoryChart.data.labels = ['Ошибка загрузки'];
+            categoryChart.data.datasets[0].data = [1];
+            categoryChart.update();
+        }
+    }
+
+    // Обновляем функцию generateReport, чтобы она также загружала данные по категориям
     async function generateReport() {
         const button = event?.target;
         let originalText;
@@ -315,12 +351,10 @@
             updateSalesChart(salesResponse.data.daily_stats);
             updateDetailTable(salesResponse.data, reportType);
             
-            // Get additional data based on report type
-            if (reportType === 'menu') {
-                await updateMenuReport();
-            } else if (reportType === 'staff') {
-                await updateStaffReport();
-            }
+            // ✅ ВСЕГДА загружаем все отчеты, независимо от типа
+            await updateMenuReport();
+            await updateStaffReport();
+            await updateCategoryChart(); // ✅ Добавляем обновление диаграммы категорий
             
         } catch (error) {
             showAlert('Ошибка при загрузке отчета: ' + error.message, 'danger');
@@ -336,7 +370,6 @@
         document.getElementById('totalRevenue').textContent = formatCurrency(summary.total_revenue);
         document.getElementById('totalOrders').textContent = summary.total_orders;
         document.getElementById('averageCheck').textContent = formatCurrency(summary.avg_order);
-        document.getElementById('growthRate').textContent = '—'; // TODO: Calculate growth rate
     }
 
     function updateSalesChart(dailyStats) {
@@ -381,13 +414,88 @@
     }
 
     async function updateMenuReport() {
-        // TODO: Implement menu popularity report
-        showAlert('Отчет по меню в разработке', 'info');
+        try {
+            console.log(' Загружаем отчет по меню...');
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            console.log(`📅 Период: ${startDate} - ${endDate}`);
+            
+            const response = await apiRequest(`/admin/api/reports/top-dishes?start_date=${startDate}&end_date=${endDate}`);
+            console.log('📊 Ответ API:', response);
+            
+            if (response.status === 'success') {
+                const topDishesContainer = document.getElementById('topDishes');
+                console.log(' Контейнер для блюд:', topDishesContainer);
+                
+                let html = '<div class="table-responsive"><table class="table table-sm">';
+                html += '<thead><tr><th>Блюдо</th><th>Количество</th><th>Выручка</th></tr></thead><tbody>';
+                
+                if (response.data && response.data.length > 0) {
+                    response.data.forEach((dish, index) => {
+                        const rowClass = index < 3 ? 'table-warning' : '';
+                        html += `<tr class="${rowClass}">
+                            <td><strong>${dish.name}</strong></td>
+                            <td>${dish.quantity}</td>
+                            <td>${formatCurrency(dish.revenue)}</td>
+                        </tr>`;
+                    });
+                } else {
+                    html += '<tr><td colspan="3" class="text-center text-muted">Нет данных для отображения</td></tr>';
+                }
+                
+                html += '</tbody></table></div>';
+                topDishesContainer.innerHTML = html;
+                console.log('✅ Отчет по меню обновлен');
+            }
+        } catch (error) {
+            console.error('❌ Ошибка загрузки отчета по меню:', error);
+            document.getElementById('topDishes').innerHTML = 
+                `<div class="alert alert-danger">Ошибка загрузки отчета по меню: ${error.message}</div>`;
+        }
     }
 
     async function updateStaffReport() {
-        // TODO: Implement staff performance report
-        showAlert('Отчет по персоналу в разработке', 'info');
+        try {
+            console.log(' Загружаем отчет по персоналу...');
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            console.log(`📅 Период: ${startDate} - ${endDate}`);
+            
+            const response = await apiRequest(`/admin/api/reports/waiter-performance?start_date=${startDate}&end_date=${endDate}`);
+            console.log('📊 Ответ API:', response);
+            
+            if (response.status === 'success') {
+                const waiterContainer = document.getElementById('waiterPerformance');
+                console.log('🎯 Контейнер для официантов:', waiterContainer);
+                
+                let html = '<div class="table-responsive"><table class="table table-sm">';
+                html += '<thead><tr><th>Официант</th><th>Заказов</th><th>Выручка</th><th>Средний чек</th></tr></thead><tbody>';
+                
+                if (response.data && response.data.length > 0) {
+                    response.data.forEach((waiter, index) => {
+                        const rowClass = index < 3 ? 'table-success' : '';
+                        html += `<tr class="${rowClass}">
+                            <td><strong>${waiter.name}</strong><br><small class="text-muted">${waiter.login}</small></td>
+                            <td>${waiter.total_orders}</td>
+                            <td>${formatCurrency(waiter.total_revenue)}</td>
+                            <td>${formatCurrency(waiter.avg_order)}</td>
+                        </tr>`;
+                    });
+                } else {
+                    html += '<tr><td colspan="4" class="text-center text-muted">Нет данных для отображения</td></tr>';
+                }
+                
+                html += '</tbody></table></div>';
+                waiterContainer.innerHTML = html;
+                console.log('✅ Отчет по персоналу обновлен');
+            }
+        } catch (error) {
+            console.error('❌ Ошибка загрузки отчета по персоналу:', error);
+            document.getElementById('waiterPerformance').innerHTML = 
+                `<div class="alert alert-danger">Ошибка загрузки отчета по персоналу: ${error.message}</div>`;
+        }
     }
 
     function exportReport(format) {
@@ -395,10 +503,10 @@
     }
 
     // Update category chart with sample data
-    setTimeout(() => {
-        categoryChart.data.labels = ['Основные блюда', 'Напитки', 'Десерты', 'Закуски'];
-        categoryChart.data.datasets[0].data = [40, 25, 20, 15];
-        categoryChart.update();
-    }, 1000);
+    // setTimeout(() => {
+    //     categoryChart.data.labels = ['Основные блюда', 'Напитки', 'Десерты', 'Закуски'];
+    //     categoryChart.data.datasets[0].data = [40, 25, 20, 15];
+    //     categoryChart.update();
+    // }, 1000);
 </script>
 {% endblock %}

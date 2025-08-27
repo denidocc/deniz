@@ -2129,3 +2129,190 @@ def toggle_bonus_card_status(card_id):
             'status': 'error',
             'message': 'Ошибка изменения статуса карты'
         }), 500 
+
+@admin_bp.route('/api/reports/top-dishes')
+@admin_required
+@audit_action("get_top_dishes_report")
+def get_top_dishes_report():
+    """Получение отчета по топ блюдам по продажам."""
+    try:
+        from app.models import Order, OrderItem, MenuItem
+        
+        # Получаем параметры запроса
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        current_app.logger.info(f"Getting top dishes report: start_date={start_date}, end_date={end_date}")
+        
+        # Простой запрос без сложных JOIN'ов
+        dishes_data = []
+        
+        # Получаем все блюда
+        menu_items = MenuItem.query.all()
+        
+        for item in menu_items:
+            # Для каждого блюда считаем статистику
+            order_items_query = OrderItem.query.filter_by(menu_item_id=item.id)
+            
+            # Применяем фильтры по датам через заказы
+            if start_date or end_date:
+                order_items_query = order_items_query.join(Order, OrderItem.order_id == Order.id)
+                
+                if start_date:
+                    order_items_query = order_items_query.filter(Order.created_at >= start_date)
+                if end_date:
+                    order_items_query = order_items_query.filter(Order.created_at <= end_date)
+                
+                order_items_query = order_items_query.filter(Order.status.in_(['completed', 'confirmed']))
+            
+            order_items = order_items_query.all()
+            
+            if order_items:
+                total_quantity = sum(item.quantity for item in order_items)
+                total_revenue = sum(item.quantity * item.unit_price for item in order_items)
+                
+                dishes_data.append({
+                    'name': item.name_ru,  # Используем русское название
+                    'id': item.id,
+                    'quantity': total_quantity,
+                    'revenue': total_revenue
+                })
+        
+        # Сортируем по количеству и берем топ 10
+        dishes_data.sort(key=lambda x: x['quantity'], reverse=True)
+        dishes_data = dishes_data[:10]
+        
+        current_app.logger.info(f"Found {len(dishes_data)} top dishes")
+        
+        return jsonify({
+            'status': 'success',
+            'data': dishes_data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting top dishes report: {e}", exc_info=True)
+        return jsonify({
+            'status': 'error',
+            'message': f'Ошибка получения отчета по топ блюдам: {str(e)}'
+        }), 500
+
+@admin_bp.route('/api/reports/waiter-performance')
+@admin_required
+@audit_action("get_waiter_performance_report")
+def get_waiter_performance_report():
+    """Получение отчета по производительности официантов."""
+    try:
+        from app.models import Staff, Order, TableAssignment
+        
+        # Получаем параметры запроса
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        # Базовый запрос для официантов
+        query = db.session.query(
+            Staff.id,
+            Staff.name,
+            Staff.login,
+            db.func.count(Order.id).label('total_orders'),
+            db.func.sum(Order.total_amount).label('total_revenue'),
+            db.func.avg(Order.total_amount).label('avg_order')
+        ).join(TableAssignment, Staff.id == TableAssignment.waiter_id)\
+         .join(Order, TableAssignment.table_id == Order.table_id)\
+         .filter(Staff.role == 'waiter')\
+         .filter(Order.status.in_(['completed', 'confirmed']))
+        
+        # Применяем фильтры по датам
+        if start_date:
+            query = query.filter(Order.created_at >= start_date)
+        if end_date:
+            query = query.filter(Order.created_at <= end_date)
+        
+        # Группируем и сортируем
+        waiter_performance = query.group_by(Staff.id, Staff.name, Staff.login)\
+                                 .order_by(db.func.sum(Order.total_amount).desc())\
+                                 .all()
+        
+        performance_data = []
+        for waiter in waiter_performance:
+            performance_data.append({
+                'id': waiter.id,
+                'name': waiter.name,
+                'login': waiter.login,
+                'total_orders': int(waiter.total_orders),
+                'total_revenue': float(waiter.total_revenue),
+                'avg_order': float(waiter.avg_order) if waiter.avg_order else 0
+            })
+        
+        return jsonify({
+            'status': 'success',
+            'data': performance_data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting waiter performance report: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка получения отчета по производительности официантов'
+        }), 500
+
+@admin_bp.route('/api/reports/category-distribution')
+@admin_required
+@audit_action("get_category_distribution_report")
+def get_category_distribution_report():
+    """Получение отчета по распределению продаж по категориям."""
+    try:
+        from app.models import Order, OrderItem, MenuItem, MenuCategory
+        
+        # Получаем параметры запроса
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        current_app.logger.info(f"Getting category distribution report: start_date={start_date}, end_date={end_date}")
+        
+        # Запрос для получения данных по категориям
+        query = db.session.query(
+            MenuCategory.name_ru.label('category_name'),
+            db.func.sum(OrderItem.quantity).label('total_quantity'),
+            db.func.sum(OrderItem.quantity * OrderItem.unit_price).label('total_revenue')
+        ).join(MenuItem, MenuCategory.id == MenuItem.category_id)\
+         .join(OrderItem, MenuItem.id == OrderItem.menu_item_id)\
+         .join(Order, OrderItem.order_id == Order.id)\
+         .filter(Order.status.in_(['completed', 'confirmed']))
+        
+        # Применяем фильтры по датам
+        if start_date:
+            query = query.filter(Order.created_at >= start_date)
+        if end_date:
+            query = query.filter(Order.created_at <= end_date)
+        
+        # Группируем и сортируем
+        category_data = query.group_by(MenuCategory.id, MenuCategory.name_ru)\
+                            .order_by(db.func.sum(OrderItem.quantity * OrderItem.unit_price).desc())\
+                            .all()
+        
+        categories = []
+        quantities = []
+        revenues = []
+        
+        for category in category_data:
+            categories.append(category.category_name)
+            quantities.append(int(category.total_quantity))
+            revenues.append(float(category.total_revenue))
+        
+        current_app.logger.info(f"Found {len(categories)} categories")
+        
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'categories': categories,
+                'quantities': quantities,
+                'revenues': revenues
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting category distribution report: {e}", exc_info=True)
+        return jsonify({
+            'status': 'error',
+            'message': f'Ошибка получения отчета по категориям: {str(e)}'
+        }), 500
