@@ -49,7 +49,13 @@ class DailyReport(BaseModel):
     def get_report_data(self) -> Dict[str, Any]:
         """Получение данных отчета из JSON."""
         if self.report_data:
-            return json.loads(self.report_data)
+            if isinstance(self.report_data, dict):
+                return self.report_data
+            elif isinstance(self.report_data, str):
+                try:
+                    return json.loads(self.report_data)
+                except (json.JSONDecodeError, TypeError):
+                    return {}
         return {}
     
     def set_report_data(self, data: Dict[str, Any]) -> None:
@@ -65,18 +71,19 @@ class DailyReport(BaseModel):
     
     def to_dict(self) -> Dict[str, Any]:
         """Сериализация в словарь."""
-        data = super().to_dict()
-        data.update({
-            'report_date': self.report_date.isoformat(),
+        return {
+            'id': self.id,
+            'report_date': self.report_date.isoformat() if self.report_date else None,
             'total_orders': self.total_orders,
-            'total_revenue': float(self.total_revenue),
-            'total_service_charge': float(self.total_service_charge),
+            'total_revenue': float(self.total_revenue) if self.total_revenue else 0.0,
+            'total_service_charge': float(self.total_service_charge) if self.total_service_charge else 0.0,
             'cancelled_orders': self.cancelled_orders,
-            'average_order_value': float(self.average_order_value),
+            'average_order_value': float(self.average_order_value) if self.average_order_value else 0.0,
             'peak_hour': self.peak_hour,
             'report_data': self.get_report_data(),
-        })
-        return data
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
     
     @classmethod
     def get_by_date(cls, report_date: date) -> Optional['DailyReport']:

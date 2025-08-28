@@ -78,24 +78,15 @@
 <!-- Date Range Picker -->
 <div class="date-range-picker">
     <div class="row align-items-center">
-        <div class="col-md-3">
+        <div class="col-md-4">
             <label for="startDate" class="form-label">Дата начала</label>
             <input type="date" class="form-control" id="startDate">
         </div>
-        <div class="col-md-3">
+        <div class="col-md-4">
             <label for="endDate" class="form-label">Дата окончания</label>
             <input type="date" class="form-control" id="endDate">
         </div>
-        <div class="col-md-3">
-            <label for="reportType" class="form-label">Тип отчета</label>
-            <select class="form-select" id="reportType">
-                <option value="sales">Продажи</option>
-                <option value="menu">Популярность блюд</option>
-                <option value="staff">Производительность персонала</option>
-                <option value="tables">Загрузка столов</option>
-            </select>
-        </div>
-        <div class="col-md-3 d-flex align-items-end">
+        <div class="col-md-4">
             <button class="btn btn-admin w-100" onclick="generateReport()">
                 <i class="bi bi-search"></i> Сформировать
             </button>
@@ -231,6 +222,9 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- Подключаем Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <script>
     let salesChart, categoryChart;
     
@@ -377,25 +371,21 @@
 
     async function updateCategoryChart() {
         try {
-            console.log('📊 Загружаем данные по категориям...');
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
             
             const response = await apiRequest(`/admin/api/reports/category-distribution?start_date=${startDate}&end_date=${endDate}`);
-            console.log('📊 Ответ API по категориям:', response);
             
             if (response.status === 'success' && response.data.categories.length > 0) {
                 // Обновляем диаграмму
                 categoryChart.data.labels = response.data.categories;
                 categoryChart.data.datasets[0].data = response.data.revenues;
                 categoryChart.update();
-                console.log('✅ Диаграмма по категориям обновлена');
             } else {
                 // Если нет данных, показываем пустую диаграмму
                 categoryChart.data.labels = ['Нет данных'];
                 categoryChart.data.datasets[0].data = [1];
                 categoryChart.update();
-                console.log('⚠️ Нет данных для диаграммы категорий');
             }
         } catch (error) {
             console.error('❌ Ошибка загрузки данных по категориям:', error);
@@ -409,19 +399,16 @@
     // Функция для обновления отчета по столам
     async function updateTableUsageReport() {
         try {
-            console.log('📊 Загружаем отчет по столам...');
             
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
             
-            console.log('📅 Период:', startDate, '-', endDate);
             
             const response = await apiRequest('/admin/api/reports/table-usage', 'GET', null, {
                 start_date: startDate,
                 end_date: endDate
             });
             
-            console.log('📊 Ответ API по столам:', response);
             
             if (response.status === 'success' && response.data) {
                 const container = document.getElementById('tableUsage');
@@ -429,9 +416,6 @@
                     console.error('❌ Контейнер для столов не найден');
                     return;
                 }
-                
-                console.log('🎯 Контейнер для столов:', container);
-                console.log('📊 Данные столов:', response.data);
                 
                 // Проверяем, есть ли данные
                 if (response.data.length === 0) {
@@ -444,7 +428,6 @@
                 html += '<thead><tr><th>Стол</th><th>Вместимость</th><th>Заказов</th><th>Официант</th><th>Загруженность</th></tr></thead><tbody>';
                 
                 response.data.forEach((table, index) => {
-                    console.log(`🎯 Обрабатываем стол ${index}:`, table);
                     
                     const rowClass = table.orders_count > 0 ? 'table-success' : 'table-light';
                     const usageBar = `<div class="progress" style="height: 20px;">
@@ -465,10 +448,7 @@
                 
                 html += '</tbody></table></div>';
                 
-                console.log('📝 Сгенерированный HTML:', html);
                 container.innerHTML = html;
-                console.log('✅ Отчет по столам обновлен');
-                console.log('🔍 Финальное содержимое контейнера:', container.innerHTML);
             } else {
                 console.error('❌ Неверный ответ API:', response);
                 const container = document.getElementById('tableUsage');
@@ -486,17 +466,10 @@
         }
     }
 
-    // Обновляем функцию generateReport, чтобы она также загружала отчет по столам
+    // Обновляем функцию generateReport - убираем reportType
     async function generateReport() {
-        const button = event?.target;
-        let originalText;
-        if (button) {
-            originalText = showLoading(button);
-        }
-        
         const startDate = document.getElementById('startDate').value;
         const endDate = document.getElementById('endDate').value;
-        const reportType = document.getElementById('reportType').value;
         
         try {
             // Get sales data
@@ -504,20 +477,16 @@
             
             updateMetrics(salesResponse.data.summary);
             updateSalesChart(salesResponse.data.daily_stats);
-            updateDetailTable(salesResponse.data, reportType);
+            updateDetailTable(salesResponse.data); // Убираем reportType
             
-            // ✅ ВСЕГДА загружаем все отчеты, независимо от типа
+            // ✅ ВСЕГДА загружаем все отчеты
             await updateMenuReport();
             await updateStaffReport();
             await updateCategoryChart();
-            await updateTableUsageReport(); // ✅ Добавляем отчет по столам
+            await updateTableUsageReport();
             
         } catch (error) {
             showAlert('Ошибка при загрузке отчета: ' + error.message, 'danger');
-        } finally {
-            if (button && originalText) {
-                hideLoading(button, originalText);
-            }
         }
     }
 
@@ -539,7 +508,8 @@
         salesChart.update();
     }
 
-    function updateDetailTable(data, reportType) {
+    // Обновляем updateDetailTable - убираем reportType
+    function updateDetailTable(data) {
         const headers = document.getElementById('tableHeaders');
         const body = document.getElementById('tableBody');
         
@@ -547,65 +517,44 @@
         headers.innerHTML = '';
         body.innerHTML = '';
         
-        if (reportType === 'sales') {
-            // Sales report table
-            headers.innerHTML = `
-                <th>Дата</th>
-                <th>Заказов</th>
-                <th>Выручка</th>
-                <th>Средний чек</th>
+        // Показываем таблицу продаж по дням
+        headers.innerHTML = `
+            <th>Дата</th>
+            <th>Заказов</th>
+            <th>Выручка</th>
+            <th>Средний чек</th>
+        `;
+        
+        data.daily_stats.forEach(stat => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${new Date(stat.date).toLocaleDateString('ru-RU')}</td>
+                <td>${stat.orders}</td>
+                <td>${formatCurrency(stat.revenue)}</td>
+                <td>${formatCurrency(stat.revenue / stat.orders || 0)}</td>
             `;
-            
-            data.daily_stats.forEach(stat => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${new Date(stat.date).toLocaleDateString('ru-RU')}</td>
-                    <td>${stat.orders}</td>
-                    <td>${formatCurrency(stat.revenue)}</td>
-                    <td>${formatCurrency(stat.revenue / stat.orders || 0)}</td>
-                `;
-                body.appendChild(row);
-            });
-        } else if (reportType === 'tables') {
-            // Table usage report table
-            headers.innerHTML = `
-                <th>Стол</th>
-                <th>Вместимость</th>
-                <th>Заказов</th>
-                <th>Выручка</th>
-                <th>Официант</th>
-            `;
-            
-            // Здесь можно добавить логику для отображения данных по столам
-            // или оставить пустым, так как у нас есть отдельный блок для столов
-        }
+            body.appendChild(row);
+        });
     }
 
     async function updateMenuReport() {
         try {
-            console.log(' Загружаем отчет по меню...');
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
             
-            console.log(`📅 Период: ${startDate} - ${endDate}`);
             
             const response = await apiRequest(`/admin/api/reports/top-dishes?start_date=${startDate}&end_date=${endDate}`);
-            console.log('📊 Ответ API:', response);
             
             if (response.status === 'success') {
                 const topDishesContainer = document.getElementById('topDishes');
-                console.log(' Контейнер для блюд:', topDishesContainer);
-                console.log('📊 Данные блюд:', response.data);
                 
                 let html = '<div class="table-responsive"><table class="table table-sm">';
                 html += '<thead><tr><th>Блюдо</th><th>Количество</th><th>Выручка</th></tr></thead><tbody>';
                 
                 if (response.data && response.data.length > 0) {
                     response.data.forEach((dish, index) => {
-                        console.log(`🍽️ Обрабатываем блюдо ${index}:`, dish);
                         const rowClass = index < 3 ? 'table-warning' : '';
                         const formattedRevenue = formatCurrency(dish.revenue);
-                        console.log(`💰 Форматированная выручка: ${formattedRevenue}`);
                         
                         html += `<tr class="${rowClass}">
                             <td><strong>${dish.name}</strong></td>
@@ -618,11 +567,8 @@
                 }
                 
                 html += '</tbody></table></div>';
-                console.log('📝 Сгенерированный HTML:', html);
                 
                 topDishesContainer.innerHTML = html;
-                console.log('✅ Отчет по меню обновлен');
-                console.log('🔍 Финальное содержимое контейнера:', topDishesContainer.innerHTML);
             }
         } catch (error) {
             console.error('❌ Ошибка загрузки отчета по меню:', error);
@@ -633,18 +579,14 @@
 
     async function updateStaffReport() {
         try {
-            console.log(' Загружаем отчет по персоналу...');
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
             
-            console.log(`📅 Период: ${startDate} - ${endDate}`);
             
             const response = await apiRequest(`/admin/api/reports/waiter-performance?start_date=${startDate}&end_date=${endDate}`);
-            console.log('📊 Ответ API:', response);
             
             if (response.status === 'success') {
                 const waiterContainer = document.getElementById('waiterPerformance');
-                console.log('🎯 Контейнер для официантов:', waiterContainer);
                 
                 let html = '<div class="table-responsive"><table class="table table-sm">';
                 html += '<thead><tr><th>Официант</th><th>Заказов</th><th>Выручка</th><th>Средний чек</th></tr></thead><tbody>';
@@ -665,7 +607,6 @@
                 
                 html += '</tbody></table></div>';
                 waiterContainer.innerHTML = html;
-                console.log('✅ Отчет по персоналу обновлен');
             }
         } catch (error) {
             console.error('❌ Ошибка загрузки отчета по персоналу:', error);
@@ -678,6 +619,26 @@
         showAlert(`Экспорт в ${format.toUpperCase()} в разработке`, 'info');
     }
 
+    function showAlert(message, type = 'info') {
+        // Создаем уведомление
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        // Добавляем в начало страницы
+        const container = document.querySelector('.container-fluid') || document.body;
+        container.insertBefore(alertDiv, container.firstChild);
+        
+        // Автоматически скрываем через 5 секунд
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
     
 </script>
 {% endblock %}

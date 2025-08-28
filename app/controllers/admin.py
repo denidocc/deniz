@@ -6,6 +6,7 @@ from sqlalchemy import func, desc, extract
 import sqlalchemy.orm as so
 from datetime import datetime, timedelta
 import json
+from decimal import Decimal
 
 from app import db
 from app.models import (
@@ -543,6 +544,15 @@ def audit_logs():
 @audit_action("view_z_reports")
 def z_reports():
     """Z-отчеты."""
+    
+    # ПРОВЕРЯЕМ, ЕСТЬ ЛИ ОТЧЕТ ЗА СЕГОДНЯ
+    today = datetime.now().date()
+    today_report = DailyReport.query.filter_by(report_date=today).first()
+    
+    # Если нет отчета за сегодня, предлагаем создать
+    if not today_report:
+        flash('Отчет за сегодня еще не создан. Создайте его вручную или дождитесь автоматического создания в конце дня.', 'info')
+    
     reports = DailyReport.query.order_by(desc(DailyReport.report_date)).limit(30).all()
     
     # Создаем форму для валидации
@@ -550,7 +560,8 @@ def z_reports():
     
     return render_template('admin/z_reports.html',
                          reports=reports,
-                         z_report_form=z_report_form)
+                         z_report_form=z_report_form,
+                         today_report=today_report)
 
 @admin_bp.route('/z-reports/generate', methods=['POST'])
 @admin_required
@@ -578,28 +589,63 @@ def generate_z_report():
         func.date(Order.created_at) == report_date
     ).all()
     
+    # ✅ ПЕРЕСЧИТЫВАЕМ ТОТАЛЫ ДЛЯ ВСЕХ ЗАКАЗОВ
+    for order in orders:
+        order.calculate_totals()
+    
     total_revenue = sum(order.total_amount or 0 for order in orders)
     total_orders = len(orders)
+    
+    # ✅ РАСЧИТЫВАЕМ СЕРВИСНЫЙ СБОР
+    total_service_charge = sum(order.service_charge or 0 for order in orders)
+    
+    # ✅ ПОДСЧИТЫВАЕМ ОТМЕНЕННЫЕ ЗАКАЗЫ
+    cancelled_orders = len([o for o in orders if o.status == 'cancelled'])
+    
+    # ✅ РАСЧИТЫВАЕМ СРЕДНИЙ ЧЕК
+    completed_orders = [o for o in orders if o.status == 'completed']
+    average_order_value = (
+        sum(o.total_amount for o in completed_orders) / len(completed_orders)
+        if completed_orders else Decimal('0.00')
+    )
     
     # Создание отчета
     report = DailyReport(
         report_date=report_date,
         total_orders=total_orders,
         total_revenue=total_revenue,
-        generated_by_id=current_user.id,
-        report_data={
-            'orders_by_hour': {},  # Можно добавить детализацию
+        total_service_charge=total_service_charge,  # ✅ ДОБАВЛЯЕМ
+        cancelled_orders=cancelled_orders,  # ✅ ДОБАВЛЯЕМ
+        average_order_value=average_order_value,  # ✅ ДОБАВЛЯЕМ
+        report_data=json.dumps({
+            'orders_by_hour': {},
             'payment_methods': {},
             'staff_performance': {}
-        }
+        }),
     )
     
     db.session.add(report)
+    db.session.commit()  # ✅ ДОБАВЛЯЕМ commit
     
     return jsonify({
         'status': 'success',
         'message': 'Z-отчет успешно сгенерирован',
         'data': report.to_dict()
+    })
+
+@admin_bp.route('/z-reports/<int:report_id>', methods=['DELETE'])
+@admin_required
+@audit_action("delete_z_report")
+@with_transaction
+def delete_z_report(report_id):
+    """Удаление Z-отчета."""
+    report = DailyReport.query.get_or_404(report_id)
+    
+    db.session.delete(report)
+    
+    return jsonify({
+        'status': 'success',
+        'message': 'Z-отчет успешно удален'
     })
 
 # === ДОПОЛНИТЕЛЬНЫЕ ЭНДПОИНТЫ ===
@@ -920,25 +966,26 @@ def get_z_report(report_id):
 @audit_action("export_z_report")
 def export_z_report(report_id):
     """Экспорт Z-отчета в PDF."""
-    report = DailyReport.query.get_or_404(report_id)
-    
     try:
-        from app.utils.report_generator import generate_z_report_pdf
+        report = DailyReport.query.get_or_404(report_id)
         
+        # Генерируем PDF отчет
+        from app.utils.report_generator import generate_z_report_pdf
         pdf_content = generate_z_report_pdf(report)
         
+        # Возвращаем PDF файл
         response = make_response(pdf_content)
         response.headers['Content-Type'] = 'application/pdf'
-        response.headers['Content-Disposition'] = f'attachment; filename=z_report_{report.id}.pdf'
+        response.headers['Content-Disposition'] = f'attachment; filename=z_report_{report_id}_{report.report_date.strftime("%Y%m%d")}.pdf'
         
         return response
         
     except Exception as e:
-        current_app.logger.error(f"PDF generation failed: {e}")
+        current_app.logger.error(f"PDF export failed: {e}")
         return jsonify({
             'status': 'error',
-            'message': 'Ошибка генерации PDF'
-        }), 500 
+            'message': f'Ошибка экспорта PDF: {str(e)}'
+        }), 500
 
 # === УПРАВЛЕНИЕ СТОЛАМИ ===
 

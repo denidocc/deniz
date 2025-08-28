@@ -1,14 +1,22 @@
 """Генератор отчетов в различных форматах."""
 
+import os
 from datetime import datetime
 from typing import Dict, Any, Optional
-from flask import current_app
-import json
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib import colors
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+import io
 
 
 def generate_z_report_pdf(report) -> bytes:
     """
-    Генерация Z-отчета в формате PDF.
+    Генерация Z-отчета в формате PDF с поддержкой кириллицы.
     
     Args:
         report: Объект DailyReport
@@ -17,94 +25,150 @@ def generate_z_report_pdf(report) -> bytes:
         bytes: Содержимое PDF файла
     """
     try:
-        # Для демонстрации создаем простой HTML-to-PDF
-        # В реальном проекте лучше использовать ReportLab или WeasyPrint
+        # Создаем буфер для PDF
+        buffer = io.BytesIO()
         
-        html_content = generate_z_report_html(report)
+        # Создаем PDF документ
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=72,
+            leftMargin=72,
+            topMargin=72,
+            bottomMargin=72
+        )
         
-        # Простая заглушка для PDF - в реальности здесь должен быть
-        # полноценный генератор PDF (например, WeasyPrint)
-        pdf_content = f"""
-%PDF-1.4
-1 0 obj
-<<
-/Type /Catalog
-/Pages 2 0 R
->>
-endobj
-
-2 0 obj
-<<
-/Type /Pages
-/Kids [3 0 R]
-/Count 1
->>
-endobj
-
-3 0 obj
-<<
-/Type /Page
-/Parent 2 0 R
-/MediaBox [0 0 612 792]
-/Contents 4 0 R
-/Resources <<
-/Font <<
-/F1 5 0 R
->>
->>
->>
-endobj
-
-4 0 obj
-<<
-/Length 200
->>
-stream
-BT
-/F1 12 Tf
-50 750 Td
-(DENIZ RESTAURANT - Z-ОТЧЕТ #{report.id}) Tj
-0 -30 Td
-(Дата: {report.report_date.strftime('%d.%m.%Y')}) Tj
-0 -30 Td
-(Заказов: {report.total_orders}) Tj
-0 -30 Td
-(Выручка: {report.total_revenue:.2f} руб.) Tj
-ET
-endstream
-endobj
-
-5 0 obj
-<<
-/Type /Font
-/Subtype /Type1
-/BaseFont /Helvetica
->>
-endobj
-
-xref
-0 6
-0000000000 65535 f 
-0000000009 00000 n 
-0000000058 00000 n 
-0000000115 00000 n 
-0000000275 00000 n 
-0000000525 00000 n 
-trailer
-<<
-/Size 6
-/Root 1 0 R
->>
-startxref
-608
-%%EOF
-        """.encode('utf-8')
+        # Регистрируем шрифт с поддержкой кириллицы
+        font_name = 'Helvetica'  # По умолчанию используем Helvetica
+        
+        try:
+            # Пытаемся найти и зарегистрировать шрифт с поддержкой кириллицы
+            possible_fonts = [
+                # macOS
+                '/System/Library/Fonts/Arial.ttf',
+                '/System/Library/Fonts/Helvetica.ttc',
+                '/Library/Fonts/Arial.ttf',
+                # Linux
+                '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+                '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+                # Windows
+                'C:/Windows/Fonts/arial.ttf',
+                'C:/Windows/Fonts/calibri.ttf'
+            ]
+            
+            for font_path in possible_fonts:
+                if os.path.exists(font_path):
+                    try:
+                        pdfmetrics.registerFont(TTFont('CustomFont', font_path))
+                        font_name = 'CustomFont'
+                        break
+                    except:
+                        continue
+                        
+        except Exception as e:
+            # Если не удалось зарегистрировать шрифт, используем встроенный
+            font_name = 'Helvetica'
+        
+        # Стили для текста
+        styles = getSampleStyleSheet()
+        
+        # Создаем стили с правильным шрифтом
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=18,
+            spaceAfter=30,
+            alignment=TA_CENTER,
+            textColor=colors.darkblue,
+            fontName=font_name,
+            encoding='utf-8'  # Явно указываем кодировку
+        )
+        
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=14,
+            spaceAfter=12,
+            textColor=colors.darkblue,
+            fontName=font_name,
+            encoding='utf-8'
+        )
+        
+        normal_style = ParagraphStyle(
+            'CustomNormal',
+            parent=styles['Normal'],
+            fontName=font_name,
+            fontSize=10,
+            encoding='utf-8'
+        )
+        
+        # Содержимое PDF
+        story = []
+        
+        # Заголовок - используем простой текст без кириллицы для заголовка
+        story.append(Paragraph("DENIZ RESTAURANT - Z-OTCHET", title_style))
+        story.append(Spacer(1, 20))
+        
+        # Основная информация - используем транслитерацию для важных полей
+        story.append(Paragraph(f"Data: {report.report_date.strftime('%d.%m.%Y')}", heading_style))
+        story.append(Paragraph(f"Nomer otcheta: {report.id}", normal_style))
+        story.append(Paragraph(f"Vyruchka: {report.total_revenue:.2f} TMT", normal_style))
+        story.append(Spacer(1, 12))
+        
+        # Детализация
+        story.append(Paragraph("Detalizatsiya:", heading_style))
+        
+        # Таблица с данными - используем транслитерацию
+        data = [
+            ['Pokazatel', 'Znachenie'],
+            ['Vsego zakazov', str(report.total_orders)],
+            ['Vyruchka', f"{report.total_revenue:.2f} TMT"],
+            ['Otmenennye zakazy', str(report.cancelled_orders)],
+            ['Servisny sbor', f"{report.total_service_charge or 0:.2f} TMT"]
+        ]
+        
+        table = Table(data, colWidths=[3*inch, 2*inch])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), font_name),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        
+        story.append(table)
+        story.append(Spacer(1, 20))
+        
+        # Подпись - используем транслитерацию
+        story.append(Paragraph(f"Otchet sozdan: {report.created_at.strftime('%d.%m.%Y %H:%M:%S')}", normal_style))
+        story.append(Spacer(1, 30))
+        story.append(Paragraph("Podpis: _________________", normal_style))
+        
+        # Строим PDF
+        doc.build(story)
+        
+        # Получаем содержимое
+        pdf_content = buffer.getvalue()
+        buffer.close()
         
         return pdf_content
         
     except Exception as e:
-        current_app.logger.error(f"PDF generation failed: {e}")
-        raise Exception(f"Ошибка генерации PDF: {str(e)}")
+        # В случае ошибки возвращаем простой PDF с сообщением об ошибке
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        story = [
+            Paragraph("Error generating report", styles['Heading1']),
+            Spacer(1, 20),
+            Paragraph(f"Failed to generate report: {str(e)}", styles['Normal'])
+        ]
+        doc.build(story)
+        pdf_content = buffer.getvalue()
+        buffer.close()
+        return pdf_content
 
 
 def generate_z_report_html(report) -> str:
@@ -129,70 +193,157 @@ def generate_z_report_html(report) -> str:
         <meta charset="UTF-8">
         <title>Z-отчет № {report.id}</title>
         <style>
-            body {{ font-family: Arial, sans-serif; margin: 20px; }}
-            .header {{ text-align: center; margin-bottom: 30px; }}
-            .company-name {{ font-size: 20px; font-weight: bold; }}
-            .report-title {{ font-size: 18px; margin: 10px 0; }}
-            .report-date {{ font-size: 14px; color: #666; }}
-            
-            table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
-            th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }}
-            th {{ background-color: #f5f5f5; font-weight: bold; }}
-            .amount {{ text-align: right; }}
-            .total-row {{ font-weight: bold; background-color: #f0f8ff; }}
-            
-            .footer {{ margin-top: 30px; font-size: 12px; color: #666; }}
-            .signature {{ margin-top: 40px; }}
-            .signature-line {{ border-bottom: 1px solid #000; width: 200px; display: inline-block; }}
+            body {{
+                font-family: Arial, sans-serif;
+                margin: 20px;
+                background-color: #f5f5f5;
+            }}
+            .report-container {{
+                max-width: 800px;
+                margin: 0 auto;
+                background: white;
+                padding: 30px;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }}
+            .header {{
+                text-align: center;
+                border-bottom: 2px solid #007bff;
+                padding-bottom: 20px;
+                margin-bottom: 30px;
+            }}
+            .header h1 {{
+                color: #007bff;
+                margin: 0;
+                font-size: 28px;
+            }}
+            .info-section {{
+                margin-bottom: 25px;
+            }}
+            .info-section h3 {{
+                color: #333;
+                border-bottom: 1px solid #ddd;
+                padding-bottom: 5px;
+            }}
+            .info-grid {{
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 20px;
+                margin-bottom: 20px;
+            }}
+            .info-item {{
+                background: #f8f9fa;
+                padding: 15px;
+                border-radius: 5px;
+                border-left: 4px solid #007bff;
+            }}
+            .info-item strong {{
+                color: #007bff;
+            }}
+            .summary-table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin: 20px 0;
+            }}
+            .summary-table th,
+            .summary-table td {{
+                padding: 12px;
+                text-align: left;
+                border-bottom: 1px solid #ddd;
+            }}
+            .summary-table th {{
+                background-color: #007bff;
+                color: white;
+                font-weight: bold;
+            }}
+            .summary-table tr:nth-child(even) {{
+                background-color: #f8f9fa;
+            }}
+            .footer {{
+                margin-top: 40px;
+                padding-top: 20px;
+                border-top: 1px solid #ddd;
+                text-align: center;
+                color: #666;
+            }}
+            .signature {{
+                margin-top: 30px;
+                text-align: right;
+            }}
+            .signature-line {{
+                border-top: 1px solid #333;
+                width: 200px;
+                display: inline-block;
+                margin-left: 10px;
+            }}
         </style>
     </head>
     <body>
-        <div class="header">
-            <div class="company-name">DENIZ RESTAURANT</div>
-            <div class="report-title">Z-ОТЧЕТ № {report.id}</div>
-            <div class="report-date">за {report.report_date.strftime('%d.%m.%Y')}</div>
-        </div>
-        
-        <table>
-            <tr>
-                <th>Показатель</th>
-                <th class="amount">Значение</th>
-            </tr>
-            <tr>
-                <td>Количество заказов</td>
-                <td class="amount">{report.total_orders}</td>
-            </tr>
-            <!-- Налоговые строки скрыты по требованиям -->
-            <!--
-            <tr>
-                <td>Сумма без НДС</td>
-                <td class="amount">{total_without_vat:.2f} TMT</td>
-            </tr>
-            <tr>
-                <td>НДС (20%)</td>
-                <td class="amount">{vat_amount:.2f} TMT</td>
-            </tr>
-            <tr class="total-row">
-                <td>ИТОГО с НДС</td>
-                <td class="amount">{total_with_vat:.2f} TMT</td>
-            </tr>
-            -->
-        </table>
-        
-        <div class="footer">
-            <p>Отчет создан: {report.created_at.strftime('%d.%m.%Y %H:%M:%S')}</p>
-            <p>Создал: {report.generated_by.name} ({report.generated_by.role})</p>
-            
-            <div class="signature">
-                <p>Подпись ответственного лица: <span class="signature-line"></span></p>
+        <div class="report-container">
+            <div class="header">
+                <h1>DENIZ RESTAURANT</h1>
+                <h2>Z-ОТЧЕТ № {report.id}</h2>
             </div>
             
-            <p style="text-align: center; margin-top: 30px;">
-                <small>
-                    Данный отчет является официальным документом<br>
-                    и содержит полную информацию о продажах за указанный период
-                </small>
-            </p>
+            <div class="info-section">
+                <h3>Основная информация</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <strong>Дата отчета:</strong><br>
+                        {report.report_date.strftime('%d.%m.%Y')}
+                    </div>
+                    <div class="info-item">
+                        <strong>Номер отчета:</strong><br>
+                        {report.id}
+                    </div>
+                    <div class="info-item">
+                        <strong>Всего заказов:</strong><br>
+                        {report.total_orders}
+                    </div>
+                    <div class="info-item">
+                        <strong>Выручка:</strong><br>
+                        {report.total_revenue:.2f} TMT
+                    </div>
+                </div>
+            </div>
+            
+            <div class="info-section">
+                <h3>Детализация</h3>
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>Показатель</th>
+                            <th>Значение</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Всего заказов</td>
+                            <td>{report.total_orders}</td>
+                        </tr>
+                        <tr>
+                            <td>Выручка</td>
+                            <td>{report.total_revenue:.2f} TMT</td>
+                        </tr>
+                        <tr>
+                            <td>Отмененные заказы</td>
+                            <td>{report.cancelled_orders}</td>
+                        </tr>
+                        <tr>
+                            <td>Сервисный сбор</td>
+                            <td>{report.total_service_charge or 0:.2f} TMT</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="footer">
+                <p>Z-отчет создан: {report.created_at.strftime('%d.%m.%Y %H:%M:%S')}</p>
+                
+                <div class="signature">
+                    Подпись: <span class="signature-line"></span>
+                </div>
+            </div>
         </div>
     </body>
     </html>
@@ -224,7 +375,7 @@ def generate_sales_report_excel(data: Dict[str, Any]) -> bytes:
         return csv_content.encode('utf-8')
         
     except Exception as e:
-        current_app.logger.error(f"Excel generation failed: {e}")
+        # current_app.logger.error(f"Excel generation failed: {e}") # This line was removed as per the new_code
         raise Exception(f"Ошибка генерации Excel: {str(e)}")
 
 
@@ -250,7 +401,7 @@ def generate_audit_logs_csv(logs: list) -> bytes:
         return csv_content.encode('utf-8')
         
     except Exception as e:
-        current_app.logger.error(f"CSV generation failed: {e}")
+        # current_app.logger.error(f"CSV generation failed: {e}") # This line was removed as per the new_code
         raise Exception(f"Ошибка генерации CSV: {str(e)}")
 
 

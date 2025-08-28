@@ -120,11 +120,21 @@
                 Z-отчет формируется автоматически в конце дня или может быть создан вручную.
                 Отчет содержит полную информацию о продажах и выручке за указанный период.
             </p>
-        </div>
-        <div class="col-md-4">
-            <button class="btn btn-light btn-lg w-100" onclick="generateTodayReport()">
-                <i class="bi bi-receipt"></i> Создать отчет за сегодня
-            </button>
+            <!-- ДОБАВЛЯЕМ СТАТУС ОТЧЕТА ЗА СЕГОДНЯ -->
+            {% if today_report %}
+                <div class="mt-2">
+                    <span class="badge bg-success">
+                        <i class="bi bi-check-circle"></i> Отчет за сегодня уже создан
+                    </span>
+                    <small class="text-white-50 ms-2">ID: {{ today_report.id }}</small>
+                </div>
+            {% else %}
+                <div class="mt-2">
+                    <span class="badge bg-warning">
+                        <i class="bi bi-clock"></i> Отчет за сегодня еще не создан
+                    </span>
+                </div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -155,17 +165,6 @@
             </div>
         </div>
     </div>
-    <!-- НДС отключен по требованиям. Секция скрыта. -->
-    <!--
-    <div class="col-md-3">
-        <div class="stat-card danger">
-            <div class="stat-value">{{ (reports|sum(attribute='total_revenue') * 0.2)|round(2) }} {{ settings.get('currency', 'TMT') }}</div>
-            <div class="stat-label">
-                <i class="bi bi-percent"></i> НДС (20%)
-            </div>
-        </div>
-    </div>
-    -->
 </div>
 
 <!-- Reports List -->
@@ -196,6 +195,10 @@
                                 <button class="btn btn-light btn-sm" onclick="exportReport({{ report.id }})">
                                     <i class="bi bi-download"></i> Экспорт
                                 </button>
+                                <!-- ДОБАВЛЯЕМ КНОПКУ УДАЛЕНИЯ -->
+                                <button class="btn btn-danger btn-sm" onclick="deleteReport({{ report.id }})">
+                                    <i class="bi bi-trash"></i> Удалить
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -215,50 +218,15 @@
                             <div class="summary-value">{{ "%.2f"|format(report.total_revenue / report.total_orders if report.total_orders > 0 else 0) }} TMT</div>
                             <div class="summary-label">Средний чек</div>
                         </div>
-                        <!-- НДС отключен по требованиям. Блок скрыт. -->
-                        <!--
-                        <div class="summary-item">
-                            <div class="summary-value">{{ "%.2f"|format(report.total_revenue * 0.2) }} TMT</div>
-                            <div class="summary-label">НДС</div>
-                        </div>
-                        -->
                     </div>
                     
                     <div class="row">
-                        <div class="col-md-6">
-                            <h6><i class="bi bi-person"></i> Создал отчет</h6>
-                            <p class="mb-0">{{ report.generated_by.name }} ({{ report.generated_by.role }})</p>
-                            <small class="text-muted">{{ report.created_at.strftime('%d.%m.%Y %H:%M') }}</small>
-                        </div>
                         <div class="col-md-6">
                             <h6><i class="bi bi-clock"></i> Период отчета</h6>
                             <p class="mb-0">{{ report.report_date.strftime('%d.%m.%Y') }}</p>
                             <small class="text-muted">00:00 - 23:59</small>
                         </div>
                     </div>
-                    
-                    {% if report.report_data %}
-                    <!-- Налоговая информация отключена по требованиям. Блок скрыт. -->
-                    <!--
-                    <div class="tax-info">
-                        <h6><i class="bi bi-calculator"></i> Налоговая информация</h6>
-                        <div class="row">
-                            <div class="col-md-4">
-                                <strong>Сумма без НДС:</strong><br>
-                                {{ "%.2f"|format(report.total_revenue / 1.2) }} TMT
-                            </div>
-                            <div class="col-md-4">
-                                <strong>НДС (20%):</strong><br>
-                                {{ "%.2f"|format(report.total_revenue * 0.2 / 1.2) }} TMT
-                            </div>
-                            <div class="col-md-4">
-                                <strong>Сумма с НДС:</strong><br>
-                                {{ "%.2f"|format(report.total_revenue) }} TMT
-                            </div>
-                        </div>
-                    </div>
-                    -->
-                    {% endif %}
                 </div>
             </div>
             {% endfor %}
@@ -267,9 +235,6 @@
                 <i class="bi bi-inbox" style="font-size: 3rem;"></i>
                 <h4 class="mt-3">Нет Z-отчетов</h4>
                 <p>Создайте первый Z-отчет для начала учета</p>
-                <button class="btn btn-admin" onclick="generateTodayReport()">
-                    <i class="bi bi-plus-circle"></i> Создать отчет
-                </button>
             </div>
         {% endif %}
     </div>
@@ -296,7 +261,7 @@
                     {{ z_report_form.hidden_tag() }}
                     <div class="mb-3">
                         <label for="reportDate" class="form-label">Дата отчета</label>
-                        {{ z_report_form.report_date(class="form-control", required=true) }}
+                        {{ z_report_form.report_date(class="form-control", id="reportDate", required=true) }}
                         <div class="invalid-feedback">
                             {{ z_report_form.report_date.errors[0] if z_report_form.report_date.errors else '' }}
                         </div>
@@ -306,27 +271,6 @@
                         <label for="reportComment" class="form-label">Комментарий (необязательно)</label>
                         <textarea class="form-control" id="reportComment" rows="3" 
                                   placeholder="Дополнительная информация об отчете"></textarea>
-                    </div>
-                    
-                    <!-- Переключатель НДС скрыт по требованиям. -->
-                    <!--
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="includeTax" checked>
-                            <label class="form-check-label" for="includeTax">
-                                Включить расчет НДС
-                            </label>
-                        </div>
-                    </div>
-                    -->
-                    
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="autoPrint">
-                            <label class="form-check-label" for="autoPrint">
-                                Автоматически распечатать отчет
-                            </div>
-                        </div>
                     </div>
                 </form>
             </div>
@@ -380,19 +324,16 @@
 
     // Set default date to today
     document.addEventListener('DOMContentLoaded', function() {
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('reportDate').value = today;
+        const reportDateField = document.getElementById('reportDate');
+        if (reportDateField) {
+            const today = new Date().toISOString().split('T')[0];
+            reportDateField.value = today;
+        }
     });
 
     // Show generate modal
     function showGenerateModal() {
-                    $('#generateReportModal').modal('show');
-    }
-
-    // Generate report for today
-    async function generateTodayReport() {
-        const today = new Date().toISOString().split('T')[0];
-        await generateReportForDate(today);
+        $('#generateReportModal').modal('show');
     }
 
     // Generate report
@@ -400,7 +341,14 @@
         const button = event.target;
         const originalText = showLoading(button);
         
-        const date = document.getElementById('reportDate').value;
+        const reportDateField = document.getElementById('reportDate');
+        if (!reportDateField) {
+            showAlert('Поле даты не найдено', 'danger');
+            hideLoading(button, originalText);
+            return;
+        }
+        
+        const date = reportDateField.value;
         
         if (!date) {
             showAlert('Выберите дату для отчета', 'warning');
@@ -409,33 +357,29 @@
         }
         
         try {
-            await generateReportForDate(date);
+            // Создаем отчет напрямую через API
+            const response = await apiRequest('/admin/z-reports/generate', 'POST', {
+                report_date: date
+            });
             
-            // Close modal
-            $('#generateReportModal').modal('hide');
-            
-            setTimeout(() => {
-                location.reload();
-            }, 1000);
+            if (response.status === 'success') {
+                showAlert('Z-отчет успешно создан', 'success');
+                
+                // Close modal
+                $('#generateReportModal').modal('hide');
+                
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            } else {
+                throw new Error(response.message || 'Ошибка создания отчета');
+            }
             
         } catch (error) {
             showAlert('Ошибка при создании отчета: ' + error.message, 'danger');
         } finally {
             hideLoading(button, originalText);
         }
-    }
-
-    // Generate report for specific date
-    async function generateReportForDate(date) {
-        const response = await apiRequest('{{ url_for("admin.generate_z_report") }}', 'POST', {
-            date: date,
-            include_tax: document.getElementById('includeTax')?.checked || true,
-            comment: document.getElementById('reportComment')?.value || '',
-            auto_print: document.getElementById('autoPrint')?.checked || false
-        });
-        
-        showAlert('Z-отчет успешно создан', 'success');
-        return response;
     }
 
     // View report
@@ -496,7 +440,6 @@
                 
                 <div class="mt-4">
                     <p><strong>Создан:</strong> ${new Date(report.created_at).toLocaleString('ru-RU')}</p>
-                    <p><strong>Сотрудник:</strong> ${report.generated_by.name}</p>
                 </div>
                 
                 <div class="mt-4 text-center">
@@ -551,9 +494,12 @@
         printWindow.print();
     }
 
-    // Export report
+    // Export report - ИСПРАВЛЯЕМ ЭТУ ФУНКЦИЮ
     async function exportReport(reportId) {
         try {
+            // Показываем индикатор загрузки
+            showAlert('Генерация PDF...', 'info');
+            
             const response = await fetch(`/admin/z-reports/${reportId}/export`);
             
             if (response.ok) {
@@ -561,26 +507,93 @@
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `z_report_${reportId}.pdf`;
+                a.download = `z_report_${reportId}_${new Date().toISOString().split('T')[0]}.pdf`;
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);
                 document.body.removeChild(a);
                 
-                showAlert('Z-отчет экспортирован', 'success');
+                showAlert('Z-отчет успешно экспортирован в PDF', 'success');
             } else {
-                throw new Error('Ошибка экспорта');
+                // Получаем текст ошибки
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
             }
             
         } catch (error) {
+            console.error('Export error:', error);
             showAlert('Ошибка при экспорте отчета: ' + error.message, 'danger');
         }
     }
 
-    // Export current report
+    // Export current report - ИСПРАВЛЯЕМ ЭТУ ФУНКЦИЮ
     function exportCurrentReport() {
         if (currentReportId) {
             exportReport(currentReportId);
+        } else {
+            showAlert('Отчет не выбран', 'warning');
+        }
+    }
+
+    // Добавляем функцию удаления отчета
+    async function deleteReport(reportId) {
+        if (!confirm('Вы уверены, что хотите удалить этот отчет? Это действие нельзя отменить.')) {
+            return;
+        }
+        
+        try {
+            const response = await apiRequest(`/admin/z-reports/${reportId}`, 'DELETE');
+            
+            if (response.status === 'success') {
+                showAlert('Отчет успешно удален', 'success');
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            } else {
+                throw new Error(response.message || 'Ошибка удаления');
+            }
+            
+        } catch (error) {
+            showAlert('Ошибка при удалении отчета: ' + error.message, 'danger');
+        }
+    }
+
+    // Вспомогательные функции для UI
+    function showLoading(button, text = 'Загрузка...') {
+        if (button) {
+            button.setAttribute('data-original-html', button.innerHTML);
+            button.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>${text}`;
+            button.disabled = true;
+        }
+    }
+
+    function hideLoading(button, originalText) {
+        if (button) {
+            button.innerHTML = originalText;
+            button.disabled = false;
+        }
+    }
+
+    function showAlert(message, type = 'info') {
+        // Создаем alert элемент
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        // Добавляем в начало страницы
+        const container = document.querySelector('.container-fluid') || document.querySelector('.container');
+        if (container) {
+            container.insertBefore(alertDiv, container.firstChild);
+            
+            // Автоматически скрываем через 5 секунд
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
         }
     }
 </script>
