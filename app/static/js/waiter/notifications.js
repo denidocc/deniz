@@ -336,3 +336,145 @@ document.addEventListener('DOMContentLoaded', () => {
     
     initNotifications();
 });
+
+
+// Функция добавления нового заказа в список
+function addNewOrderToList(orderData) {
+    const ordersContainer = document.getElementById('ordersList');
+    if (!ordersContainer) return;
+    
+    // Создание HTML для нового заказа
+    const orderHtml = createOrderCard(orderData);
+    
+    // Находим группу "Новые заказы" (pending)
+    let pendingGroup = ordersContainer.querySelector('.pending-group');
+    
+    if (!pendingGroup) {
+        // Если группы нет, создаем её
+        const statusInfo = window.statusReference?.pending || { name: 'Новые заказы', icon: '🟢' };
+        pendingGroup = document.createElement('div');
+        pendingGroup.className = 'status-group pending-group';
+        pendingGroup.innerHTML = `<h3 class="status-group-title pending-title">${statusInfo.icon} ${statusInfo.name}</h3>`;
+        
+        // Добавляем в начало списка
+        ordersContainer.insertBefore(pendingGroup, ordersContainer.firstChild);
+    }
+    
+    // Добавляем заказ в группу
+    pendingGroup.insertAdjacentHTML('beforeend', orderHtml);
+    
+    // Анимация появления
+    const newOrder = pendingGroup.lastElementChild;
+    newOrder.style.opacity = '0';
+    newOrder.style.transform = 'translateY(-20px)';
+    
+    setTimeout(() => {
+        newOrder.style.transition = 'all 0.3s ease';
+        newOrder.style.opacity = '1';
+        newOrder.style.transform = 'translateY(0)';
+    }, 100);
+}
+
+// Функция создания HTML для заказа (копируем из orders.html)
+function createOrderCard(order) {
+    const statusColor = getStatusColor(order.status || 'pending');
+    const statusIcon = getStatusIcon(order.status || 'pending');
+    
+    return `
+        <div class="order-card" data-order-id="${order.order_id}">
+            <div class="order-header">
+                <div class="order-info">
+                    <div class="order-title">
+                        <h3>Заказ #${order.order_id}</h3>
+                        <span class="order-status ${order.status || 'pending'}" style="background: ${statusColor};">
+                            ${statusIcon} ${(order.status || 'pending').toUpperCase()}
+                        </span>
+                    </div>
+                    <div class="order-table-info">
+                        <i class="fas fa-table"></i>
+                        <span>Стол: ${order.table_number}</span>
+                        <i class="fas fa-users"></i>
+                        <span>Гостей: ${order.guest_count || 1}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="order-body">
+                <div class="order-total">
+                    <div class="total-label">Итого к оплате:</div>
+                    <div class="total-amount">${order.total_amount} TMT</div>
+                </div>
+                <div class="order-meta">
+                    <div class="meta-item">
+                        <i class="fas fa-clock"></i>
+                        <span>Создан: ${new Date(order.created_at).toLocaleString('ru-RU')}</span>
+                    </div>
+                    <div class="meta-item">
+                        <i class="fas fa-language"></i>
+                        <span>Язык: ${(order.language || 'ru').toUpperCase()}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="order-actions">
+                <button class="btn btn-primary" onclick="window.viewOrderDetails(${order.order_id})">
+                    <i class="fas fa-eye"></i> Подробности
+                </button>
+                <button class="btn btn-info" onclick="window.printOrderReceiptsFromCard(${order.order_id})">
+                    <i class="fas fa-print"></i> Отправить на печать
+                </button>
+                <button class="btn btn-danger" onclick="window.cancelOrder(${order.order_id})">
+                    <i class="fas fa-times"></i> Отменить заказ
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// Функции для получения цвета и иконки статуса (копируем из orders.html)
+function getStatusColor(status) {
+    if (window.statusReference && window.statusReference[status] && window.statusReference[status].color) {
+        return window.statusReference[status].color;
+    }
+    const fallbackColors = {
+        'pending': '#28a745',    // Зеленый
+        'confirmed': '#ffc107',  // Желтый
+        'completed': '#6c757d',  // Серый
+        'cancelled': '#dc3545'   // Красный
+    };
+    return fallbackColors[status] || '#6c757d';
+}
+
+function getStatusIcon(status) {
+    if (window.statusReference && window.statusReference[status] && window.statusReference[status].icon) {
+        return window.statusReference[status].icon;
+    }
+    const fallbackIcons = {
+        'pending': '🟢',
+        'confirmed': '✅',
+        'completed': '⚫',
+        'cancelled': '❌'
+    };
+    return fallbackIcons[status] || '⚫';
+}
+
+// Функция форматирования времени
+function formatTime(isoString) {
+    const date = new Date(isoString);
+    return date.toLocaleTimeString('ru-RU', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+// Функция обновления счетчика заказов
+function updateOrderCounter() {
+    const counter = document.querySelector('.orders-counter');
+    if (counter) {
+        const currentCount = parseInt(counter.textContent) || 0;
+        counter.textContent = currentCount + 1;
+        counter.classList.add('pulse');
+        
+        setTimeout(() => {
+            counter.classList.remove('pulse');
+        }, 1000);
+    }
+}

@@ -5,6 +5,8 @@ import sqlalchemy.orm as so
 from typing import Optional, TYPE_CHECKING, Dict, Any
 from datetime import datetime
 from .base import BaseModel
+from flask import current_app
+from app import db
 
 if TYPE_CHECKING:
     from .table import Table
@@ -101,3 +103,20 @@ class WaiterCall(BaseModel):
         db.session.commit()
         
         return call 
+    
+    def save(self) -> 'WaiterCall':
+        """Сохранение вызова с отправкой WebSocket уведомления."""
+        from app.websocket.events import notify_waiter_call
+        
+        # Сохраняем вызов
+        db.session.add(self)
+        db.session.commit()
+        
+        # Отправляем WebSocket уведомление официанту
+        try:
+            notify_waiter_call(self.id)
+        except Exception as e:
+            # Логируем ошибку, но не прерываем сохранение
+            current_app.logger.error(f"Ошибка отправки WebSocket уведомления: {e}")
+        
+        return self

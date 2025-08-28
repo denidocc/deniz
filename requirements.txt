@@ -9,6 +9,7 @@ Flask-JWT-Extended
 Flask-Caching
 Flask-Limiter
 Flask-Babel
+Flask-SocketIO
 
 # База данных
 psycopg2-binary
@@ -66,3 +67,6 @@ marshmallow-sqlalchemy
 
 # Работа с принтерами
 python-escpos
+
+python-socketio
+eventlet

@@ -55,6 +55,9 @@ def create_app(config_name: str = 'development') -> Flask:
     # Регистрация CLI команд аудита
     register_audit_commands(app)
     
+    # Инициализация WebSocket сервера
+    init_websocket(app)
+    
     # Регистрация blueprints
     register_blueprints(app)
     
@@ -300,3 +303,12 @@ def setup_logging(app: Flask) -> None:
         return response
         
     app.logger.info('Приложение DENIZ Restaurant запущено') 
+
+def init_websocket(app: Flask) -> None:
+    """Инициализация WebSocket сервера."""
+    try:
+        from .websocket import init_websocket as init_ws
+        init_ws(app)
+        app.logger.info("WebSocket сервер инициализирован")
+    except Exception as e:
+        app.logger.error(f"Ошибка инициализации WebSocket: {e}")

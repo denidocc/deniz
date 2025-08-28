@@ -9,6 +9,14 @@ import json
 import hashlib
 import re
 
+# Добавляем импорт WebSocket
+try:
+    from app.websocket import socketio
+    WEBSOCKET_AVAILABLE = True
+except ImportError:
+    WEBSOCKET_AVAILABLE = False
+    current_app.logger.warning("WebSocket недоступен")
+
 client_bp = Blueprint('client', __name__)
 
 @client_bp.route('/')
@@ -453,6 +461,7 @@ def get_carousel():
         }), 500
 
 @client_bp.route('/api/orders', methods=['POST'])
+@csrf.exempt
 def create_order():
     """Создание заказа клиентом."""
     try:
@@ -694,6 +703,14 @@ def create_order():
             current_app.logger.warning(f"Audit logging failed: {e}")
             # Не прерываем выполнение из-за ошибки аудита
         
+        # ОТСЫЛАЕМ WEB SOCKET УВЕДОМЛЕНИЕ ОФИЦИАНТУ
+        try:
+            from app.websocket.events import notify_new_order
+            notify_new_order(order.id)
+            current_app.logger.info(f"WebSocket уведомление отправлено для заказа {order.id}")
+        except Exception as e:
+            current_app.logger.error(f"Ошибка отправки WebSocket уведомления: {e}")
+        
         order_data = {
             'order_id': order.id,
             'table_id': table.id,
@@ -787,6 +804,40 @@ def call_waiter():
         
         db.session.add(waiter_call)
         db.session.commit()
+        
+        # ДОБАВЛЯЕМ WebSocket уведомление
+        if WEBSOCKET_AVAILABLE and assigned_waiter:
+            try:
+                # Отправляем уведомление конкретному официанту
+                socketio.emit('waiter_call', {
+                    'call_id': waiter_call.id,
+                    'table_id': table.id,
+                    'table_number': table.table_number,
+                    'message': f'Вызов официанта к столу №{table.table_number}',
+                    'waiter_id': assigned_waiter.id,
+                    'timestamp': datetime.utcnow().isoformat()
+                }, room=f'waiter_{assigned_waiter.id}')
+                
+                current_app.logger.info(f"WebSocket notification sent to waiter {assigned_waiter.id}")
+                
+            except Exception as ws_error:
+                current_app.logger.error(f"WebSocket notification failed: {ws_error}")
+        elif WEBSOCKET_AVAILABLE:
+            try:
+                # Если официант не назначен, отправляем общий вызов всем официантам
+                socketio.emit('waiter_call', {
+                    'call_id': waiter_call.id,
+                    'table_id': table.id,
+                    'table_number': table.table_number,
+                    'message': f'Общий вызов официанта к столу №{table.table_number}',
+                    'waiter_id': None,
+                    'timestamp': datetime.utcnow().isoformat()
+                }, room='all_waiters')
+                
+                current_app.logger.info("WebSocket notification sent to all waiters")
+                
+            except Exception as ws_error:
+                current_app.logger.error(f"WebSocket notification failed: {ws_error}")
         
         if assigned_waiter:
             current_app.logger.info(f"Waiter called to table {table.table_number} (assigned waiter: {assigned_waiter.name})")
@@ -998,18 +1049,25 @@ def complete_order(order_id):
 def cancel_order(order_id):
     """Отмена заказа."""
     try:
+        current_app.logger.info(f"Отмена заказа {order_id} начата")
+        
         from app.models.order import Order
         
         # Получаем заказ
         order = Order.query.get(order_id)
+        current_app.logger.info(f"Заказ найден: {order}")
+        
         if not order:
+            current_app.logger.warning(f"Заказ {order_id} не найден")
             return jsonify({
                 "status": "error",
                 "message": "Заказ не найден"
             }), 404
         
         # Проверяем, что заказ еще не завершен или отменен
+        current_app.logger.info(f"Текущий статус заказа: {order.status}")
         if order.status in ['completed', 'cancelled']:
+            current_app.logger.warning(f"Заказ {order_id} уже в статусе {order.status}")
             return jsonify({
                 "status": "error",
                 "message": "Заказ уже завершен или отменен"
@@ -1017,16 +1075,22 @@ def cancel_order(order_id):
         
         # Изменяем статус заказа на "отменен"
         order.status = 'cancelled'
-        order.cancelled_at = datetime.utcnow()
+        current_app.logger.info(f"Статус заказа изменен на cancelled")
         
         # Получаем стол
         table = order.table
+        current_app.logger.info(f"Стол заказа: {table}")
+        
         if table:
             # Изменяем статус стола на "свободен"
+            old_status = table.status
             table.status = 'available'
+            current_app.logger.info(f"Статус стола изменен с {old_status} на available")
         
         # Сохраняем изменения
+        current_app.logger.info("Сохраняем изменения в БД...")
         db.session.commit()
+        current_app.logger.info("Изменения сохранены успешно")
         
         # Аудирование - создаем запись напрямую
         try:
@@ -1039,7 +1103,7 @@ def cancel_order(order_id):
                 details={
                     'message': f'Order {order.id} cancelled for table {table.table_number if table else "unknown"}',
                     'user_agent': request.headers.get('User-Agent'),
-                    'cancelled_at': order.cancelled_at.isoformat()
+                    'cancelled_at': datetime.utcnow().isoformat()  # Используем текущее время
                 }
             )
             db.session.add(audit_log)
@@ -1058,13 +1122,13 @@ def cancel_order(order_id):
                 'table_id': table.id if table else None,
                 'table_number': table.table_number if table else None,
                 'status': order.status,
-                'cancelled_at': order.cancelled_at.isoformat()
+                'cancelled_at': datetime.utcnow().isoformat()  # Используем текущее время
             }
         })
         
     except Exception as e:
-        current_app.logger.error(f"Error cancelling order: {e}")
+        current_app.logger.error(f"Ошибка отмены заказа {order_id}: {e}", exc_info=True)
         return jsonify({
             "status": "error",
-            "message": "Ошибка отмены заказа"
+            "message": f"Ошибка отмены заказа: {str(e)}"
         }), 500

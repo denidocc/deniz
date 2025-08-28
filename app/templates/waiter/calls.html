@@ -338,98 +338,48 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let currentCallId = null;
     
-    // Функция загрузки вызовов
-    async function loadCalls() {
-        try {
-            const statusFilter = document.getElementById('statusFilter').value;
-            const priorityFilter = document.getElementById('priorityFilter').value;
-            
-            const filters = {};
-            if (statusFilter) filters.status = statusFilter;
-            if (priorityFilter) filters.priority = priorityFilter;
-            
-            const callsList = document.getElementById('callsList');
-            callsList.innerHTML = '<div class="loading-placeholder"><div class="spinner"></div><p>Загрузка вызовов...</p></div>';
-            
-            // Загружаем реальные вызовы из API
-            const response = await fetch('/waiter/api/calls?' + new URLSearchParams(filters));
-            const data = await response.json();
-            
+    // ПЕРЕМЕЩАЕМ ФУНКЦИЮ markAsRead В НАЧАЛО
+    function markAsRead(callId) {
+        // Получаем CSRF токен из meta тега
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        
+        fetch(`/waiter/api/calls/${callId}/mark-read`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken  // ДОБАВЛЯЕМ CSRF токен
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
             if (data.status === 'success') {
-                const calls = data.data.calls;
-                console.log(`📞 Загружено ${calls.length} вызовов:`, calls);
-                
-                let filteredCalls = calls;
-                if (statusFilter) {
-                    filteredCalls = filteredCalls.filter(c => c.status === statusFilter);
-                }
-                if (priorityFilter) {
-                    filteredCalls = filteredCalls.filter(c => c.priority === priorityFilter);
-                }
-                
-                if (filteredCalls.length === 0) {
-                    callsList.innerHTML = `
-                        <div class="no-data">
-                            <i class="fas fa-bell-slash"></i>
-                            <h3>Вызовы не найдены</h3>
-                            <p>Нет вызовов соответствующих выбранным фильтрам</p>
-                        </div>
+                // Обновляем статус вызова в интерфейсе
+                const callCard = document.querySelector(`[data-call-id="${callId}"]`);
+                if (callCard) {
+                    // Изменяем кнопку на "Прочитан"
+                    const actionsDiv = callCard.querySelector('.call-actions');
+                    actionsDiv.innerHTML = `
+                        <span class="status-badge status-completed">
+                            <i class="fas fa-check"></i> Прочитан
+                        </span>
                     `;
-                    return;
+                    
+                    // Обновляем класс карточки
+                    callCard.className = callCard.className.replace('call-pending', 'call-completed');
+                    
+                    // УБИРАЕМ вызов updateCounters, так как функция не определена
+                    // updateCounters();
                 }
                 
-                const callsHtml = filteredCalls.map(call => `
-                    <div class="call-card call-${call.status} priority-${call.priority || 'средний'}" data-call-id="${call.id}">
-                        <div class="call-header">
-                            <div class="call-table">
-                                <i class="fas fa-utensils"></i>
-                                <strong>Стол ${call.table_number || 'Неизвестно'}</strong>
-                            </div>
-                            <div class="call-time">
-                                <i class="fas fa-clock"></i>
-                                ${formatTime(new Date(call.created_at))}
-                            </div>
-                            <div class="call-priority priority-${call.priority || 'средний'}">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                ${getPriorityText(call.priority || 'средний')}
-                            </div>
-                        </div>
-                        <div class="call-content">
-                            <div class="call-message">
-                                <i class="fas fa-comment"></i>
-                                ${call.message || 'Вызов официанта'}
-                            </div>
-                            <div class="call-from">
-                                <i class="fas fa-user"></i>
-                                Клиент стола ${call.table_number || 'Неизвестно'}
-                            </div>
-                        </div>
-                        <div class="call-footer">
-                            <div class="call-status">
-                                <span class="status-badge status-${call.status}">
-                                    ${getStatusText(call.status)}
-                                </span>
-                            </div>
-                            <div class="call-actions">
-                                ${call.status === 'pending' ? `
-                                    <button class="btn btn-success" onclick="markAsRead(${call.id})">
-                                        <i class="fas fa-check"></i> Прочитан
-                                    </button>
-                                ` : ''}
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
-                
-                callsList.innerHTML = callsHtml;
+                waiterNotifications.showSuccess('Вызов отмечен как прочитанный');
             } else {
-                throw new Error(data.message || 'Ошибка загрузки вызовов');
+                waiterNotifications.showError(data.message || 'Ошибка обновления статуса');
             }
-            
-        } catch (error) {
-            console.error('Error loading calls:', error);
-            waiterNotifications.showError('Ошибка загрузки вызовов');
-        }
+        })
+        .catch(error => {
+            console.error('Error marking call as read:', error);
+            waiterNotifications.showError('Ошибка обновления статуса');
+        });
     }
     
     // Вспомогательные функции
@@ -523,6 +473,117 @@ document.addEventListener('DOMContentLoaded', function() {
         waiterNotifications.showSuccess('Все вызовы отмечены как прочитанные');
         loadCalls();
     });
+    
+    // Добавляем обработчики событий после загрузки вызовов
+    function addCallEventListeners() {
+        document.querySelectorAll('.call-actions .btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const callId = this.closest('.call-card').dataset.callId;
+                markAsRead(callId);
+            });
+        });
+    }
+    
+    // Вызываем после загрузки вызовов
+    async function loadCalls() {
+        try {
+            const statusFilter = document.getElementById('statusFilter').value;
+            const priorityFilter = document.getElementById('priorityFilter').value;
+            
+            const filters = {};
+            if (statusFilter) filters.status = statusFilter;
+            if (priorityFilter) filters.priority = priorityFilter;
+            
+            const callsList = document.getElementById('callsList');
+            callsList.innerHTML = '<div class="loading-placeholder"><div class="spinner"></div><p>Загрузка вызовов...</p></div>';
+            
+            // Загружаем реальные вызовы из API
+            const response = await fetch('/waiter/api/calls?' + new URLSearchParams(filters));
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                const calls = data.data.calls;
+                console.log(`📞 Загружено ${calls.length} вызовов:`, calls);
+                
+                let filteredCalls = calls;
+                if (statusFilter) {
+                    filteredCalls = filteredCalls.filter(c => c.status === statusFilter);
+                }
+                if (priorityFilter) {
+                    filteredCalls = filteredCalls.filter(c => c.priority === priorityFilter);
+                }
+                
+                if (filteredCalls.length === 0) {
+                    callsList.innerHTML = `
+                        <div class="no-data">
+                            <i class="fas fa-bell-slash"></i>
+                            <h3>Вызовы не найдены</h3>
+                            <p>Нет вызовов соответствующих выбранным фильтрам</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                const callsHtml = filteredCalls.map(call => `
+                    <div class="call-card call-${call.status} priority-${call.priority || 'средний'}" data-call-id="${call.id}">
+                        <div class="call-header">
+                            <div class="call-table">
+                                <i class="fas fa-utensils"></i>
+                                <strong>Стол ${call.table_number || 'Неизвестно'}</strong>
+                            </div>
+                            <div class="call-time">
+                                <i class="fas fa-clock"></i>
+                                ${formatTime(new Date(call.created_at))}
+                            </div>
+                            <!-- УБИРАЕМ плашку приоритета и заменяем на статус -->
+                            <div class="call-status-badge">
+                                <span class="status-badge status-${call.status}">
+                                    ${getStatusText(call.status)}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="call-content">
+                            <div class="call-message">
+                                <i class="fas fa-comment"></i>
+                                ${call.message || 'Вызов официанта'}
+                            </div>
+                            <div class="call-from">
+                                <i class="fas fa-user"></i>
+                                Клиент стола ${call.table_number || 'Неизвестно'}
+                            </div>
+                        </div>
+                        <div class="call-footer">
+                            <!-- УБИРАЕМ дублирующий статус -->
+                            <div class="call-actions">
+                                ${call.status === 'pending' ? `
+                                    <button class="btn btn-primary" data-call-id="${call.id}">
+                                        <i class="fas fa-eye"></i> Прочитать
+                                    </button>
+                                ` : call.status === 'processing' ? `
+                                    <span class="status-badge status-processing">
+                                        <i class="fas fa-clock"></i> В обработке
+                                    </span>
+                                ` : `
+                                    <span class="status-badge status-completed">
+                                        <i class="fas fa-check"></i> Прочитан
+                                    </span>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                
+                callsList.innerHTML = callsHtml;
+                addCallEventListeners(); // ДОБАВЛЯЕМ ЭТУ СТРОКУ
+            } else {
+                throw new Error(data.message || 'Ошибка загрузки вызовов');
+            }
+            
+        } catch (error) {
+            console.error('Error loading calls:', error);
+            waiterNotifications.showError('Ошибка загрузки вызовов');
+        }
+    }
     
     // Начальная загрузка
     loadCalls();

@@ -7,6 +7,7 @@ from app.models import Order, WaiterCall, Table
 from app.models.order import Order as OrderModel
 from app import db
 from datetime import datetime
+from flask_wtf.csrf import CSRFError
 
 waiter_bp = Blueprint('waiter', __name__)
 
@@ -660,3 +661,87 @@ def get_order_statuses():
     except Exception as e:
         current_app.logger.error(f"Error getting order statuses: {e}")
         return jsonify({"status": "error", "message": "Ошибка получения статусов"}), 500 
+
+@waiter_bp.route('/api/counters')
+@waiter_required
+def get_counters():
+    """Получение актуальных счетчиков для официанта."""
+    try:
+        # Подсчитываем новые заказы для текущего официанта
+        pending_orders = Order.query.filter_by(
+            waiter_id=current_user.id,
+            status='новый'
+        ).count()
+        
+        # Подсчитываем активные вызовы для столов официанта
+        from app.models import TableAssignment
+        assigned_table_ids = db.session.query(TableAssignment.table_id).filter_by(
+            waiter_id=current_user.id
+        ).subquery()
+        
+        pending_calls = WaiterCall.query.filter(
+            WaiterCall.table_id.in_(assigned_table_ids),
+            WaiterCall.status == 'pending'
+        ).count()
+        
+        # Подсчитываем назначенные столы
+        assigned_tables = TableAssignment.query.filter_by(
+            waiter_id=current_user.id,
+            is_active=True
+        ).count()
+        
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'pending_orders': pending_orders,
+                'pending_calls': pending_calls,
+                'assigned_tables': assigned_tables
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting counters: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка получения счетчиков'
+        }), 500 
+
+@waiter_bp.route('/api/calls/<int:call_id>/mark-read', methods=['POST'])
+@waiter_required
+def mark_call_as_read(call_id):
+    """Отметить вызов официанта как прочитанный."""
+    try:
+        call = WaiterCall.query.get_or_404(call_id)
+        
+        # Проверяем, что вызов относится к столу официанта
+        from app.models import TableAssignment
+        is_assigned = TableAssignment.query.filter_by(
+            table_id=call.table_id,
+            waiter_id=current_user.id,
+            is_active=True
+        ).first()
+        
+        if not is_assigned:
+            return jsonify({
+                'status': 'error',
+                'message': 'Вызов не относится к вашему столу'
+            }), 403
+        
+        # Обновляем статус
+        call.status = 'completed'
+        call.completed_at = datetime.utcnow()
+        call.completed_by = current_user.id
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Вызов отмечен как прочитанный'
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error marking call as read: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка обновления статуса'
+        }), 500 

@@ -1,336 +1,387 @@
-"""Система резервного копирования базы данных."""
+"""Система резервного копирования базы данных с использованием psycopg2."""
 
 import os
-import subprocess
-import tempfile
-import shutil
+import json
+import gzip
 from datetime import datetime
+from typing import Dict, Any, Optional, List
 from pathlib import Path
-from typing import Dict, Any, Optional
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from flask import current_app
-from werkzeug.datastructures import FileStorage
+import logging
 
+logger = logging.getLogger(__name__)
 
 class BackupManager:
-    """Менеджер резервного копирования."""
+    """Менеджер резервного копирования с использованием psycopg2."""
     
     def __init__(self):
-        self.backup_dir = Path(current_app.config.get('BACKUP_DIR', 'backups'))
+        self.backup_dir = Path('backups')
         self.backup_dir.mkdir(exist_ok=True)
         
-        # Получение настроек БД из конфигурации
-        self.db_config = {
-            'host': current_app.config.get('DB_HOST', 'localhost'),
-            'port': current_app.config.get('DB_PORT', '5432'),
-            'name': current_app.config.get('DB_NAME', 'deniz_restaurant'),
-            'user': current_app.config.get('DB_USER', 'postgres'),
-            'password': current_app.config.get('DB_PASSWORD', '')
-        }
+        # Получаем настройки БД из конфигурации Flask
+        self.db_config = self._get_db_config()
     
-    def create_backup(self) -> str:
+    def _get_db_config(self) -> Dict[str, str]:
+        """Получение конфигурации базы данных."""
+        try:
+            # Парсим DATABASE_URL или используем отдельные параметры
+            database_url = current_app.config.get('SQLALCHEMY_DATABASE_URI', '')
+            
+            if database_url.startswith('postgresql://'):
+                # Парсим URL вида postgresql://user:pass@host:port/dbname
+                from urllib.parse import urlparse
+                parsed = urlparse(database_url)
+                
+                return {
+                    'host': parsed.hostname or 'localhost',
+                    'port': parsed.port or 5432,
+                    'database': parsed.path.lstrip('/'),
+                    'user': parsed.username,
+                    'password': parsed.password
+                }
+            else:
+                # Используем отдельные параметры
+                return {
+                    'host': current_app.config.get('DB_HOST', 'localhost'),
+                    'port': current_app.config.get('DB_PORT', 5432),
+                    'database': current_app.config.get('DB_NAME', 'flask_app'),
+                    'user': current_app.config.get('DB_USER', 'postgres'),
+                    'password': current_app.config.get('DB_PASSWORD', '')
+                }
+        except Exception as e:
+            logger.error(f"Error getting DB config: {e}")
+            return {}
+    
+    def create_backup(self, compress: bool = True) -> str:
         """
         Создание резервной копии базы данных.
         
+        Args:
+            compress: Сжимать ли бэкап
+            
         Returns:
-            str: Путь к созданному файлу резервной копии
-            
-        Raises:
-            Exception: При ошибках создания резервной копии
+            str: Путь к созданному файлу бэкапа
         """
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        backup_filename = f"deniz_backup_{timestamp}.sql"
-        backup_path = self.backup_dir / backup_filename
-        
         try:
-            # Команда pg_dump для создания резервной копии
-            cmd = [
-                'pg_dump',
-                '-h', self.db_config['host'],
-                '-p', self.db_config['port'],
-                '-U', self.db_config['user'],
-                '-d', self.db_config['name'],
-                '--no-password',
-                '--verbose',
-                '--clean',
-                '--create',
-                '--if-exists',
-                '-f', str(backup_path)
-            ]
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            backup_filename = f"backup_{timestamp}.sql"
+            backup_path = self.backup_dir / backup_filename
             
-            # Установка переменной окружения для пароля
-            env = os.environ.copy()
-            env['PGPASSWORD'] = self.db_config['password']
+            logger.info(f"Starting backup creation: {backup_path}")
             
-            # Выполнение команды
-            result = subprocess.run(
-                cmd,
-                env=env,
-                capture_output=True,
-                text=True,
-                check=True
-            )
+            # Создаем SQL файл с бэкапом
+            self._create_sql_backup(backup_path)
             
-            current_app.logger.info(f"Backup created successfully: {backup_path}")
+            # Сжимаем если нужно
+            if compress:
+                compressed_path = backup_path.with_suffix('.sql.gz')
+                self._compress_file(backup_path, compressed_path)
+                backup_path.unlink()  # Удаляем несжатый файл
+                backup_path = compressed_path
             
-            # Проверка, что файл создан и не пустой
-            if not backup_path.exists() or backup_path.stat().st_size == 0:
-                raise Exception("Backup file is empty or was not created")
-            
-            # Очистка старых резервных копий
-            self._cleanup_old_backups()
-            
+            logger.info(f"Backup created successfully: {backup_path}")
             return str(backup_path)
             
-        except subprocess.CalledProcessError as e:
-            current_app.logger.error(f"pg_dump failed: {e.stderr}")
-            raise Exception(f"Failed to create backup: {e.stderr}")
         except Exception as e:
-            current_app.logger.error(f"Backup creation error: {e}")
-            raise
+            logger.error(f"Backup creation failed: {e}")
+            raise Exception(f"Ошибка создания резервной копии: {str(e)}")
     
-    def restore_backup(self, backup_file: FileStorage) -> Dict[str, Any]:
-        """
-        Восстановление базы данных из резервной копии.
-        
-        Args:
-            backup_file: Файл резервной копии
-            
-        Returns:
-            Dict[str, Any]: Результат операции восстановления
-            
-        Raises:
-            Exception: При ошибках восстановления
-        """
-        # Сохранение загруженного файла
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.sql') as temp_file:
-            backup_file.save(temp_file.name)
-            temp_backup_path = temp_file.name
-        
+    def _create_sql_backup(self, backup_path: Path) -> None:
+        """Создание SQL файла с бэкапом."""
         try:
-            # Команда psql для восстановления
-            cmd = [
-                'psql',
-                '-h', self.db_config['host'],
-                '-p', self.db_config['port'],
-                '-U', self.db_config['user'],
-                '-d', 'postgres',  # Подключаемся к системной БД для пересоздания
-                '--no-password',
-                '-v', 'ON_ERROR_STOP=1',
-                '-f', temp_backup_path
-            ]
-            
-            # Установка переменной окружения для пароля
-            env = os.environ.copy()
-            env['PGPASSWORD'] = self.db_config['password']
-            
-            # Выполнение команды
-            result = subprocess.run(
-                cmd,
-                env=env,
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            
-            current_app.logger.info("Database restored successfully")
-            
-            return {
-                'restored_at': datetime.now().isoformat(),
-                'backup_file': backup_file.filename,
-                'output': result.stdout
-            }
-            
-        except subprocess.CalledProcessError as e:
-            current_app.logger.error(f"Database restoration failed: {e.stderr}")
-            raise Exception(f"Failed to restore database: {e.stderr}")
-        except Exception as e:
-            current_app.logger.error(f"Restoration error: {e}")
-            raise
-        finally:
-            # Удаление временного файла
-            try:
-                os.unlink(temp_backup_path)
-            except OSError:
-                pass
-    
-    def get_backup_size(self, backup_path: str) -> str:
-        """
-        Получение размера резервной копии.
-        
-        Args:
-            backup_path: Путь к файлу резервной копии
-            
-        Returns:
-            str: Размер файла в читаемом формате
-        """
-        try:
-            size_bytes = Path(backup_path).stat().st_size
-            return self._format_file_size(size_bytes)
-        except Exception:
-            return "Unknown"
-    
-    def list_backups(self) -> list[Dict[str, Any]]:
-        """
-        Получение списка всех резервных копий.
-        
-        Returns:
-            list[Dict[str, Any]]: Список резервных копий с метаданными
-        """
-        backups = []
-        
-        for backup_file in self.backup_dir.glob("deniz_backup_*.sql"):
-            try:
-                stat = backup_file.stat()
-                backups.append({
-                    'filename': backup_file.name,
-                    'path': str(backup_file),
-                    'size': self._format_file_size(stat.st_size),
-                    'size_bytes': stat.st_size,
-                    'created_at': datetime.fromtimestamp(stat.st_ctime),
-                    'modified_at': datetime.fromtimestamp(stat.st_mtime)
-                })
-            except Exception as e:
-                current_app.logger.warning(f"Error reading backup file {backup_file}: {e}")
-        
-        # Сортировка по дате создания (новые первыми)
-        backups.sort(key=lambda x: x['created_at'], reverse=True)
-        
-        return backups
-    
-    def delete_backup(self, backup_filename: str) -> bool:
-        """
-        Удаление резервной копии.
-        
-        Args:
-            backup_filename: Имя файла резервной копии
-            
-        Returns:
-            bool: True если файл удален успешно
-        """
-        try:
-            backup_path = self.backup_dir / backup_filename
-            if backup_path.exists():
-                backup_path.unlink()
-                current_app.logger.info(f"Backup deleted: {backup_filename}")
-                return True
-            return False
-        except Exception as e:
-            current_app.logger.error(f"Error deleting backup {backup_filename}: {e}")
-            return False
-    
-    def _cleanup_old_backups(self) -> None:
-        """Очистка старых резервных копий согласно настройкам."""
-        try:
-            from app.models import SystemSetting
-            
-            # Получение настройки количества копий для хранения
-            retention_setting = SystemSetting.query.filter_by(key='backup_retention').first()
-            retention_count = int(retention_setting.value) if retention_setting else 7
-            
-            backups = self.list_backups()
-            
-            # Удаление лишних копий
-            if len(backups) > retention_count:
-                for backup in backups[retention_count:]:
-                    self.delete_backup(backup['filename'])
+            with psycopg2.connect(**self.db_config) as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                     
+                    with open(backup_path, 'w', encoding='utf-8') as f:
+                        # Заголовок бэкапа
+                        f.write(f"-- Backup created at {datetime.now().isoformat()}\n")
+                        f.write(f"-- Database: {self.db_config['database']}\n")
+                        f.write("-- Generated by psycopg2 backup manager\n\n")
+                        
+                        # Отключаем проверки
+                        f.write("SET session_replication_role = replica;\n\n")
+                        
+                        # Получаем список всех таблиц
+                        tables = self._get_tables(cursor)
+                        
+                        # Экспортируем каждую таблицу
+                        for table in tables:
+                            self._export_table(cursor, f, table)
+                        
+                        # Включаем проверки обратно
+                        f.write("SET session_replication_role = DEFAULT;\n")
+                        
+                        # Создаем индексы
+                        self._export_indexes(cursor, f)
+                        
+                        # Создаем последовательности
+                        self._export_sequences(cursor, f)
+                        
+                        # Создаем ограничения
+                        self._export_constraints(cursor, f)
+                        
         except Exception as e:
-            current_app.logger.error(f"Error cleaning up old backups: {e}")
+            logger.error(f"SQL backup creation failed: {e}")
+            raise
     
-    def _format_file_size(self, size_bytes: int) -> str:
-        """
-        Форматирование размера файла в читаемый вид.
-        
-        Args:
-            size_bytes: Размер в байтах
-            
-        Returns:
-            str: Форматированный размер
-        """
-        if size_bytes == 0:
-            return "0 B"
-        
-        size_names = ["B", "KB", "MB", "GB", "TB"]
-        size_index = 0
-        size = float(size_bytes)
-        
-        while size >= 1024.0 and size_index < len(size_names) - 1:
-            size /= 1024.0
-            size_index += 1
-        
-        return f"{size:.1f} {size_names[size_index]}"
+    def _get_tables(self, cursor) -> List[str]:
+        """Получение списка всех таблиц."""
+        cursor.execute("""
+            SELECT tablename 
+            FROM pg_tables 
+            WHERE schemaname = 'public' 
+            ORDER BY tablename
+        """)
+        return [row['tablename'] for row in cursor.fetchall()]
     
-    def schedule_automatic_backup(self) -> bool:
-        """
-        Планирование автоматического создания резервных копий.
-        
-        Returns:
-            bool: True если планирование успешно
-        """
+    def _export_table(self, cursor, file, table_name: str) -> None:
+        """Экспорт одной таблицы."""
         try:
-            from app.models import SystemSetting
+            # Получаем структуру таблицы
+            cursor.execute(f"""
+                SELECT column_name, data_type, is_nullable, column_default
+                FROM information_schema.columns 
+                WHERE table_name = '{table_name}' 
+                ORDER BY ordinal_position
+            """)
+            columns = cursor.fetchall()
             
-            # Проверка настроек автобэкапа
-            auto_backup_setting = SystemSetting.query.filter_by(key='auto_backup').first()
-            if not auto_backup_setting or auto_backup_setting.value != 'true':
-                return False
+            # Создаем таблицу
+            file.write(f"\n-- Table: {table_name}\n")
+            file.write(f"DROP TABLE IF EXISTS {table_name} CASCADE;\n")
             
-            interval_setting = SystemSetting.query.filter_by(key='backup_interval').first()
-            interval = interval_setting.value if interval_setting else 'daily'
+            create_table_sql = f"CREATE TABLE {table_name} (\n"
+            column_defs = []
             
-            # Здесь можно добавить интеграцию с Celery или cron
-            # Для простоты оставляем заглушку
-            current_app.logger.info(f"Automatic backup scheduled: {interval}")
+            for col in columns:
+                col_name = col['column_name']
+                col_type = col['data_type']
+                nullable = "NULL" if col['is_nullable'] == 'YES' else "NOT NULL"
+                default = f"DEFAULT {col['column_default']}" if col['column_default'] else ""
+                
+                column_def = f"    {col_name} {col_type} {nullable}"
+                if default:
+                    column_def += f" {default}"
+                column_defs.append(column_def)
             
-            return True
+            create_table_sql += ",\n".join(column_defs)
+            create_table_sql += "\n);\n"
+            file.write(create_table_sql)
+            
+            # Экспортируем данные
+            cursor.execute(f"SELECT * FROM {table_name}")
+            rows = cursor.fetchall()
+            
+            if rows:
+                file.write(f"\n-- Data for table {table_name}\n")
+                
+                for row in rows:
+                    values = []
+                    for col in columns:
+                        col_name = col['column_name']
+                        value = row[col_name]
+                        
+                        if value is None:
+                            values.append("NULL")
+                        elif isinstance(value, (int, float)):
+                            values.append(str(value))
+                        elif isinstance(value, bool):
+                            values.append(str(value).lower())
+                        else:
+                            # Экранируем строки
+                            escaped_value = str(value).replace("'", "''")
+                            values.append(f"'{escaped_value}'")
+                    
+                    insert_sql = f"INSERT INTO {table_name} ({', '.join(col['column_name'] for col in columns)}) VALUES ({', '.join(values)});\n"
+                    file.write(insert_sql)
+            
+            file.write(f"\n-- End of table {table_name}\n\n")
             
         except Exception as e:
-            current_app.logger.error(f"Error scheduling automatic backup: {e}")
-            return False
+            logger.error(f"Error exporting table {table_name}: {e}")
+            file.write(f"\n-- Error exporting table {table_name}: {e}\n\n")
     
-    def verify_backup_integrity(self, backup_path: str) -> Dict[str, Any]:
+    def _export_indexes(self, cursor, file) -> None:
+        """Экспорт индексов."""
+        try:
+            file.write("-- Indexes\n")
+            cursor.execute("""
+                SELECT indexname, tablename, indexdef
+                FROM pg_indexes 
+                WHERE schemaname = 'public'
+                ORDER BY tablename, indexname
+            """)
+            
+            for row in cursor.fetchall():
+                if not row['indexname'].endswith('_pkey'):  # Пропускаем primary key
+                    file.write(f"{row['indexdef']};\n")
+            
+            file.write("\n")
+        except Exception as e:
+            logger.error(f"Error exporting indexes: {e}")
+    
+    def _export_sequences(self, cursor, file) -> None:
+        """Экспорт последовательностей."""
+        try:
+            file.write("-- Sequences\n")
+            cursor.execute("""
+                SELECT sequence_name, start_value, increment_by, last_value
+                FROM information_schema.sequences 
+                WHERE sequence_schema = 'public'
+            """)
+            
+            for row in cursor.fetchall():
+                file.write(f"ALTER SEQUENCE {row['sequence_name']} RESTART WITH {row['last_value']};\n")
+            
+            file.write("\n")
+        except Exception as e:
+            logger.error(f"Error exporting sequences: {e}")
+    
+    def _export_constraints(self, cursor, file) -> None:
+        """Экспорт ограничений (foreign keys, unique, check)."""
+        try:
+            file.write("-- Constraints\n")
+            
+            # Foreign keys
+            cursor.execute("""
+                SELECT 
+                    tc.table_name, 
+                    tc.constraint_name, 
+                    tc.constraint_type,
+                    kcu.column_name,
+                    ccu.table_name AS foreign_table_name,
+                    ccu.column_name AS foreign_column_name
+                FROM information_schema.table_constraints AS tc 
+                JOIN information_schema.key_column_usage AS kcu
+                    ON tc.constraint_name = kcu.constraint_name
+                JOIN information_schema.constraint_column_usage AS ccu
+                    ON ccu.constraint_name = tc.constraint_name
+                WHERE tc.constraint_type = 'FOREIGN KEY' 
+                AND tc.table_schema = 'public'
+            """)
+            
+            for row in cursor.fetchall():
+                fk_sql = f"ALTER TABLE {row['table_name']} ADD CONSTRAINT {row['constraint_name']} "
+                fk_sql += f"FOREIGN KEY ({row['column_name']}) "
+                fk_sql += f"REFERENCES {row['foreign_table_name']}({row['foreign_column_name']});\n"
+                file.write(fk_sql)
+            
+            file.write("\n")
+        except Exception as e:
+            logger.error(f"Error exporting constraints: {e}")
+    
+    def _compress_file(self, source_path: Path, target_path: Path) -> None:
+        """Сжатие файла."""
+        try:
+            with open(source_path, 'rb') as source:
+                with gzip.open(target_path, 'wb') as target:
+                    target.writelines(source)
+            logger.info(f"File compressed: {target_path}")
+        except Exception as e:
+            logger.error(f"Compression failed: {e}")
+            raise
+    
+    def restore_backup(self, backup_path: str) -> Dict[str, Any]:
         """
-        Проверка целостности резервной копии.
+        Восстановление из резервной копии.
         
         Args:
-            backup_path: Путь к файлу резервной копии
+            backup_path: Путь к файлу бэкапа
             
         Returns:
-            Dict[str, Any]: Результат проверки
+            Dict: Результат восстановления
         """
         try:
             backup_file = Path(backup_path)
             
             if not backup_file.exists():
-                return {
-                    'valid': False,
-                    'error': 'Файл не найден'
-                }
+                raise Exception("Файл резервной копии не найден")
             
-            if backup_file.stat().st_size == 0:
-                return {
-                    'valid': False,
-                    'error': 'Файл пустой'
-                }
+            # Распаковываем если сжат
+            if backup_file.suffix == '.gz':
+                import tempfile
+                with tempfile.NamedTemporaryFile(mode='w+b', suffix='.sql') as tmp_file:
+                    with gzip.open(backup_file, 'rb') as gz_file:
+                        tmp_file.write(gz_file.read())
+                    tmp_file.seek(0)
+                    result = self._execute_sql_restore(tmp_file.name)
+            else:
+                result = self._execute_sql_restore(str(backup_file))
             
-            # Простая проверка на наличие SQL команд
-            with open(backup_file, 'r', encoding='utf-8') as f:
-                content = f.read(1000)  # Читаем первые 1000 символов
-                
-                if 'CREATE DATABASE' not in content and 'CREATE TABLE' not in content:
-                    return {
-                        'valid': False,
-                        'error': 'Файл не содержит SQL команд'
-                    }
-            
+            logger.info("Backup restored successfully")
             return {
-                'valid': True,
-                'size': self.get_backup_size(backup_path),
-                'checked_at': datetime.now().isoformat()
+                'status': 'success',
+                'message': 'База данных восстановлена успешно',
+                'backup_file': backup_path
             }
             
         except Exception as e:
-            return {
-                'valid': False,
-                'error': f'Ошибка проверки: {str(e)}'
-            }
+            logger.error(f"Backup restoration failed: {e}")
+            raise Exception(f"Ошибка восстановления: {str(e)}")
+    
+    def _execute_sql_restore(self, sql_file_path: str) -> None:
+        """Выполнение SQL восстановления."""
+        try:
+            with psycopg2.connect(**self.db_config) as conn:
+                with conn.cursor() as cursor:
+                    with open(sql_file_path, 'r', encoding='utf-8') as f:
+                        sql_content = f.read()
+                        cursor.execute(sql_content)
+                        conn.commit()
+        except Exception as e:
+            logger.error(f"SQL restore execution failed: {e}")
+            raise
+    
+    def get_backup_size(self, backup_path: str) -> str:
+        """Получение размера файла бэкапа."""
+        try:
+            file_path = Path(backup_path)
+            if file_path.exists():
+                size_bytes = file_path.stat().st_size
+                if size_bytes < 1024:
+                    return f"{size_bytes} B"
+                elif size_bytes < 1024 * 1024:
+                    return f"{size_bytes / 1024:.1f} KB"
+                else:
+                    return f"{size_bytes / (1024 * 1024):.1f} MB"
+            return "Unknown"
+        except Exception as e:
+            logger.error(f"Error getting backup size: {e}")
+            return "Error"
+    
+    def list_backups(self) -> List[Dict[str, Any]]:
+        """Получение списка всех бэкапов."""
+        try:
+            backups = []
+            for backup_file in self.backup_dir.glob("backup_*.sql*"):
+                stat = backup_file.stat()
+                backups.append({
+                    'filename': backup_file.name,
+                    'path': str(backup_file),
+                    'size': self.get_backup_size(str(backup_file)),
+                    'created_at': datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    'is_compressed': backup_file.suffix == '.gz'
+                })
+            
+            # Сортируем по дате создания (новые первыми)
+            backups.sort(key=lambda x: x['created_at'], reverse=True)
+            return backups
+            
+        except Exception as e:
+            logger.error(f"Error listing backups: {e}")
+            return []
+    
+    def delete_backup(self, backup_path: str) -> bool:
+        """Удаление бэкапа."""
+        try:
+            backup_file = Path(backup_path)
+            if backup_file.exists():
+                backup_file.unlink()
+                logger.info(f"Backup deleted: {backup_path}")
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"Error deleting backup: {e}")
+            return False

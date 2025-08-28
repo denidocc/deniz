@@ -13,7 +13,7 @@
         </div>
         <div class="card-content">
             <div class="action-buttons">
-                <a href="{{ url_for('waiter.orders') }}" class="action-btn">
+                <a href="{{ url_for('waiter.orders') }}" class="action-btn" data-action="orders">
                     <div class="action-icon">📋</div>
                     <div class="action-text">
                         <span class="action-title">Заказы</span>
@@ -21,7 +21,7 @@
                     </div>
                 </a>
                 
-                <a href="{{ url_for('waiter.calls') }}" class="action-btn">
+                <a href="{{ url_for('waiter.calls') }}" class="action-btn" data-action="calls">
                     <div class="action-icon">🔔</div>
                     <div class="action-text">
                         <span class="action-title">Вызовы</span>
@@ -29,7 +29,7 @@
                     </div>
                 </a>
                 
-                <a href="{{ url_for('waiter.tables') }}" class="action-btn">
+                <a href="{{ url_for('waiter.tables') }}" class="action-btn" data-action="tables">
                     <div class="action-icon">🪑</div>
                     <div class="action-text">
                         <span class="action-title">Столы</span>
@@ -79,6 +79,8 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- УБИРАЕМ utils.js, так как он уже загружен в base.html -->
+<!-- <script src="{{ url_for('static', filename='js/waiter/utils.js') }}?v=2.0.5"></script> -->
 <script src="{{ url_for('static', filename='js/waiter/dashboard.js') }}?v=2.0.5"></script>
 <script src="{{ url_for('static', filename='js/waiter/modals.js') }}?v=2.0.5"></script>
 {% endblock %}

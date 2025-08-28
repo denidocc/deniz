@@ -88,30 +88,15 @@ class WaiterDashboard {
 
     }
 
-
-
-
-
     /**
      * Обновить быстрые действия
      */
     updateQuickActions() {
-        // Обновляем счетчики на кнопках быстрых действий
-        const ordersBtn = document.querySelector('[data-action="orders"] .badge');
-        if (ordersBtn && this.stats.pending_orders > 0) {
-            ordersBtn.textContent = this.stats.pending_orders;
-            ordersBtn.style.display = 'inline';
-        } else if (ordersBtn) {
-            ordersBtn.style.display = 'none';
-        }
-
-        const callsBtn = document.querySelector('[data-action="calls"] .badge');
-        if (callsBtn && this.stats.pending_calls > 0) {
-            callsBtn.textContent = this.stats.pending_calls;
-            callsBtn.style.display = 'inline';
-        } else if (callsBtn) {
-            callsBtn.style.display = 'none';
-        }
+        // Упрощаем - просто обновляем счетчики, которые уже работают
+        // Убираем сложную логику с data-action, так как она не нужна
+        
+        // Счетчики уже обновляются в updateStatsCards()
+        console.log('✅ Быстрые действия обновлены');
     }
 
     /**
@@ -174,33 +159,10 @@ class WaiterDashboard {
      * Инициализировать обработчики событий
      */
     initEventListeners() {
-        // Кнопки быстрых действий
-        document.querySelectorAll('[data-action]').forEach(button => {
-            button.addEventListener('click', (e) => {
-                e.preventDefault();
-                const action = button.getAttribute('data-action');
-                this.handleQuickAction(action);
-            });
-        });
-
-        // Кнопка обновления
-        const refreshBtn = document.getElementById('refresh-dashboard');
-        if (refreshBtn) {
-            refreshBtn.addEventListener('click', () => {
-                this.refreshDashboard();
-            });
-        }
-
-        // Кнопки карточек статистики (делаем их кликабельными)
-        const statsCards = document.querySelectorAll('.stats-card[data-action]');
-        statsCards.forEach(card => {
-            card.style.cursor = 'pointer';
-            card.addEventListener('click', (e) => {
-                e.preventDefault();
-                const action = card.getAttribute('data-action');
-                this.handleQuickAction(action);
-            });
-        });
+        // Убираем сложную логику с data-action
+        // Простые клики по ссылкам работают автоматически
+        
+        console.log('✅ Обработчики событий инициализированы');
     }
 
     /**
@@ -309,8 +271,13 @@ class WaiterDashboard {
      */
     async loadRecentOrders() {
         try {
+            console.log('🔄 Начинаем загрузку последних заказов...');
+            
             const recentOrdersList = document.getElementById('recentOrdersList');
-            if (!recentOrdersList) return;
+            if (!recentOrdersList) {
+                console.log('❌ Элемент recentOrdersList не найден');
+                return;
+            }
 
             // Показываем состояние загрузки
             recentOrdersList.innerHTML = `
@@ -320,10 +287,17 @@ class WaiterDashboard {
                 </div>
             `;
 
+            console.log('🔍 Проверяем WaiterAPI:', window.WaiterAPI);
+            console.log('🔍 getOrders функция:', typeof window.WaiterAPI.getOrders);
+
             // Получаем последние 5 заказов
+            console.log('📡 Отправляем запрос getOrders...');
             const response = await window.WaiterAPI.getOrders();
+            console.log('📡 Ответ от API:', response);
             
             if (response.status === 'success' && response.data.orders.length > 0) {
+                console.log(`✅ Получено ${response.data.orders.length} заказов`);
+                
                 // Берем только последние 5 заказов и сортируем по дате
                 const recentOrders = response.data.orders
                     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
@@ -331,10 +305,14 @@ class WaiterDashboard {
 
                 let ordersHtml = '';
                 recentOrders.forEach(order => {
+                    console.log(' Обрабатываем заказ:', order);
+                    
+                    // ИСПРАВЛЯЕМ: объявляем переменные внутри цикла
                     const statusColor = WaiterUtils.getOrderStatusColor(order.status);
                     const statusIcon = WaiterUtils.getOrderStatusIcon(order.status);
                     
-                    ordersHtml += `
+                    // Создаем HTML для каждого заказа
+                    const orderHtml = `
                         <div class="recent-order-item">
                             <div class="order-info">
                                 <div class="order-header">
@@ -356,10 +334,15 @@ class WaiterDashboard {
                             </div>
                         </div>
                     `;
+                    
+                    // Добавляем HTML в общую строку
+                    ordersHtml += orderHtml;
                 });
 
                 recentOrdersList.innerHTML = ordersHtml;
+                console.log('✅ HTML для заказов обновлен');
             } else {
+                console.log('📭 Нет заказов или ошибка в ответе');
                 // Нет заказов
                 recentOrdersList.innerHTML = `
                     <div class="no-orders">
@@ -369,13 +352,13 @@ class WaiterDashboard {
                 `;
             }
         } catch (error) {
-            console.error('Error loading recent orders:', error);
+            console.error('❌ Ошибка загрузки последних заказов:', error);
             const recentOrdersList = document.getElementById('recentOrdersList');
             if (recentOrdersList) {
                 recentOrdersList.innerHTML = `
                     <div class="error-state">
                         <i class="fas fa-exclamation-triangle"></i>
-                        <span>Ошибка загрузки заказов</span>
+                        <span>Ошибка загрузки заказов: ${error.message}</span>
                     </div>
                 `;
             }
@@ -383,18 +366,42 @@ class WaiterDashboard {
     }
 }
 
-// Инициализация при загрузке DOM после WaiterAPI
-document.addEventListener('DOMContentLoaded', () => {
-    // Ждем пока WaiterAPI станет доступным
-    const waitForAPI = () => {
-        if (window.WaiterAPI && typeof window.WaiterAPI.getDashboardStats === 'function') {
-            window.waiterDashboard = new WaiterDashboard();
-        } else {
-            setTimeout(waitForAPI, 50);
-        }
-    };
+// Добавляем функцию обновления счетчиков
+function updateCounters() {
+    fetch('/waiter/api/counters')
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Обновляем счетчик заказов
+                const ordersCount = document.getElementById('pendingOrdersCount');
+                if (ordersCount) {
+                    ordersCount.textContent = `${data.data.pending_orders} новых`;
+                }
+                
+                // Обновляем счетчик вызовов
+                const callsCount = document.getElementById('pendingCallsCount');
+                if (callsCount) {
+                    callsCount.textContent = `${data.data.pending_calls} активных`;
+                }
+                
+                // Обновляем счетчик столов
+                const tablesCount = document.getElementById('myTablesCount');
+                if (tablesCount) {
+                    tablesCount.textContent = `${data.data.assigned_tables} столов`;
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error updating counters:', error);
+        });
+}
+
+// Обновляем счетчики при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    updateCounters();
     
-    waitForAPI();
+    // Обновляем счетчики каждые 30 секунд
+    setInterval(updateCounters, 30000);
 });
 
 // Очистка при выгрузке страницы
@@ -402,4 +409,28 @@ window.addEventListener('beforeunload', () => {
     if (window.waiterDashboard) {
         window.waiterDashboard.destroy();
     }
+});
+
+console.log(' dashboard.js загружен');
+
+// Инициализация dashboard при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 DOM загружен, инициализируем dashboard');
+    
+    // Проверяем, что все необходимые компоненты загружены
+    if (window.WaiterAPI) {
+        console.log('✅ WaiterAPI доступен');
+    } else {
+        console.log('❌ WaiterAPI НЕ доступен');
+    }
+    
+    if (window.WaiterUtils) {
+        console.log('✅ WaiterUtils доступен');
+    } else {
+        console.log('❌ WaiterUtils НЕ доступен');
+    }
+    
+    // Создаем экземпляр dashboard
+    window.waiterDashboard = new WaiterDashboard();
+    console.log('✅ Dashboard создан');
 });

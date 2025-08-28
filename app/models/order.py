@@ -6,6 +6,8 @@ from typing import Optional, TYPE_CHECKING, Dict, Any
 from decimal import Decimal
 from datetime import datetime, timedelta
 from .base import BaseModel
+from flask import current_app
+from app import db
 
 
 if TYPE_CHECKING:
@@ -267,6 +269,23 @@ class Order(BaseModel):
             table_id=table_id,
             status__in=['pending', 'confirmed']
         ).first()
+    
+    def save(self) -> 'Order':
+        """Сохранение заказа с отправкой WebSocket уведомления."""
+        from app.websocket.events import notify_new_order
+        
+        # Сохраняем заказ
+        db.session.add(self)
+        db.session.commit()
+        
+        # Отправляем WebSocket уведомление официанту
+        try:
+            notify_new_order(self.id)
+        except Exception as e:
+            # Логируем ошибку, но не прерываем сохранение
+            current_app.logger.error(f"Ошибка отправки WebSocket уведомления: {e}")
+        
+        return self
 
 
 class OrderItem(BaseModel):
