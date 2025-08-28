@@ -492,7 +492,7 @@
                         </tr>
                         <tr>
                             <td><strong>Скидка:</strong></td>
-                            <td>${order.bonus_card_info.discount_percent || 0}%</td>
+                            <td>${order.bonus_card_info ? (order.bonus_card_info.discount_percent || 0) : 0}%</td>
                         </tr>
                         <tr class="table-active">
                             <td><strong>ИТОГО:</strong></td>
