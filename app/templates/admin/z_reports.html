@@ -141,7 +141,7 @@
 
 <!-- Statistics Overview -->
 <div class="row mb-4">
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="stat-card">
             <div class="stat-value">{{ reports|length }}</div>
             <div class="stat-label">
@@ -149,19 +149,27 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="stat-card success">
-            <div class="stat-value">{{ reports|length }}</div>
+            <div class="stat-value">{{ reports|sum(attribute='total_orders') }}</div>
             <div class="stat-label">
-                <i class="bi bi-calendar-day"></i> За сегодня
+                <i class="bi bi-calendar-day"></i> Всего заказов
             </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="stat-card warning">
-                            <div class="stat-value">{{ reports|sum(attribute='total_revenue')|round(2) }} {{ settings.get('currency', 'TMT') }}</div>
+    <div class="col-md-3">
+        <div class="stat-card info">
+            <div class="stat-value">{{ reports|sum(attribute='total_revenue')|round(2) }} {{ settings.get('currency', 'TMT') }}</div>
             <div class="stat-label">
                 <i class="bi bi-cash"></i> Общая выручка
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card warning">
+            <div class="stat-value">{{ reports|sum(attribute='cancelled_orders') }}</div>
+            <div class="stat-label">
+                <i class="bi bi-x-circle"></i> Отмененных заказов
             </div>
         </div>
     </div>

@@ -111,8 +111,11 @@ def generate_z_report_pdf(report) -> bytes:
         
         # Основная информация - используем транслитерацию для важных полей
         story.append(Paragraph(f"Data: {report.report_date.strftime('%d.%m.%Y')}", heading_style))
-        story.append(Paragraph(f"Nomer otcheta: {report.id}", normal_style))
-        story.append(Paragraph(f"Vyruchka: {report.total_revenue:.2f} TMT", normal_style))
+        
+        # ✅ ДОБАВЛЯЕМ НОВЫЕ ПОЛЯ
+        # Получаем количество завершенных заказов из report_data
+        report_data = report.get_report_data()
+        completed_orders_count = report_data.get('completed_orders_count', 0)
         story.append(Spacer(1, 12))
         
         # Детализация
@@ -121,10 +124,11 @@ def generate_z_report_pdf(report) -> bytes:
         # Таблица с данными - используем транслитерацию
         data = [
             ['Pokazatel', 'Znachenie'],
-            ['Vsego zakazov', str(report.total_orders)],
+            ['Vsego zakazov sozdano', str(report.total_orders)],
+            ['Zavershennyh zakazov', str(completed_orders_count)],
+            ['Otmenennyh zakazov', str(report.cancelled_orders)],
             ['Vyruchka', f"{report.total_revenue:.2f} TMT"],
-            ['Otmenennye zakazy', str(report.cancelled_orders)],
-            ['Servisny sbor', f"{report.total_service_charge or 0:.2f} TMT"]
+            ['Servisny sbor', f"{report.total_service_charge:.2f} TMT"]
         ]
         
         table = Table(data, colWidths=[3*inch, 2*inch])

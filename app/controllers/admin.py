@@ -585,47 +585,54 @@ def generate_z_report():
         }), 400
     
     # Сбор данных за день
-    orders = Order.query.filter(
+    all_orders = Order.query.filter(
         func.date(Order.created_at) == report_date
     ).all()
     
-    # ✅ ПЕРЕСЧИТЫВАЕМ ТОТАЛЫ ДЛЯ ВСЕХ ЗАКАЗОВ
-    for order in orders:
+    # ✅ РАЗДЕЛЯЕМ ЗАКАЗЫ ПО СТАТУСАМ
+    completed_orders = [o for o in all_orders if o.status == 'completed']
+    cancelled_orders = [o for o in all_orders if o.status == 'cancelled']
+    
+    # ✅ ПЕРЕСЧИТЫВАЕМ ТОТАЛЫ ТОЛЬКО ДЛЯ ЗАВЕРШЕННЫХ ЗАКАЗОВ
+    for order in completed_orders:
         order.calculate_totals()
     
-    total_revenue = sum(order.total_amount or 0 for order in orders)
-    total_orders = len(orders)
-    
-    # ✅ РАСЧИТЫВАЕМ СЕРВИСНЫЙ СБОР
-    total_service_charge = sum(order.service_charge or 0 for order in orders)
+    # ✅ РАСЧИТЫВАЕМ ТОЛЬКО ПО ЗАВЕРШЕННЫМ ЗАКАЗАМ
+    total_revenue = sum(order.total_amount or 0 for order in completed_orders)
+    total_orders = len(completed_orders)  # Только завершенные!
+    total_service_charge = sum(order.service_charge or 0 for order in completed_orders)
     
     # ✅ ПОДСЧИТЫВАЕМ ОТМЕНЕННЫЕ ЗАКАЗЫ
-    cancelled_orders = len([o for o in orders if o.status == 'cancelled'])
+    cancelled_count = len(cancelled_orders)
     
-    # ✅ РАСЧИТЫВАЕМ СРЕДНИЙ ЧЕК
-    completed_orders = [o for o in orders if o.status == 'completed']
+    # ✅ РАСЧИТЫВАЕМ СРЕДНИЙ ЧЕК ПО ЗАВЕРШЕННЫМ ЗАКАЗАМ
     average_order_value = (
         sum(o.total_amount for o in completed_orders) / len(completed_orders)
         if completed_orders else Decimal('0.00')
     )
     
+    # ✅ РАСЧИТЫВАЕМ ОБЩЕЕ КОЛИЧЕСТВО ЗАКАЗОВ
+    total_orders_created = len(all_orders)  # Всего созданных заказов
+    completed_orders_count = len([o for o in all_orders if o.status == 'completed'])  # Завершенных
+    
     # Создание отчета
     report = DailyReport(
         report_date=report_date,
-        total_orders=total_orders,
+        total_orders=total_orders_created,  # Общее количество созданных
         total_revenue=total_revenue,
-        total_service_charge=total_service_charge,  # ✅ ДОБАВЛЯЕМ
-        cancelled_orders=cancelled_orders,  # ✅ ДОБАВЛЯЕМ
-        average_order_value=average_order_value,  # ✅ ДОБАВЛЯЕМ
+        total_service_charge=total_service_charge,
+        cancelled_orders=cancelled_count,
+        average_order_value=average_order_value,
         report_data=json.dumps({
             'orders_by_hour': {},
             'payment_methods': {},
-            'staff_performance': {}
+            'staff_performance': {},
+            'completed_orders_count': completed_orders_count,  # Количество завершенных
         }),
     )
     
     db.session.add(report)
-    db.session.commit()  # ✅ ДОБАВЛЯЕМ commit
+    db.session.commit()
     
     return jsonify({
         'status': 'success',
