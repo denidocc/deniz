@@ -5,6 +5,20 @@
 {% block content %}
 <style>
 /* Стили для группировки заказов */
+#addItemsModal.visible {
+    display: flex !important;
+    opacity: 1;
+    z-index: 3000;
+}
+
+#selectedItemsSection {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    border-top: 2px solid #ddd;
+    padding: 8px;
+}
+
 .status-group {
     margin-bottom: 2rem;
     border: 1px solid #e0e0e0;
@@ -99,8 +113,6 @@
     color: white;
 }
 
-
-
 .btn-secondary {
     background-color: #6c757d;
     border-color: #6c757d;
@@ -121,6 +133,100 @@
 /* Стили для спиннера */
 .fa-spin {
     animation: spin 1s linear infinite;
+}
+
+/* мобильные категории */
+.category-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.cat-btn {
+    padding: 6px 12px;
+    border: 1px solid #ccc;
+    border-radius: 20px;
+    font-size: 14px;
+    background: #f8f9fa;
+    cursor: pointer;
+}
+.cat-btn.active {
+    background: #007bff;
+    color: white;
+}
+
+/* Стили для дропдауна категорий */
+.category-filter {
+    margin-bottom: 20px;
+}
+
+.category-filter label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333;
+}
+
+.category-dropdown {
+    width: 100%;
+    max-width: 300px;
+    padding: 12px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 16px;
+    background: white;
+    cursor: pointer;
+    transition: border-color 0.3s;
+}
+
+.category-dropdown:focus {
+    border-color: #007bff;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.category-dropdown:hover {
+    border-color: #007bff;
+}
+
+/* Мобильные стили для дропдауна */
+@media (max-width: 768px) {
+    .category-dropdown {
+        font-size: 18px; /* Больше для мобильных */
+        padding: 16px 20px;
+        max-width: 100%;
+    }
+    
+    .category-filter label {
+        font-size: 16px;
+        margin-bottom: 12px;
+    }
+}
+
+/* Стили для опций дропдауна */
+.category-dropdown option {
+    padding: 8px 12px;
+    font-size: 16px;
+}
+
+/* Убираем старые кнопки категорий */
+.category-buttons {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .menu-items-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .menu-item-card {
+        padding: 12px;
+        font-size: 14px;
+    }
+    .menu-item-image {
+        height: 100px;
+    }
 }
 
 @keyframes spin {
@@ -202,6 +308,62 @@
         </div>
     </div>
 </div>
+
+<!-- =====  Модальное окно "Добавить позиции"  ===== -->
+<div class="modal modal-overlay hidden" id="addItemsModal">
+    <div class="modal-content large-modal">
+        <div class="modal-header">
+            <h3>Добавить позиции к заказу #<span id="modalOrderId"></span></h3>
+            <button type="button" class="btn-close" data-dismiss="modal">&times;</button>
+        </div>
+
+        <div class="modal-body">
+            <!-- Поиск -->
+            <div class="search-section">
+                <div class="search-input-wrapper">
+                    <input type="text" id="menuSearchInput" class="search-input" placeholder="Поиск по названию...">
+                    <i class="fas fa-search search-icon"></i>
+                </div>
+            </div>
+
+            <!-- Фильтр по категориям -->
+            <div class="category-filter">
+                <label>Категория:</label>
+                <select id="categoryFilter" class="form-control category-dropdown">
+                    <option value="">Все категории</option>
+                    <!-- категории будут добавлены JS -->
+                </select>
+            </div>
+
+            <!-- Список блюд -->
+            <div class="menu-items-container">
+                <div id="menuItemsGrid" class="menu-items-grid">
+                    <div class="loading-placeholder">
+                        <div class="spinner"></div>
+                        <p>Загрузка меню...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Выбранные позиции -->
+            <div id="selectedItemsSection" class="selected-items-section" style="display:none;">
+                <h4>Выбранные позиции</h4>
+                <div id="selectedItemsList" class="selected-items-list"></div>
+                <div id="selectedItemsTotal" class="selected-items-total">
+                    Итого: <span>0</span> TMT
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+            <button type="button" class="btn btn-success" id="confirmAddItems" disabled>
+                <i class="fas fa-plus"></i> Добавить
+            </button>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -241,6 +403,194 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('❌ Ошибка загрузки справочника статусов:', error);
         }
     }
+
+    // =========  ЛОГИКА МОДАЛЬНОГО ОКНА «ДОБАВИТЬ ПОЗИЦИИ»  =========
+    window.addMoreItems = function(orderId) {
+        const modal = document.getElementById('addItemsModal');
+        modal.dataset.orderId = orderId;              // запоминаем заказ
+        document.getElementById('modalOrderId').textContent = orderId;
+        modal.classList.add('visible');               // показываем
+        loadMenuForOrder(orderId);                    // грузим меню
+    }
+
+    // Закрытие
+    document.querySelectorAll('[data-dismiss="modal"]').forEach(btn => {
+        btn.addEventListener('click', e => {
+            e.stopPropagation();                 // важно!
+            const modal = document.getElementById('addItemsModal');
+            modal.classList.remove('visible');
+        });
+    });
+
+    // Загрузка меню и категорий
+    async function loadMenuForOrder(orderId) {
+        try {
+            const res = await fetch('/api/menu');
+            const data = await res.json();
+            console.log('📦 Получено меню:', data);
+
+            // Удаляем спиннер
+            document.querySelector('#menuItemsGrid .loading-placeholder')?.remove();
+
+            // Если всё ок – рендерим
+            if (data.status === 'success') {
+                renderMenuItems(data.data.categories);
+                document.getElementById('modalOrderId').textContent = orderId;
+            } else {
+                throw new Error(data.message || 'Ошибка данных');
+            }
+        } catch (e) {
+            console.error('❌ loadMenuForOrder error:', e);
+            waiterNotifications.showError('Не удалось загрузить меню: ' + e.message);
+        }
+    }
+
+    function renderMenuItems(categories) {
+        const grid = document.getElementById('menuItemsGrid');
+        const dropdown = document.getElementById('categoryFilter');
+        
+        // чистим
+        grid.innerHTML = '';
+        dropdown.innerHTML = '<option value="">Все категории</option>';
+
+        categories.forEach(cat => {
+            // опция для дропдауна
+            const option = document.createElement('option');
+            option.value = cat.id;
+            option.textContent = cat.name;
+            dropdown.appendChild(option);
+
+            // карточки
+            (cat.items || []).forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'menu-item-card';
+                card.dataset.itemId = item.id;
+                card.dataset.price = item.price;
+                card.dataset.categoryId = cat.id;
+
+                card.innerHTML = `
+                    <div class="item-row">
+                        <div class="item-info">
+                            <div class="item-name">${item.name}</div>
+                            <div class="item-price">${item.price} TMT</div>
+                        </div>
+                        <div class="item-controls">
+                            <button onclick="toggleSelectItem(this.closest('.menu-item-card'))">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="item-details hidden">
+                        <input type="number" min="1" value="1" class="qty-input">
+                        <textarea placeholder="Комментарий" class="comment-input"></textarea>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        });
+
+        // убираем спиннер
+        document.querySelector('#menuItemsGrid .loading-placeholder')?.remove();
+    }
+
+
+    // Упрощенная функция фильтрации
+    function filterMenu() {
+        const searchTerm = document.getElementById('menuSearchInput').value.toLowerCase();
+        const categoryId = document.getElementById('categoryFilter').value;
+        
+        document.querySelectorAll('.menu-item-card').forEach(card => {
+            const name = card.querySelector('.item-name').textContent.toLowerCase();
+            const cardCategoryId = card.dataset.categoryId;
+            
+            const matchesSearch = !searchTerm || name.includes(searchTerm);
+            const matchesCategory = !categoryId || cardCategoryId === categoryId;
+            
+            card.style.display = (matchesSearch && matchesCategory) ? 'block' : 'none';
+        });
+    }
+
+    // Выбор / отмена блюда
+    window.toggleSelectItem = function(card) {
+        card.classList.toggle('selected');
+        const details = card.querySelector('.item-details');
+        details.classList.toggle('hidden');
+        updateSelectedSection();
+    };
+
+    window.changeQty = function(btn, delta) {
+        const input = btn.parentElement.querySelector('input');
+        let val = parseInt(input.value) + delta;
+        if (val < 1) val = 1;
+        input.value = val;
+        updateSelectedSection();
+    };
+
+    // Обработчики событий
+    document.getElementById('menuSearchInput').addEventListener('input', filterMenu);
+    document.getElementById('categoryFilter').addEventListener('change', filterMenu);
+
+
+    // Обновление списка выбранных
+    function updateSelectedSection() {
+        const selected = document.querySelectorAll('.menu-item-card.selected');
+        const list = document.getElementById('selectedItemsList');
+        const totalEl = document.getElementById('selectedItemsTotal').querySelector('span');
+        list.innerHTML = '';
+        let total = 0;
+
+        selected.forEach(card => {
+            const id   = card.dataset.itemId;
+            const name = card.querySelector('.item-name').textContent;
+            const price = parseFloat(card.dataset.price);
+            const qty  = parseInt(card.querySelector('.qty-input').value);
+            total += price * qty;
+
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'selected-item';
+            itemDiv.innerHTML = `
+                <div>${name} × ${qty}</div>
+                <div>${(price * qty).toFixed(2)} TMT</div>
+            `;
+            list.appendChild(itemDiv);
+        });
+
+        totalEl.textContent = total.toFixed(2);
+        document.getElementById('selectedItemsSection').style.display = selected.length ? 'block' : 'none';
+        document.getElementById('confirmAddItems').disabled = !selected.length;
+    }
+
+    // Отправка на сервер
+    document.getElementById('confirmAddItems').addEventListener('click', async () => {
+        const orderId = document.getElementById('modalOrderId').textContent;
+        const items = [...document.querySelectorAll('.menu-item-card.selected')].map(card => ({
+            menu_item_id: parseInt(card.dataset.itemId),
+            quantity: parseInt(card.querySelector('.quantity-input').value),
+            comments: card.querySelector('.comments-input').value.trim()
+        }));
+
+        try {
+            const res = await fetch(`/waiter/api/orders/${orderId}/add-items`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ items })
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                waiterNotifications.showSuccess(data.message);
+                document.getElementById('addItemsModal').style.display = 'none';
+                loadOrders();          // обновить список
+            } else {
+                waiterNotifications.showError(data.message);
+            }
+        } catch (e) {
+            waiterNotifications.showError('Ошибка соединения');
+        }
+    });
+
     
     // Функция загрузки заказов
     async function loadOrders() {
@@ -417,6 +767,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     ` : order.status === 'confirmed' ? `
                         <button class="btn btn-success" onclick="window.updateOrderStatus(${order.id})">
                             <i class="fas fa-check"></i> Отметить как оплаченный
+                        </button>
+                        <button class="btn btn-warning" onclick="window.addMoreItems(${order.id})">
+                            <i class="fas fa-plus"></i> Добавить
                         </button>
                         <button class="btn btn-danger" onclick="window.cancelOrder(${order.id})">
                             <i class="fas fa-times"></i> Отменить заказ
