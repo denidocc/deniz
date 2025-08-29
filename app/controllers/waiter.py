@@ -4,7 +4,7 @@ from flask import Blueprint, render_template, jsonify, request, current_app
 from flask_login import current_user
 from app.utils.decorators import waiter_required, audit_action
 from app.models import Order, WaiterCall, Table
-from app.models.order import Order as OrderModel
+from app.models.order import Order as OrderModel, OrderItem
 from app import db
 from datetime import datetime
 from flask_wtf.csrf import CSRFError
@@ -34,8 +34,6 @@ def tables():
 def calls():
     """Вызовы официанта."""
     return render_template('waiter/calls.html')
-
-
 
 # API endpoints для dashboard
 @waiter_bp.route('/api/dashboard/stats')
@@ -94,12 +92,6 @@ def dashboard_stats():
             'status': 'error',
             'message': 'Ошибка получения статистики'
         }), 500
-
-
-
-
-
-
 
 @waiter_bp.route('/api/calls')
 @waiter_required
@@ -661,6 +653,120 @@ def get_order_statuses():
     except Exception as e:
         current_app.logger.error(f"Error getting order statuses: {e}")
         return jsonify({"status": "error", "message": "Ошибка получения статусов"}), 500 
+
+@waiter_bp.route('/api/orders/<int:order_id>/add-items', methods=['POST'])
+@waiter_required
+@audit_action("add_order_items")
+def add_order_items(order_id):
+    """Добавление позиций к заказу."""
+    try:
+        data = request.get_json()
+        items = data.get('items', [])
+        if not items:
+            return jsonify({'status': 'error', 'message': 'Не указаны позиции'}), 400
+
+        order = Order.query.get_or_404(order_id)
+        if order.waiter_id != current_user.id:
+            return jsonify({'status': 'error', 'message': 'Нет прав'}), 403
+        if not order.can_be_edited():
+            return jsonify({'status': 'error', 'message': 'Заказ нельзя редактировать'}), 400
+
+        added = []
+        for raw in items:
+            item = OrderItem(
+                order_id=order.id,
+                menu_item_id=raw['menu_item_id'],
+                size_id=raw.get('size_id'),
+                quantity=raw['quantity'],
+                comments=raw.get('comments', '')
+            )
+            item.calculate_total()
+            db.session.add(item)
+            added.append(item)
+
+        # ставим флаг
+        if added:
+            order.has_added_items = True
+            order.added_items_confirmed = False
+            order.calculate_totals()
+            db.session.commit()
+
+        return jsonify({
+            'status': 'success',
+            'message': f'Добавлено {len(added)} позиций',
+            'data': {'order_id': order.id, 'items': [i.to_dict() for i in added]}
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"add_order_items error: {e}")
+        return jsonify({'status': 'error', 'message': 'Внутренняя ошибка'}), 500
+
+@waiter_bp.route('/api/orders/<int:order_id>/items/<int:item_id>', methods=['PUT'])
+@waiter_required
+@audit_action("update_order_item")
+def update_order_item(order_id, item_id):
+    """Изменение количества позиции."""
+    try:
+        data = request.get_json()
+        new_qty = data.get('quantity')
+        if new_qty is None or new_qty < 1:
+            return jsonify({'status': 'error', 'message': 'Количество должно быть ≥ 1'}), 400
+
+        item = OrderItem.query.filter_by(id=item_id, order_id=order_id).first_or_404()
+        order = item.order
+        if order.waiter_id != current_user.id:
+            return jsonify({'status': 'error', 'message': 'Нет прав'}), 403
+        if not order.can_be_edited():
+            return jsonify({'status': 'error', 'message': 'Заказ нельзя редактировать'}), 400
+
+        old_total = item.total_price
+        item.quantity = new_qty
+        item.calculate_total()
+        order.calculate_totals()
+        db.session.commit()
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Количество обновлено',
+            'data': item.to_dict()
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"update_order_item error: {e}")
+        return jsonify({'status': 'error', 'message': 'Внутренняя ошибка'}), 500
+    
+@waiter_bp.route('/api/orders/<int:order_id>/items/<int:item_id>', methods=['DELETE'])
+@waiter_required
+@audit_action("delete_order_item")
+def delete_order_item(order_id, item_id):
+    """Удаление позиции из заказа."""
+    try:
+        item = OrderItem.query.filter_by(id=item_id, order_id=order_id).first_or_404()
+        order = item.order
+        if order.waiter_id != current_user.id:
+            return jsonify({'status': 'error', 'message': 'Нет прав'}), 403
+        if not order.can_be_edited():
+            return jsonify({'status': 'error', 'message': 'Заказ нельзя редактировать'}), 400
+
+        db.session.delete(item)
+        order.calculate_totals()
+        # если после удаления позиций не осталось добавленных – сбрасываем флаг
+        order.has_added_items = bool([i for i in order.items if i.created_at > order.created_at])
+        if not order.has_added_items:
+            order.added_items_confirmed = False
+        db.session.commit()
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Позиция удалена'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"delete_order_item error: {e}")
+        return jsonify({'status': 'error', 'message': 'Внутренняя ошибка'}), 500
 
 @waiter_bp.route('/api/counters')
 @waiter_required

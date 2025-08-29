@@ -760,8 +760,15 @@
     grid-template-columns: 1fr;
   }
   
-
+  .order-actions{
+    flex-direction: column;
+    display: flex;
+  }
   
+  .confirmed-group, .completed-group, .cancelled-group, .pending-group{
+    width: 100%;
+  }
+
   .notifications-panel {
     width: 100%;
     right: -100%;

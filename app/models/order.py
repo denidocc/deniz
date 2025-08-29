@@ -59,6 +59,13 @@ class Order(BaseModel):
         sa.Numeric(10, 2), default=0.00, nullable=False
     )
     
+    has_added_items: so.Mapped[bool] = so.mapped_column(
+        sa.Boolean, default=False, nullable=False
+    )
+    added_items_confirmed: so.Mapped[bool] = so.mapped_column(
+        sa.Boolean, default=False, nullable=False
+    )
+    
     # Временные метки
     confirmed_at: so.Mapped[Optional[datetime]] = so.mapped_column(
         sa.DateTime(timezone=True),
