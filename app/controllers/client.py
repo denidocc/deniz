@@ -1092,9 +1092,9 @@ def cancel_order(order_id):
         db.session.commit()
         current_app.logger.info("Изменения сохранены успешно")
         
-        # Аудирование - создаем запись напрямую
+        # Аудирование - используем готовый метод
         try:
-            audit_log = AuditLog(
+            AuditLog.log_action(
                 action='cancel_order',
                 staff_id=None,  # Клиентский интерфейс
                 ip_address=request.remote_addr,
@@ -1103,11 +1103,11 @@ def cancel_order(order_id):
                 details={
                     'message': f'Order {order.id} cancelled for table {table.table_number if table else "unknown"}',
                     'user_agent': request.headers.get('User-Agent'),
-                    'cancelled_at': datetime.utcnow().isoformat()  # Используем текущее время
+                    'cancelled_at': datetime.utcnow().isoformat()
                 }
             )
-            db.session.add(audit_log)
-            db.session.commit()
+            current_app.logger.info("Audit log создан успешно")
+            
         except Exception as audit_error:
             current_app.logger.warning(f"Audit logging failed: {audit_error}")
             # Не прерываем выполнение из-за ошибки аудита
@@ -1122,7 +1122,7 @@ def cancel_order(order_id):
                 'table_id': table.id if table else None,
                 'table_number': table.table_number if table else None,
                 'status': order.status,
-                'cancelled_at': datetime.utcnow().isoformat()  # Используем текущее время
+                'cancelled_at': datetime.utcnow().isoformat()
             }
         })
         
