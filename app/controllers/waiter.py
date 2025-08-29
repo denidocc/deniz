@@ -745,3 +745,53 @@ def mark_call_as_read(call_id):
             'status': 'error',
             'message': 'Ошибка обновления статуса'
         }), 500 
+
+@waiter_bp.route('/api/calls/mark-all-read', methods=['POST'])
+@waiter_required
+def mark_all_calls_read():
+    """Отметить все вызовы как прочитанные."""
+    try:
+        # Получаем назначенные столы для текущего официанта
+        from app.models import TableAssignment
+        assigned_table_ids = db.session.query(TableAssignment.table_id).filter_by(
+            waiter_id=current_user.id
+        ).subquery()
+        
+        # Находим все активные вызовы для назначенных столов
+        pending_calls = WaiterCall.query.filter(
+            WaiterCall.table_id.in_(assigned_table_ids),
+            WaiterCall.status == 'pending'
+        ).all()
+        
+        if not pending_calls:
+            return jsonify({
+                'status': 'success',
+                'message': 'Нет активных вызовов для обновления',
+                'data': {'updated_count': 0}
+            })
+        
+        # Обновляем статус всех вызовов
+        updated_count = 0
+        for call in pending_calls:
+            call.status = 'completed'
+            call.responded_at = datetime.utcnow()
+            updated_count += 1
+        
+        # Сохраняем изменения
+        db.session.commit()
+        
+        current_app.logger.info(f"Waiter {current_user.id} marked {updated_count} calls as read")
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Отмечено {updated_count} вызовов как прочитанные',
+            'data': {'updated_count': updated_count}
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error marking all calls as read: {e}")
+        db.session.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': 'Ошибка обновления статуса вызовов'
+        }), 500

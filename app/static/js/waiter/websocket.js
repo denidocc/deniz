@@ -128,8 +128,11 @@ class WaiterWebSocket {
         // Показываем уведомление
         this.showNotification('Вызов официанта', data.message, 'call');
         
-        // Обновляем интерфейс (если нужно)
-        this.updateCallsList();
+        // Добавляем вызов в список вызовов (если страница открыта)
+        this.addNewCallToList(data);
+        
+        // Обновляем счетчик вызовов
+        this.updateCallCounter();
     }
     
     playNotificationSound() {
@@ -200,10 +203,20 @@ class WaiterWebSocket {
     
     updateCallsList() {
         // Обновляем список вызовов (если есть такой элемент)
-        const callsList = document.getElementById('calls-list');
+        const callsList = document.getElementById('callsList');
         if (callsList) {
-            // Здесь можно добавить логику обновления списка
             console.log('Обновляем список вызовов');
+            
+            // Если есть функция loadCalls, вызываем её для обновления
+            if (typeof window.loadCalls === 'function') {
+                window.loadCalls();
+            } else {
+                // Иначе делаем принудительное обновление страницы
+                console.log('Функция loadCalls не найдена, обновляем страницу');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            }
         }
     }
     
@@ -372,6 +385,93 @@ class WaiterWebSocket {
             setTimeout(() => {
                 counter.classList.remove('pulse');
             }, 1000);
+        }
+    }
+
+    // ДОБАВЛЯЕМ МЕТОД ДЛЯ ВЫЗОВОВ
+    addNewCallToList(callData) {
+        // Проверяем, что мы на странице вызовов
+        if (!window.location.pathname.includes('/waiter/calls')) {
+            console.log('Не на странице вызовов, пропускаем добавление в список');
+            return;
+        }
+        
+        console.log('Добавляем новый вызов в список:', callData);
+        
+        const callsContainer = document.getElementById('callsList');
+        if (!callsContainer) {
+            console.log('Контейнер вызовов не найден');
+            return;
+        }
+        
+        // Создание HTML для нового вызова
+        const callHtml = this.createCallCard(callData);
+        
+        // Добавляем вызов в начало списка
+        callsContainer.insertAdjacentHTML('afterbegin', callHtml);
+        
+        // Анимация появления
+        const newCall = callsContainer.firstElementChild;
+        newCall.style.opacity = '0';
+        newCall.style.transform = 'translateY(-20px)';
+        
+        setTimeout(() => {
+            newCall.style.transition = 'all 0.3s ease';
+            newCall.style.opacity = '1';
+            newCall.style.transform = 'translateY(0)';
+        }, 100);
+        
+        console.log('Вызов успешно добавлен в список');
+    }
+    
+    // МЕТОД СОЗДАНИЯ КАРТОЧКИ ВЫЗОВА
+    createCallCard(call) {
+        return `
+            <div class="call-card call-pending priority-средний" data-call-id="${call.call_id}">
+                <div class="call-header">
+                    <div class="call-table">
+                        <i class="fas fa-utensils"></i>
+                        <strong>Стол ${call.table_number || 'Неизвестно'}</strong>
+                    </div>
+                    <div class="call-time">
+                        <i class="fas fa-clock"></i>
+                        Только что
+                    </div>
+                    <div class="call-status-badge">
+                        <span class="status-badge status-pending">
+                            Новый
+                        </span>
+                    </div>
+                </div>
+                <div class="call-content">
+                    <div class="call-message">
+                        <i class="fas fa-comment"></i>
+                        ${call.message || 'Вызов официанта'}
+                    </div>
+                    <div class="call-from">
+                        <i class="fas fa-user"></i>
+                        Клиент стола ${call.table_number || 'Неизвестно'}
+                    </div>
+                </div>
+                <div class="call-footer">
+                    <div class="call-actions">
+                        <button class="btn btn-primary" onclick="markAsRead(${call.call_id})">
+                            <i class="fas fa-eye"></i> Прочитать
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // ДОБАВЛЯЕМ МЕТОД ОБНОВЛЕНИЯ СЧЕТЧИКА ВЫЗОВОВ
+    updateCallCounter() {
+        // Обновляем счетчик вызовов на странице
+        const callCounter = document.getElementById('pendingCallsCount');
+        if (callCounter) {
+            // Увеличиваем счетчик на 1
+            const currentCount = parseInt(callCounter.textContent.match(/\d+/)?.[0] || '0');
+            callCounter.textContent = `${currentCount + 1} активных`;
         }
     }
 }

@@ -338,8 +338,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let currentCallId = null;
     
-    // ПЕРЕМЕЩАЕМ ФУНКЦИЮ markAsRead В НАЧАЛО
-    function markAsRead(callId) {
+    // ПЕРЕМЕЩАЕМ ФУНКЦИЮ markAsRead В НАЧАЛО И ДЕЛАЕМ ЕЁ ГЛОБАЛЬНОЙ
+    window.markAsRead = function(callId) {
         // Получаем CSRF токен из meta тега
         const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
         
@@ -402,21 +402,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function getStatusText(status) {
+        console.log(`🔍 getStatusText вызвана с статусом: "${status}"`);
         const statusTexts = {
             'pending': 'Новый',
             'processing': 'В обработке',
             'completed': 'Выполнен'
         };
-        return statusTexts[status] || status;
-    }
-    
-    function getPriorityText(priority) {
-        const priorityTexts = {
-            'высокий': 'Высокий',
-            'средний': 'Средний',
-            'низкий': 'Низкий'
-        };
-        return priorityTexts[priority] || priority;
+        const result = statusTexts[status] || status;
+        console.log(`🔍 getStatusText вернула: "${result}"`);
+        return result;
     }
     
     // Глобальные функции
@@ -469,9 +463,33 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('statusFilter').addEventListener('change', loadCalls);
     document.getElementById('priorityFilter').addEventListener('change', loadCalls);
     
-    document.getElementById('markAllRead').addEventListener('click', function() {
-        waiterNotifications.showSuccess('Все вызовы отмечены как прочитанные');
-        loadCalls();
+    document.getElementById('markAllRead').addEventListener('click', async function() {
+        try {
+            // Получаем CSRF токен
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            
+            // Отправляем запрос на массовое обновление
+            const response = await fetch('/waiter/api/calls/mark-all-read', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                waiterNotifications.showSuccess(data.message);
+                // Обновляем список вызовов
+                await loadCalls();
+            } else {
+                waiterNotifications.showError(data.message || 'Ошибка обновления статуса');
+            }
+        } catch (error) {
+            console.error('Error marking all calls as read:', error);
+            waiterNotifications.showError('Ошибка обновления статуса');
+        }
     });
     
     // Добавляем обработчики событий после загрузки вызовов
@@ -505,6 +523,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 const calls = data.data.calls;
                 console.log(`📞 Загружено ${calls.length} вызовов:`, calls);
                 
+                // ДОБАВЛЯЕМ: Логируем статусы каждого вызова
+                calls.forEach(call => {
+                    console.log(`📞 Вызов ${call.id}: статус = "${call.status}", responded_at = "${call.responded_at}"`);
+                });
+                
                 let filteredCalls = calls;
                 if (statusFilter) {
                     filteredCalls = filteredCalls.filter(c => c.status === statusFilter);
@@ -535,7 +558,6 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <i class="fas fa-clock"></i>
                                 ${formatTime(new Date(call.created_at))}
                             </div>
-                            <!-- УБИРАЕМ плашку приоритета и заменяем на статус -->
                             <div class="call-status-badge">
                                 <span class="status-badge status-${call.status}">
                                     ${getStatusText(call.status)}
@@ -553,10 +575,9 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                         </div>
                         <div class="call-footer">
-                            <!-- УБИРАЕМ дублирующий статус -->
                             <div class="call-actions">
                                 ${call.status === 'pending' ? `
-                                    <button class="btn btn-primary" data-call-id="${call.id}">
+                                    <button class="btn btn-primary" onclick="markAsRead(${call.id})">
                                         <i class="fas fa-eye"></i> Прочитать
                                     </button>
                                 ` : call.status === 'processing' ? `
@@ -574,7 +595,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 `).join('');
                 
                 callsList.innerHTML = callsHtml;
-                addCallEventListeners(); // ДОБАВЛЯЕМ ЭТУ СТРОКУ
+                addCallEventListeners();
             } else {
                 throw new Error(data.message || 'Ошибка загрузки вызовов');
             }
