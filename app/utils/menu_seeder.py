@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Утилита для заполнения меню тестовыми данными.
 
@@ -118,10 +119,10 @@ class MenuSeeder:
                 {
                     "category_id": created_categories[0].id,
                     "name_ru": "Куриная грудка",
-                    "name_tk": "Тавук гөвүш",
+                    "name_tk": "Тавук говуш",
                     "name_en": "Chicken Breast",
                     "description_ru": "Нежная куриная грудка с гарниром",
-                    "description_tk": "Назык тавук гөвүш гарнир билен",
+                    "description_tk": "Назык тавук говуш гарнир билен",
                     "description_en": "Tender chicken breast with side dish",
                     "price": 450.00,
                     "image_url": "/images/chicken.jpg",
@@ -191,7 +192,7 @@ class MenuSeeder:
                     "name_tk": "Эспрессо кофе",
                     "name_en": "Espresso coffee",
                     "description_ru": "Крепкий итальянский эспрессо",
-                    "description_tk": "Гүчлиително итальян эспрессо",
+                    "description_tk": "Гучли итальян эспрессо",
                     "description_en": "Strong Italian espresso",
                     "price": 120.00,
                     "image_url": "/images/espresso.jpg",
@@ -376,4 +377,4 @@ if __name__ == "__main__":
         if result["status"] == "error":
             sys.exit(1)
         else:
-            print("✅ Меню успешно заполнено!") 
+            print("Меню успешно заполнено!") 

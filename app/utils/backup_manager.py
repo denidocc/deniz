@@ -27,7 +27,7 @@ class BackupManager:
         """Получение конфигурации базы данных."""
         try:
             # Парсим DATABASE_URL или используем отдельные параметры
-            database_url = current_app.config.get('SQLALCHEMY_DATABASE_URI', '')
+            database_url = current_app.config.get('SQLALCHEMY_DATABASE_URI')
             
             if database_url.startswith('postgresql://'):
                 # Парсим URL вида postgresql://user:pass@host:port/dbname
@@ -44,11 +44,11 @@ class BackupManager:
             else:
                 # Используем отдельные параметры
                 return {
-                    'host': current_app.config.get('DB_HOST', 'localhost'),
-                    'port': current_app.config.get('DB_PORT', 5432),
-                    'database': current_app.config.get('DB_NAME', 'flask_app'),
-                    'user': current_app.config.get('DB_USER', 'postgres'),
-                    'password': current_app.config.get('DB_PASSWORD', '')
+                    'host': current_app.config.get('DB_HOST'),
+                    'port': current_app.config.get('DB_PORT'),
+                    'database': current_app.config.get('DB_NAME'),
+                    'user': current_app.config.get('DB_USER'),
+                    'password': current_app.config.get('DB_PASSWORD')
                 }
         except Exception as e:
             logger.error(f"Error getting DB config: {e}")

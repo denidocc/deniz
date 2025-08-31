@@ -173,9 +173,3 @@ class WaiterAPI {
 
 // Глобальный экземпляр API
 window.WaiterAPI = new WaiterAPI();
-
-// Отладка для проверки правильности загрузки
-console.log('🔄 WaiterAPI создан:', window.WaiterAPI);
-console.log('🔍 getDashboardStats тип:', typeof window.WaiterAPI.getDashboardStats);
-
-console.log('🔍 getCalls тип:', typeof window.WaiterAPI.getCalls);

@@ -7,6 +7,7 @@ from datetime import date
 from decimal import Decimal
 import json
 from .base import BaseModel
+from app import db
 
 if TYPE_CHECKING:
     pass
@@ -166,7 +167,7 @@ class DailyReport(BaseModel):
     @classmethod
     def _get_top_menu_items(cls, orders: list) -> list:
         """Получение топ блюд."""
-        from .order_item import OrderItem
+        from .order import OrderItem
         
         item_counts = {}
         for order in orders:

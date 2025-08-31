@@ -8,6 +8,9 @@ from dotenv import load_dotenv
 env_file = Path(__file__).parent / '.env'
 if env_file.exists():
     load_dotenv(env_file)
+    print('ENV LOADED')
+else:
+    print('ENV FILE NOT FOUND:', env_file)
 
 class BaseConfig:
     """Базовая конфигурация."""
@@ -16,11 +19,12 @@ class BaseConfig:
     SECRET_KEY: str = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
     
     # База данных
-    DB_NAME: str = os.environ.get('DB_NAME', 'deniz_restaurant')
+    DB_NAME: str = os.environ.get('DB_NAME', 'denizdb')
     DB_USER: str = os.environ.get('DB_USER', 'postgres')
-    DB_PASSWORD: str = os.environ.get('DB_PASSWORD', 'password')
+    DB_PASSWORD: str = os.environ.get('DB_PASSWORD', 'postgres')
     DB_HOST: str = os.environ.get('DB_HOST', 'localhost')
     DB_PORT: str = os.environ.get('DB_PORT', '5432')
+    
     
     SQLALCHEMY_DATABASE_URI: str = (
         f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"

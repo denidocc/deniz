@@ -13,6 +13,7 @@ from flask_babel import Babel
 import logging
 from logging.handlers import RotatingFileHandler
 from typing import Optional
+from sqlalchemy import inspect
 
 # Инициализация расширений
 db = SQLAlchemy()
@@ -142,14 +143,12 @@ def register_error_handlers(app: Flask) -> None:
 
 def init_system_components(app: Flask) -> None:
     """Инициализация системных компонентов."""
-    # Автоматическая инициализация БД при первом запуске
     with app.app_context():
         try:
-            # Проверка существования таблиц
-            from sqlalchemy import inspect
-            inspector = inspect(db.engine)
-            tables = inspector.get_table_names()
             
+            inspector = inspect(db.engine)
+            
+            tables = inspector.get_table_names()
             if not tables:
                 app.logger.info("Таблицы БД не найдены, выполняется инициализация...")
                 db.create_all()
@@ -161,6 +160,8 @@ def init_system_components(app: Flask) -> None:
                 app.logger.info(f"Инициализация данных: {result['message']}")
                 
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             app.logger.error(f"Ошибка инициализации системы: {e}")
     
     # Контекстный процессор для настроек системы

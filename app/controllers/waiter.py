@@ -155,20 +155,22 @@ def get_calls():
 @waiter_bp.route('/api/orders')
 @waiter_required
 def get_orders():
-    """Получение заказов официанта."""
+    """Получение заказов официанта с пагинацией."""
     try:
         current_app.logger.info(f"Getting orders for waiter: {current_user.id} ({current_user.name})")
         
-        # Получаем параметры фильтрации
+        # Получаем параметры фильтрации и пагинации
         status_filter = request.args.get('status')
         table_filter = request.args.get('table')
-        current_app.logger.info(f"Filters - status: {status_filter}, table: {table_filter}")
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)  # 20 заказов на страницу
+        
+        current_app.logger.info(f"Filters - status: {status_filter}, table: {table_filter}, page: {page}, per_page: {per_page}")
         
         # Базовый запрос заказов для текущего официанта (исключаем отмененные)
         query = Order.query.filter_by(waiter_id=current_user.id).filter(
             Order.status != 'cancelled'
         )
-        current_app.logger.info(f"Base query for waiter_id: {current_user.id}")
         
         # Применяем фильтры
         if status_filter and status_filter != 'all':
@@ -177,15 +179,19 @@ def get_orders():
         if table_filter and table_filter != 'all':
             query = query.filter_by(table_id=int(table_filter))
         
-        # Получаем заказы с join к таблице и правильной сортировкой
-        orders = query.join(Table).order_by(
-            # Сначала по времени создания (новые первыми)
+        # Получаем заказы с пагинацией
+        pagination = query.join(Table).order_by(
             Order.created_at.desc()
-        ).all()
+        ).paginate(
+            page=page, 
+            per_page=per_page, 
+            error_out=False
+        )
         
-        current_app.logger.info(f"Found {len(orders)} orders for waiter {current_user.id}")
+        orders = pagination.items
+        current_app.logger.info(f"Found {len(orders)} orders for waiter {current_user.id} (page {page}/{pagination.pages})")
         
-        # Формируем данные ответа с группировкой
+        # Формируем данные ответа
         orders_data = []
         for order in orders:
             orders_data.append({
@@ -208,10 +214,20 @@ def get_orders():
             'status': 'success',
             'data': {
                 'orders': orders_data,
-                'total': len(orders_data)
+                'pagination': {
+                    'page': page,
+                    'per_page': per_page,
+                    'pages': pagination.pages,
+                    'total': pagination.total,
+                    'has_next': pagination.has_next,
+                    'has_prev': pagination.has_prev,
+                    'next_num': pagination.next_num,
+                    'prev_num': pagination.prev_num
+                }
             }
         }
-        current_app.logger.info(f"Returning {len(orders_data)} orders to waiter {current_user.id}")
+        
+        current_app.logger.info(f"Returning {len(orders_data)} orders (page {page}/{pagination.pages}) to waiter {current_user.id}")
         return jsonify(result)
         
     except Exception as e:
@@ -901,3 +917,64 @@ def mark_all_calls_read():
             'status': 'error',
             'message': 'Ошибка обновления статуса вызовов'
         }), 500
+
+@waiter_bp.route('/api/orders/<int:order_id>/guest-count', methods=['PUT'])
+@waiter_required
+def update_order_guest_count(order_id):
+    """Обновление количества гостей в заказе."""
+    try:
+        data = request.get_json()
+        guest_count = data.get('guest_count')
+        
+        if not guest_count or guest_count < 1:
+            return jsonify({'status': 'error', 'message': 'Неверное количество гостей'}), 400
+        
+        # Получаем заказ и проверяем права
+        order = Order.query.get_or_404(order_id)
+        if order.waiter_id != current_user.id:
+            return jsonify({'status': 'error', 'message': 'Нет прав на изменение заказа'}), 403
+        
+        # Проверяем вместимость стола
+        if guest_count > order.table.capacity:
+            return jsonify({
+                'status': 'error', 
+                'message': f'Стол вмещает максимум {order.table.capacity} гостей'
+            }), 400
+        
+        # Обновляем количество гостей
+        order.guest_count = guest_count
+        db.session.commit()
+        
+        current_app.logger.info(f"Order {order_id} guest count updated to {guest_count}")
+        return jsonify({'status': 'success', 'message': 'Количество гостей обновлено'})
+        
+    except Exception as e:
+        current_app.logger.error(f"Error updating guest count: {e}")
+        return jsonify({'status': 'error', 'message': 'Ошибка обновления'}), 500
+
+@waiter_bp.route('/api/orders/<int:order_id>/items/<int:item_id>/comments', methods=['PUT'])
+@waiter_required
+def update_order_item_comments(order_id, item_id):
+    """Обновление комментариев к позиции заказа."""
+    try:
+        data = request.get_json()
+        comments = data.get('comments', '').strip()
+        
+        # Получаем заказ и проверяем права
+        order = Order.query.get_or_404(order_id)
+        if order.waiter_id != current_user.id:
+            return jsonify({'status': 'error', 'message': 'Нет прав на изменение заказа'}), 403
+        
+        # Получаем позицию заказа
+        order_item = OrderItem.query.filter_by(order_id=order_id, id=item_id).first_or_404()
+        
+        # Обновляем комментарии
+        order_item.comments = comments
+        db.session.commit()
+        
+        current_app.logger.info(f"Order item {item_id} comments updated")
+        return jsonify({'status': 'success', 'message': 'Комментарий обновлен'})
+        
+    except Exception as e:
+        current_app.logger.error(f"Error updating item comments: {e}")
+        return jsonify({'status': 'error', 'message': 'Ошибка обновления'}), 500
