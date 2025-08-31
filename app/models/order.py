@@ -169,21 +169,26 @@ class Order(BaseModel):
     
     def calculate_totals(self) -> None:
         """Пересчет итоговых сумм."""
+        # 1. Считаем подытог (сумма всех позиций)
         subtotal = sum(item.total_price for item in self.items)
-        
-        # Применяем скидку по бонусной карте
-        if self.bonus_card and self.discount_amount > 0:
-            subtotal = subtotal - self.discount_amount
-        
         self.subtotal = subtotal
         
-        # Получаем процент сервисного сбора
+        # 2. Считаем сервисный сбор от подытога
         from .system_setting import SystemSetting
         service_charge_percent = SystemSetting.get_setting('service_charge_percent', '10.0')
         service_charge_rate = Decimal(service_charge_percent) / Decimal('100')
-        
         self.service_charge = subtotal * service_charge_rate
-        self.total_amount = subtotal + self.service_charge
+        
+        # 3. Считаем общую сумму БЕЗ скидки
+        total_without_discount = subtotal + self.service_charge
+        
+        # 4. Применяем скидку к общей сумме (если есть)
+        if self.bonus_card and self.discount_amount > 0:
+            # Скидка уже рассчитана и установлена в discount_amount
+            # Просто вычитаем её из общей суммы
+            self.total_amount = total_without_discount - self.discount_amount
+        else:
+            self.total_amount = total_without_discount
     
     def confirm(self, waiter_id: int) -> None:
         """Подтверждение заказа."""

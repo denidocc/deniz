@@ -400,7 +400,7 @@ width: 100%;
     <div class="modal-content large-modal">
         <div class="modal-header">
             <h3>Добавить позиции к заказу #<span id="modalOrderId"></span></h3>
-            <button type="button" class="btn-close" data-dismiss="modal">&times;</button>
+            <button type="button" class="order-close-btn" data-dismiss="modal">&times;</button>
         </div>
 
         <div class="modal-body">
@@ -647,8 +647,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const orderId = document.getElementById('modalOrderId').textContent;
         const items = [...document.querySelectorAll('.menu-item-card.selected')].map(card => ({
             menu_item_id: parseInt(card.dataset.itemId),
-            quantity: parseInt(card.querySelector('.quantity-input').value),
-            comments: card.querySelector('.comments-input').value.trim()
+            quantity: parseInt(card.querySelector('.qty-input').value),        // ✅ qty-input
+            comments: card.querySelector('.comment-input').value.trim()        // ✅ comment-input
         }));
 
         try {
@@ -663,7 +663,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await res.json();
             if (data.status === 'success') {
                 waiterNotifications.showSuccess(data.message);
-                document.getElementById('addItemsModal').style.display = 'none';
+                document.getElementById('addItemsModal').classList.remove('visible');
                 loadOrders();          // обновить список
             } else {
                 waiterNotifications.showError(data.message);
@@ -1136,6 +1136,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const printButton = document.getElementById('printOrderReceipts');
         const finalReceiptButton = document.getElementById('printFinalReceipt');
         
+        const originalItems = order.items.filter(item => 
+            new Date(item.created_at) <= new Date(order.created_at)
+        );
+        const addedItems = order.items.filter(item => 
+            new Date(item.created_at) > new Date(order.created_at)
+        );
+
         // Проверяем, что все элементы найдены
         if (!modal) {
             console.error('❌ Модальное окно не найдено!');
@@ -1149,55 +1156,53 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Разделяем позиции по типам
-        const kitchenItems = order.items.filter(item => item.preparation_type === 'kitchen');
-        const barItems = order.items.filter(item => item.preparation_type === 'bar');
-        
         let itemsHtml = '';
         
-        if (kitchenItems.length > 0) {
-            itemsHtml += '<div class="items-section"><h4>🍽️ КУХНЯ</h4>';
-            kitchenItems.forEach(item => {
-                itemsHtml += `
-                    <div class="order-item" data-item-id="${item.id}">
-                        <div class="item-header">
-                            <span class="item-quantity">${item.quantity}x</span>
-                            <span class="item-name">${item.name}</span>
-                            <span class="item-price">${item.unit_price} TMT</span>
-                        </div>
-                        <div class="item-comments-section">
-                            <textarea 
-                                class="form-control comment-textarea" 
-                                placeholder="Комментарий к блюду..."
-                                onchange="updateItemComment(${order.id}, ${item.id}, this.value)"
-                            >${item.comments || ''}</textarea>
-                        </div>
-                    </div>
-                `;
-            });
-            itemsHtml += '</div>';
+        // Основные позиции (изначально в заказе)
+        if (originalItems.length > 0) {
+            const originalKitchenItems = originalItems.filter(item => item.preparation_type === 'kitchen');
+            const originalBarItems = originalItems.filter(item => item.preparation_type === 'bar');
+            
+            if (originalKitchenItems.length > 0) {
+                itemsHtml += '<div class="items-section"><h4>🍽️ КУХНЯ</h4>';
+                originalKitchenItems.forEach(item => {
+                    itemsHtml += createItemHtml(item, order.id);
+                });
+                itemsHtml += '</div>';
+            }
+            
+            if (originalBarItems.length > 0) {
+                itemsHtml += '<div class="items-section"><h4>🍺 БАР</h4>';
+                originalBarItems.forEach(item => {
+                    itemsHtml += createItemHtml(item, order.id);
+                });
+                itemsHtml += '</div>';
+            }
         }
-        
-        if (barItems.length > 0) {
-            itemsHtml += '<div class="items-section"><h4>🍺 БАР</h4>';
-            barItems.forEach(item => {
-                itemsHtml += `
-                    <div class="order-item" data-item-id="${item.id}">
-                        <div class="item-header">
-                            <span class="item-quantity">${item.quantity}x</span>
-                            <span class="item-name">${item.name}</span>
-                            <span class="item-price">${item.unit_price} TMT</span>
-                        </div>
-                        <div class="item-comments-section">
-                            <textarea 
-                                class="form-control comment-textarea" 
-                                placeholder="Комментарий к напитку..."
-                                onchange="updateItemComment(${order.id}, ${item.id}, this.value)"
-                            >${item.comments || ''}</textarea>
-                        </div>
-                    </div>
-                `;
-            });
+
+        // Дополнительные позиции (добавленные позже)
+        if (addedItems.length > 0) {
+            itemsHtml += '<div class="items-section added-items"><h4>➕ ДОП. ЗАКАЗЫ</h4>';
+            
+            const addedKitchenItems = addedItems.filter(item => item.preparation_type === 'kitchen');
+            const addedBarItems = addedItems.filter(item => item.preparation_type === 'bar');
+            
+            if (addedKitchenItems.length > 0) {
+                itemsHtml += '<div class="added-kitchen items-section"><h4>🍽️ КУХНЯ</h4>';
+                addedKitchenItems.forEach(item => {
+                    itemsHtml += createItemHtml(item, order.id);
+                });
+                itemsHtml += '</div>';
+            }
+            
+            if (addedBarItems.length > 0) {
+                itemsHtml += '<div class="added-bar items-section"><h4>🍺 БАР</h4>';
+                addedBarItems.forEach(item => {
+                    itemsHtml += createItemHtml(item, order.id);
+                });
+                itemsHtml += '</div>';
+            }
+            
             itemsHtml += '</div>';
         }
         
@@ -1279,6 +1284,26 @@ document.addEventListener('DOMContentLoaded', function() {
         // Показываем модальное окно
         modal.classList.add('visible');
         modal.classList.remove('hidden');
+    }
+
+    // Добавляем вспомогательную функцию для создания HTML позиции
+    function createItemHtml(item, orderId) {
+        return `
+            <div class="order-item" data-item-id="${item.id}">
+                <div class="item-header">
+                    <span class="item-quantity">${item.quantity}x</span>
+                    <span class="item-name">${item.name}</span>
+                    <span class="item-price">${item.unit_price} TMT</span>
+                </div>
+                <div class="item-comments-section">
+                    <textarea 
+                        class="form-control comment-textarea" 
+                        placeholder="Комментарий к блюду..."
+                        onchange="updateItemComment(${orderId}, ${item.id}, this.value)"
+                    >${item.comments || ''}</textarea>
+                </div>
+            </div>
+        `;
     }
 
     // Функция печати чеков заказа (для модального окна)

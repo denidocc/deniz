@@ -3,7 +3,7 @@
 from flask import Blueprint, render_template, jsonify, request, current_app
 from flask_login import current_user
 from app.utils.decorators import waiter_required, audit_action
-from app.models import Order, WaiterCall, Table
+from app.models import Order, WaiterCall, Table, MenuItem
 from app.models.order import Order as OrderModel, OrderItem
 from app import db
 from datetime import datetime
@@ -477,6 +477,11 @@ def get_order_details(order_id):
             'card_number': order.bonus_card.card_number,
             'discount_percent': order.bonus_card.discount_percent
         }
+        
+    # ✅ Добавляем информацию о столе для валидации guest_count
+    order_data['table'] = {
+        'capacity': order.table.capacity
+    }
     
     # Добавляем позиции заказа
     for item in order.items:
@@ -487,7 +492,8 @@ def get_order_details(order_id):
             'unit_price': float(item.unit_price),
             'total_price': float(item.total_price),
             'preparation_type': item.menu_item.preparation_type,
-            'comments': item.comments
+            'comments': item.comments,
+            'created_at': item.created_at.isoformat()
         }
         order_data['items'].append(item_data)
     
@@ -679,44 +685,84 @@ def add_order_items(order_id):
         data = request.get_json()
         items = data.get('items', [])
         if not items:
-            return jsonify({'status': 'error', 'message': 'Не указаны позиции'}), 400
-
+            return jsonify({'status': 'error', 'message': 'Нет позиций для добавления'}), 400
+        
+        # Получаем заказ и проверяем права
         order = Order.query.get_or_404(order_id)
         if order.waiter_id != current_user.id:
-            return jsonify({'status': 'error', 'message': 'Нет прав'}), 403
-        if not order.can_be_edited():
-            return jsonify({'status': 'error', 'message': 'Заказ нельзя редактировать'}), 400
-
-        added = []
-        for raw in items:
-            item = OrderItem(
+            return jsonify({'status': 'error', 'message': 'Нет прав для изменения заказа'}), 403
+        
+        # Проверяем статус заказа
+        if order.status not in ['pending', 'confirmed']:
+            return jsonify({'status': 'error', 'message': 'Нельзя добавлять позиции к заказу с таким статусом'}), 400
+        
+        # Добавляем позиции
+        for item_data in items:
+            menu_item = MenuItem.query.get(item_data['menu_item_id'])
+            if not menu_item:
+                continue
+                
+            order_item = OrderItem(
                 order_id=order.id,
-                menu_item_id=raw['menu_item_id'],
-                size_id=raw.get('size_id'),
-                quantity=raw['quantity'],
-                comments=raw.get('comments', '')
+                menu_item_id=menu_item.id,
+                quantity=item_data['quantity'],
+                unit_price=menu_item.price,
+                comments=item_data.get('comments', ''),
+                preparation_type=menu_item.preparation_type
             )
-            item.calculate_total()
-            db.session.add(item)
-            added.append(item)
+            
+            order_item.total_price = order_item.unit_price * order_item.quantity
+            db.session.add(order_item)
 
-        # ставим флаг
-        if added:
-            order.has_added_items = True
-            order.added_items_confirmed = False
-            order.calculate_totals()
-            db.session.commit()
+        # ✅ ОБЯЗАТЕЛЬНО: сохраняем новые позиции в БД
+        db.session.flush()
 
+        # ✅ ОБЯЗАТЕЛЬНО: обновляем объект заказа для получения новых позиций
+        db.session.refresh(order)
+
+        # Теперь пересчитываем итоги заказа
+        current_app.logger.info(f"Before calculate_totals: order.items count = {len(order.items)}")
+        for item in order.items:
+            current_app.logger.info(f"Item: {item.menu_item.name_ru}, quantity: {item.quantity}, unit_price: {item.unit_price}, total_price: {item.total_price}")
+
+        order.calculate_totals()
+        
+        # ✅ ПЕРЕСЧИТЫВАЕМ СКИДКУ для новых позиций
+        if order.bonus_card and order.bonus_card.is_active:
+            # Скидка применяется к (новый подытог + новый сервисный сбор)
+            total_before_discount = order.subtotal + order.service_charge
+            # ✅ ИСПРАВЛЯЕМ: приводим к Decimal для корректных вычислений
+            from decimal import Decimal
+            discount_percent = Decimal(str(order.bonus_card.discount_percent))
+            new_discount_amount = total_before_discount * (discount_percent / Decimal('100'))
+            order.discount_amount = new_discount_amount
+            # Пересчитываем итоговую сумму с новой скидкой
+            order.total_amount = total_before_discount - new_discount_amount
+            
+            current_app.logger.info(f"Recalculated discount: {new_discount_amount} for order {order.id}")
+            current_app.logger.info(f"New total: {order.total_amount}")
+            current_app.logger.info(f"New subtotal: {order.subtotal}")
+            current_app.logger.info(f"New service_charge: {order.service_charge}")
+        
+        # Устанавливаем флаги добавленных позиций
+        order.has_added_items = True
+        order.added_items_confirmed = False
+        
+        # Обновляем время заказа
+        from datetime import datetime, timezone
+        order.updated_at = datetime.now(timezone.utc)
+        
+        db.session.commit()
+        
         return jsonify({
-            'status': 'success',
-            'message': f'Добавлено {len(added)} позиций',
-            'data': {'order_id': order.id, 'items': [i.to_dict() for i in added]}
+            'status': 'success', 
+            'message': f'Добавлено {len(items)} позиций к заказу'
         })
-
+        
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"add_order_items error: {e}")
-        return jsonify({'status': 'error', 'message': 'Внутренняя ошибка'}), 500
+        return jsonify({'status': 'error', 'message': 'Ошибка добавления позиций'}), 500
 
 @waiter_bp.route('/api/orders/<int:order_id>/items/<int:item_id>', methods=['PUT'])
 @waiter_required
