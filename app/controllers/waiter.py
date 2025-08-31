@@ -719,12 +719,7 @@ def add_order_items(order_id):
 
         # ✅ ОБЯЗАТЕЛЬНО: обновляем объект заказа для получения новых позиций
         db.session.refresh(order)
-
-        # Теперь пересчитываем итоги заказа
-        current_app.logger.info(f"Before calculate_totals: order.items count = {len(order.items)}")
-        for item in order.items:
-            current_app.logger.info(f"Item: {item.menu_item.name_ru}, quantity: {item.quantity}, unit_price: {item.unit_price}, total_price: {item.total_price}")
-
+        
         order.calculate_totals()
         
         # ✅ ПЕРЕСЧИТЫВАЕМ СКИДКУ для новых позиций
@@ -738,11 +733,6 @@ def add_order_items(order_id):
             order.discount_amount = new_discount_amount
             # Пересчитываем итоговую сумму с новой скидкой
             order.total_amount = total_before_discount - new_discount_amount
-            
-            current_app.logger.info(f"Recalculated discount: {new_discount_amount} for order {order.id}")
-            current_app.logger.info(f"New total: {order.total_amount}")
-            current_app.logger.info(f"New subtotal: {order.subtotal}")
-            current_app.logger.info(f"New service_charge: {order.service_charge}")
         
         # Устанавливаем флаги добавленных позиций
         order.has_added_items = True
