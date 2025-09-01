@@ -84,21 +84,40 @@ class SystemSetting(BaseModel):
     def initialize_default_settings(cls) -> None:
         """Инициализация настроек по умолчанию."""
         default_settings = [
-            ('service_charge_percent', '10.0', 'Процент сервисного сбора'),
-            ('order_edit_timeout_minutes', '5', 'Время в минутах для отмены/изменения заказа клиентом'),
-            ('printer_kitchen_ip', '192.168.1.100', 'IP адрес кухонного принтера'),
-            ('printer_bar_ip', '192.168.1.101', 'IP адрес барного принтера'),
-            ('printer_receipt_ip', '192.168.1.102', 'IP адрес принтера чеков'),
-            ('printer_kitchen_port', '9100', 'Порт кухонного принтера'),
-            ('printer_bar_port', '9100', 'Порт барного принтера'),
-            ('printer_receipt_port', '9100', 'Порт принтера чеков'),
-            ('system_language', 'ru', 'Основной язык системы'),
-            ('currency', 'TMT', 'Основная валюта системы'),
-            ('max_guests_per_table', '8', 'Максимальное количество гостей за столом'),
-            ('carousel_auto_play', 'true', 'Автопроигрывание карусели'),
-            ('carousel_auto_play_delay', '5000', 'Задержка автопроигрывания карусели (мс)'),
-            ('carousel_max_slides', '5', 'Максимальное количество слайдов в карусели'),
-            ('carousel_slides', '[]', 'JSON данные слайдов карусели'),
+            ('printer_kitchen_type', 'network', 'Тип подключения кухонного принтера (network|usb|serial|disabled)'),
+            ('printer_bar_type', 'serial', 'Тип подключения барного принтера'),
+            ('printer_receipt_type', 'serial', 'Тип подключения чекового принтера'),
+
+            # CPL и кодировки
+            ('printer_kitchen_cpl', '48', 'Символов в строке (кухня, 80мм)'),
+            ('printer_bar_cpl', '32', 'Символов в строке (бар, 58мм)'),
+            ('printer_receipt_cpl', '32', 'Символов в строке (итоговый, 58мм)'),
+            ('printer_kitchen_code_page', '37', 'Кодировка ESC/POS (кириллица) для кухни'),
+            ('printer_bar_code_page', '37', 'Кодировка ESC/POS (кириллица) для бара'),
+            ('printer_receipt_code_page', '37', 'Кодировка ESC/POS (кириллица) для чека'),
+
+            # network
+            ('printer_kitchen_ip', '192.168.1.101', 'IP кухни'),
+            ('printer_kitchen_port', '9100', 'Порт кухни'),
+
+            # usb (VID/PID/EP) — на будущее
+            ('printer_bar_usb_vid', '0x0483', 'USB Vendor ID'),
+            ('printer_bar_usb_pid', '0x5743', 'USB Product ID'),
+            ('printer_bar_usb_in_ep', '129', 'USB IN endpoint (0x81)'),
+            ('printer_bar_usb_out_ep', '1', 'USB OUT endpoint (0x01)'),
+
+            # serial (COM) — актуально сейчас
+            ('printer_bar_com', 'COM3', 'COM барного принтера'),
+            ('printer_bar_baud', '9600', 'Скорость COM бара'),
+            ('printer_bar_bytesize', '8', 'Биты данных COM бара'),
+            ('printer_bar_parity', 'N', 'Четность COM бара'),
+            ('printer_bar_stopbits', '1', 'Стоп-биты COM бара'),
+
+            ('printer_receipt_com', 'COM4', 'COM чекового принтера'),
+            ('printer_receipt_baud', '9600', ''),
+            ('printer_receipt_bytesize', '8', ''),
+            ('printer_receipt_parity', 'N', ''),
+            ('printer_receipt_stopbits', '1', ''),
         ]
         
         for key, value, description in default_settings:

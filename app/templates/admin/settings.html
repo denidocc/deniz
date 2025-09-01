@@ -256,30 +256,135 @@
         </h5>
     </div>
     <div class="section-body">
+        <!-- Kitchen Printer -->
         <div class="setting-item">
-            <div class="setting-label">Принтер чеков</div>
-            <div class="setting-description">IP-адрес или имя принтера для печати чеков</div>
-            <input type="text" class="form-control" id="receiptPrinter" 
-                   value="{{ settings.get('receipt_printer', '') }}" 
-                   placeholder="192.168.1.100 или PRINTER-01">
+            <div class="setting-label">Кухонный принтер — тип подключения</div>
+            <select id="printer_kitchen_type" class="form-control">
+                <option value="disabled" {{ 'selected' if settings.get('printer_kitchen_type')=='disabled' else '' }}>Отключен</option>
+                <option value="network" {{ 'selected' if settings.get('printer_kitchen_type','network')=='network' else '' }}>Сетевой</option>
+                <option value="usb" {{ 'selected' if settings.get('printer_kitchen_type')=='usb' else '' }}>USB</option>
+                <option value="serial" {{ 'selected' if settings.get('printer_kitchen_type')=='serial' else '' }}>COM (Serial)</option>
+            </select>
         </div>
-        
         <div class="setting-item">
-            <div class="setting-label">Принтер кухни</div>
-            <div class="setting-description">Принтер для печати заказов на кухне</div>
-            <input type="text" class="form-control" id="kitchenPrinter" 
-                   value="{{ settings.get('kitchen_printer', '') }}" 
-                   placeholder="192.168.1.101 или KITCHEN-PRINTER">
+            <div class="setting-label">Сетевой (IP:порт)</div>
+            <div class="row g-2">
+                <div class="col-md-8">
+                    <input type="text" class="form-control" id="printer_kitchen_ip" value="{{ settings.get('printer_kitchen_ip','192.168.1.101') }}" placeholder="192.168.1.101">
+                </div>
+                <div class="col-md-4">
+                    <input type="number" class="form-control" id="printer_kitchen_port" value="{{ settings.get('printer_kitchen_port','9100') }}" placeholder="9100">
+                </div>
+            </div>
         </div>
-        
         <div class="setting-item">
-            <div class="setting-label">Принтер бара</div>
-            <div class="setting-description">Принтер для печати заказов в баре</div>
-            <input type="text" class="form-control" id="barPrinter" 
-                   value="{{ settings.get('bar_printer', '') }}" 
-                   placeholder="192.168.1.102 или BAR-PRINTER">
+            <div class="setting-label">Кодировка и ширина</div>
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <input type="number" class="form-control" id="printer_kitchen_code_page" value="{{ settings.get('printer_kitchen_code_page','37') }}" placeholder="Code Page">
+                    <small class="text-muted">37 = Windows-1251 (кириллица)</small>
+                </div>
+                <div class="col-md-6">
+                    <input type="number" class="form-control" id="printer_kitchen_cpl" value="{{ settings.get('printer_kitchen_cpl','48') }}" placeholder="Символов в строке (обычно 48)">
+                </div>
+            </div>
         </div>
-        
+
+        <hr>
+
+        <!-- Bar Printer -->
+        <div class="setting-item">
+            <div class="setting-label">Барный принтер — тип подключения</div>
+            <select id="printer_bar_type" class="form-control">
+                <option value="disabled" {{ 'selected' if settings.get('printer_bar_type')=='disabled' else '' }}>Отключен</option>
+                <option value="serial" {{ 'selected' if settings.get('printer_bar_type','serial')=='serial' else '' }}>COM (Serial)</option>
+                <option value="usb" {{ 'selected' if settings.get('printer_bar_type')=='usb' else '' }}>USB</option>
+                <option value="network" {{ 'selected' if settings.get('printer_bar_type')=='network' else '' }}>Сетевой</option>
+            </select>
+        </div>
+        <div class="setting-item">
+            <div class="setting-label">COM (если Serial)</div>
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <input type="text" class="form-control" id="printer_bar_com" value="{{ settings.get('printer_bar_com','COM3') }}" placeholder="COM3">
+                </div>
+                <div class="col-md-4">
+                    <input type="number" class="form-control" id="printer_bar_baud" value="{{ settings.get('printer_bar_baud','9600') }}" placeholder="9600">
+                </div>
+                <div class="col-md-2">
+                    <input type="number" class="form-control" id="printer_bar_bytesize" value="{{ settings.get('printer_bar_bytesize','8') }}" placeholder="8">
+                </div>
+                <div class="col-md-2">
+                    <input type="text" class="form-control" id="printer_bar_parity" value="{{ settings.get('printer_bar_parity','N') }}" placeholder="N">
+                </div>
+            </div>
+            <div class="row g-2 mt-2">
+                <div class="col-md-4">
+                    <input type="number" class="form-control" id="printer_bar_stopbits" value="{{ settings.get('printer_bar_stopbits','1') }}" placeholder="1">
+                </div>
+            </div>
+        </div>
+        <div class="setting-item">
+            <div class="setting-label">Кодировка и ширина</div>
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <input type="number" class="form-control" id="printer_bar_code_page" value="{{ settings.get('printer_bar_code_page','37') }}" placeholder="Code Page">
+                </div>
+                <div class="col-md-6">
+                    <input type="number" class="form-control" id="printer_bar_cpl" value="{{ settings.get('printer_bar_cpl','32') }}" placeholder="Символов в строке (обычно 32)">
+                </div>
+            </div>
+        </div>
+
+        <hr>
+
+        <!-- Receipt Printer -->
+        <div class="setting-item">
+            <div class="setting-label">Чековый принтер — тип подключения</div>
+            <select id="printer_receipt_type" class="form-control">
+                <option value="disabled" {{ 'selected' if settings.get('printer_receipt_type')=='disabled' else '' }}>Отключен</option>
+                <option value="serial" {{ 'selected' if settings.get('printer_receipt_type')=='serial' else '' }}>COM (Serial)</option>
+                <option value="usb" {{ 'selected' if settings.get('printer_receipt_type')=='usb' else '' }}>USB</option>
+                <option value="network" {{ 'selected' if settings.get('printer_receipt_type')=='network' else '' }}>Сетевой</option>
+            </select>
+        </div>
+        <div class="setting-item">
+            <div class="setting-label">COM (если Serial)</div>
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <input type="text" class="form-control" id="printer_receipt_com" value="{{ settings.get('printer_receipt_com','COM4') }}" placeholder="COM4">
+                </div>
+                <div class="col-md-4">
+                    <input type="number" class="form-control" id="printer_receipt_baud" value="{{ settings.get('printer_receipt_baud','9600') }}" placeholder="9600">
+                </div>
+                <div class="col-md-2">
+                    <input type="number" class="form-control" id="printer_receipt_bytesize" value="{{ settings.get('printer_receipt_bytesize','8') }}" placeholder="8">
+                </div>
+                <div class="col-md-2">
+                    <input type="text" class="form-control" id="printer_receipt_parity" value="{{ settings.get('printer_receipt_parity','N') }}" placeholder="N">
+                </div>
+            </div>
+            <div class="row g-2 mt-2">
+                <div class="col-md-4">
+                    <input type="number" class="form-control" id="printer_receipt_stopbits" value="{{ settings.get('printer_receipt_stopbits','1') }}" placeholder="1">
+                </div>
+            </div>
+        </div>
+        <div class="setting-item">
+            <div class="setting-label">Кодировка и ширина</div>
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <input type="number" class="form-control" id="printer_receipt_code_page" value="{{ settings.get('printer_receipt_code_page','37') }}" placeholder="Code Page">
+                    <small class="text-muted">37 = Windows-1251 (кириллица)</small>
+                </div>
+                <div class="col-md-6">
+                    <input type="number" class="form-control" id="printer_receipt_cpl" value="{{ settings.get('printer_receipt_cpl','32') }}" placeholder="Символов в строке (обычно 32)">
+                </div>
+            </div>
+        </div>
+
+        <hr>
+
         <div class="setting-item">
             <div class="setting-label">Автоматическая печать</div>
             <div class="setting-description">Настройки автоматической печати заказов</div>
@@ -589,15 +694,53 @@
         
         settings.available_languages = getAvailableLanguages();
         
-        // Printer settings
-        const receiptPrinter = document.getElementById('receiptPrinter');
-        if (receiptPrinter) settings.receipt_printer = receiptPrinter.value;
-        
-        const kitchenPrinter = document.getElementById('kitchenPrinter');
-        if (kitchenPrinter) settings.kitchen_printer = kitchenPrinter.value;
-        
-        const barPrinter = document.getElementById('barPrinter');
-        if (barPrinter) settings.bar_printer = barPrinter.value;
+        // Printer settings (kitchen)
+        const printer_kitchen_type = document.getElementById('printer_kitchen_type');
+        if (printer_kitchen_type) settings.printer_kitchen_type = printer_kitchen_type.value;
+        const printer_kitchen_ip = document.getElementById('printer_kitchen_ip');
+        if (printer_kitchen_ip) settings.printer_kitchen_ip = printer_kitchen_ip.value;
+        const printer_kitchen_port = document.getElementById('printer_kitchen_port');
+        if (printer_kitchen_port) settings.printer_kitchen_port = printer_kitchen_port.value;
+        const printer_kitchen_code_page = document.getElementById('printer_kitchen_code_page');
+        if (printer_kitchen_code_page) settings.printer_kitchen_code_page = printer_kitchen_code_page.value;
+        const printer_kitchen_cpl = document.getElementById('printer_kitchen_cpl');
+        if (printer_kitchen_cpl) settings.printer_kitchen_cpl = printer_kitchen_cpl.value;
+
+        // Printer settings (bar)
+        const printer_bar_type = document.getElementById('printer_bar_type');
+        if (printer_bar_type) settings.printer_bar_type = printer_bar_type.value;
+        const printer_bar_com = document.getElementById('printer_bar_com');
+        if (printer_bar_com) settings.printer_bar_com = printer_bar_com.value;
+        const printer_bar_baud = document.getElementById('printer_bar_baud');
+        if (printer_bar_baud) settings.printer_bar_baud = printer_bar_baud.value;
+        const printer_bar_bytesize = document.getElementById('printer_bar_bytesize');
+        if (printer_bar_bytesize) settings.printer_bar_bytesize = printer_bar_bytesize.value;
+        const printer_bar_parity = document.getElementById('printer_bar_parity');
+        if (printer_bar_parity) settings.printer_bar_parity = printer_bar_parity.value;
+        const printer_bar_stopbits = document.getElementById('printer_bar_stopbits');
+        if (printer_bar_stopbits) settings.printer_bar_stopbits = printer_bar_stopbits.value;
+        const printer_bar_code_page = document.getElementById('printer_bar_code_page');
+        if (printer_bar_code_page) settings.printer_bar_code_page = printer_bar_code_page.value;
+        const printer_bar_cpl = document.getElementById('printer_bar_cpl');
+        if (printer_bar_cpl) settings.printer_bar_cpl = printer_bar_cpl.value;
+
+        // Printer settings (receipt)
+        const printer_receipt_type = document.getElementById('printer_receipt_type');
+        if (printer_receipt_type) settings.printer_receipt_type = printer_receipt_type.value;
+        const printer_receipt_com = document.getElementById('printer_receipt_com');
+        if (printer_receipt_com) settings.printer_receipt_com = printer_receipt_com.value;
+        const printer_receipt_baud = document.getElementById('printer_receipt_baud');
+        if (printer_receipt_baud) settings.printer_receipt_baud = printer_receipt_baud.value;
+        const printer_receipt_bytesize = document.getElementById('printer_receipt_bytesize');
+        if (printer_receipt_bytesize) settings.printer_receipt_bytesize = printer_receipt_bytesize.value;
+        const printer_receipt_parity = document.getElementById('printer_receipt_parity');
+        if (printer_receipt_parity) settings.printer_receipt_parity = printer_receipt_parity.value;
+        const printer_receipt_stopbits = document.getElementById('printer_receipt_stopbits');
+        if (printer_receipt_stopbits) settings.printer_receipt_stopbits = printer_receipt_stopbits.value;
+        const printer_receipt_code_page = document.getElementById('printer_receipt_code_page');
+        if (printer_receipt_code_page) settings.printer_receipt_code_page = printer_receipt_code_page.value;
+        const printer_receipt_cpl = document.getElementById('printer_receipt_cpl');
+        if (printer_receipt_cpl) settings.printer_receipt_cpl = printer_receipt_cpl.value;
         
         const autoPrintReceipt = document.getElementById('autoPrintReceipt');
         if (autoPrintReceipt) settings.auto_print_receipt = autoPrintReceipt.checked.toString();

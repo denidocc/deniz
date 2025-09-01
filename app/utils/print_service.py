@@ -5,13 +5,64 @@ from datetime import datetime
 from typing import List, Dict, Any
 from flask import current_app
 from app.models import Order, OrderItem, Staff
-
+from escpos.printer import Network, Usb, Serial
 class PrintService:
     """Сервис для печати чеков."""
     
     def __init__(self):
         self.config = current_app.config
         
+    def _get_printer_config(self, kind: str) -> dict:
+        # kind: 'kitchen' | 'bar' | 'receipt'
+        from app.models.system_setting import SystemSetting
+        cfg = {
+            'type': SystemSetting.get_setting(f'printer_{kind}_type', 'disabled'),  # network | usb | serial | disabled
+            'code_page': int(SystemSetting.get_setting(f'printer_{kind}_code_page', '37') or 37),
+            'chars_per_line': int(SystemSetting.get_setting(f'printer_{kind}_cpl', '32') or 32),
+        }
+        if cfg['type'] == 'network':
+            cfg['ip'] = SystemSetting.get_setting(f'printer_{kind}_ip', '192.168.1.101')
+            cfg['port'] = int(SystemSetting.get_setting(f'printer_{kind}_port', '9100') or 9100)
+            cfg['timeout'] = int(SystemSetting.get_setting(f'printer_{kind}_timeout', '5') or 5)
+        elif cfg['type'] == 'usb':
+            cfg['vendor_id'] = int(SystemSetting.get_setting(f'printer_{kind}_usb_vid', '0'), 0) or 0x0483
+            cfg['product_id'] = int(SystemSetting.get_setting(f'printer_{kind}_usb_pid', '0'), 0) or 0x5743
+            cfg['in_ep'] = int(SystemSetting.get_setting(f'printer_{kind}_usb_in_ep', '129') or 129)  # 0x81
+            cfg['out_ep'] = int(SystemSetting.get_setting(f'printer_{kind}_usb_out_ep', '1') or 1)    # 0x01
+        elif cfg['type'] == 'serial':
+            cfg['com'] = SystemSetting.get_setting(f'printer_{kind}_com', 'COM3')
+            cfg['baudrate'] = int(SystemSetting.get_setting(f'printer_{kind}_baud', '9600') or 9600)
+            cfg['bytesize'] = int(SystemSetting.get_setting(f'printer_{kind}_bytesize', '8') or 8)
+            cfg['parity'] = SystemSetting.get_setting(f'printer_{kind}_parity', 'N') or 'N'
+            cfg['stopbits'] = int(SystemSetting.get_setting(f'printer_{kind}_stopbits', '1') or 1)
+            cfg['timeout'] = int(SystemSetting.get_setting(f'printer_{kind}_timeout', '1') or 1)
+        return cfg
+
+    def _open_printer(self, cfg: dict):
+        t = cfg.get('type', 'disabled')
+        if t == 'network':
+            return Network(cfg['ip'], port=cfg['port'], timeout=cfg['timeout'])
+        if t == 'usb':
+            return Usb(cfg['vendor_id'], cfg['product_id'], in_ep=cfg['in_ep'], out_ep=cfg['out_ep'], timeout=0)
+        if t == 'serial':
+            return Serial(
+                devfile=cfg['com'],
+                baudrate=cfg['baudrate'],
+                bytesize=cfg['bytesize'],
+                parity=cfg['parity'],
+                stopbits=cfg['stopbits'],
+                timeout=cfg['timeout'],
+                dsrdtr=True
+            )
+        return None  # disabled
+    
+    def _set_code_page(self, printer, code_page: int) -> None:
+        try:
+            # ESC t n
+            printer._raw(bytes([0x1B, 0x74, code_page]))
+        except Exception as e:
+            current_app.logger.warning(f"Code page set failed: {e}")
+    
     def print_kitchen_receipt(self, order: Order, kitchen_items: List[OrderItem]) -> bool:
         """
         Печать чека на кухню.
@@ -170,36 +221,45 @@ class PrintService:
     
     def _send_to_printer(self, content: str, printer_type: str) -> bool:
         """
-        Отправка содержимого на принтер.
-        
-        Args:
-            content: Содержимое для печати
-            printer_type: Тип принтера (kitchen/bar/receipt)
-            
-        Returns:
-            bool: Успешность печати
+        printer_type: 'kitchen' | 'bar' | 'receipt'
         """
         try:
-            # В реальной системе здесь будет интеграция с ESC/POS принтерами
-            # Пока просто логируем содержимое
-            
-            current_app.logger.info(f"Printing to {printer_type} printer:")
-            current_app.logger.info(content)
-            
-            # Сохраняем в файл для демонстрации
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"receipt_{printer_type}_{timestamp}.txt"
-            filepath = os.path.join(current_app.root_path, '..', 'receipts', filename)
-            
-            # Создаем директорию если не существует
-            os.makedirs(os.path.dirname(filepath), exist_ok=True)
-            
-            with open(filepath, 'w', encoding='utf-8') as f:
-                f.write(content)
-            
-            current_app.logger.info(f"Receipt saved to: {filepath}")
+            cfg = self._get_printer_config(printer_type)
+            if cfg.get('type') == 'disabled':
+                raise RuntimeError("Printing disabled for this printer type")
+
+            printer = self._open_printer(cfg)
+            if not printer:
+                raise RuntimeError("Printer open failed (no config or disabled)")
+
+            # Устанавливаем кириллицу (по умолчанию 37 = Windows-1251) — для будущих кухонных тоже
+            self._set_code_page(printer, cfg.get('code_page', 37))
+
+            # Печать
+            printer.text(content + "\n\n")
+            try:
+                printer.cut()
+            except Exception:
+                # некоторые 58мм не поддерживают автоматическую обрезку
+                pass
+            try:
+                printer.close()
+            except Exception:
+                pass
+
             return True
-            
+
         except Exception as e:
-            current_app.logger.error(f"Printer error: {e}")
+            # Fallback: лог + сохранение в файл
+            current_app.logger.error(f"Printer error ({printer_type}): {e}")
+            try:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"receipt_{printer_type}_{timestamp}.txt"
+                filepath = os.path.join(current_app.root_path, '..', 'receipts', filename)
+                os.makedirs(os.path.dirname(filepath), exist_ok=True)
+                with open(filepath, 'w', encoding='utf-8') as f:
+                    f.write(content)
+                current_app.logger.info(f"Receipt saved to: {filepath}")
+            except Exception as e2:
+                current_app.logger.error(f"Receipt save failed: {e2}")
             return False 
