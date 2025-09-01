@@ -139,7 +139,7 @@ class PrintService:
         receipt.append(f"Официант: {waiter.name if waiter else 'Неизвестно'}")
         receipt.append("=" * 32)
         
-        return "\n".join(receipt)
+        return "\r\n".join(receipt)
     
     def _generate_bar_receipt(self, order: Order, bar_items: List[OrderItem]) -> str:
         """Генерация содержимого барного чека."""
@@ -164,20 +164,27 @@ class PrintService:
         receipt.append(f"Официант: {waiter.name if waiter else 'Неизвестно'}")
         receipt.append("=" * 32)
         
-        return "\n".join(receipt)
+        return "\r\n".join(receipt)
     
     def _generate_final_receipt(self, order: Order) -> str:
         """Генерация финального чека для клиента."""
         waiter = Staff.query.get(order.waiter_id)
         
+        # Получаем настройки ресторана
+        from app.models.system_setting import SystemSetting
+        restaurant_address = SystemSetting.get_setting('restaurant_address', 'Адрес: [Адрес ресторана]')
+        restaurant_phone = SystemSetting.get_setting('restaurant_phone', 'Телефон: +993 12 XX-XX-XX')
+        
         receipt = []
         receipt.append("=" * 32)
         receipt.append("РЕСТОРАН DENIZ")
         receipt.append("=" * 32)
-        receipt.append(f"Стол: {order.table.table_number} Время: {order.created_at.strftime('%H:%M')}")
-        receipt.append(f"Гостей: {order.guest_count}")
-        receipt.append(f"Заказ #{order.id:04d}")
-        receipt.append("-" * 32)
+        receipt.append(restaurant_address)
+        receipt.append(restaurant_phone)
+        receipt.append(f"Стол: {order.table.table_number}      Заказ: #{order.id}")
+        receipt.append(f"Дата: {order.created_at.strftime('%d.%m.%Y')}")
+        receipt.append(f"Время: {order.created_at.strftime('%H:%M')}  Гостей: {order.guest_count}")
+        receipt.append(f"Официант: {waiter.name if waiter else 'Неизвестно'}")
         
         # Группируем позиции по типам
         kitchen_items = []
@@ -191,33 +198,39 @@ class PrintService:
         
         # Печатаем позиции кухни
         if kitchen_items:
-            receipt.append("КУХНЯ:")
             for item in kitchen_items:
-                receipt.append(f"{item.quantity}x {item.menu_item.name_ru} {item.unit_price:.2f}")
+                receipt.append(f"{item.quantity}x {item.menu_item.name_ru:<20} {item.unit_price * item.quantity:>8.2f}")
                 if item.comments:
-                    receipt.append(f"- {item.comments}")
-            receipt.append("")
+                    receipt.append(f"   - {item.comments}")
         
         # Печатаем позиции бара
         if bar_items:
-            receipt.append("БАР:")
             for item in bar_items:
-                receipt.append(f"{item.quantity}x {item.menu_item.name_ru} {item.unit_price:.2f}")
+                receipt.append(f"{item.quantity}x {item.menu_item.name_ru:<20} {item.unit_price * item.quantity:>8.2f}")
                 if item.comments:
-                    receipt.append(f"- {item.comments}")
-            receipt.append("")
+                    receipt.append(f"   - {item.comments}")
         
         receipt.append("-" * 32)
-        receipt.append(f"Подытог: {order.subtotal:.2f}")
-        receipt.append(f"Сервисный сбор (10%): {order.service_charge:.2f}")
+        receipt.append(f"Подытог:              {order.subtotal:>8.2f}")
+        receipt.append(f"Сервисный сбор (10%): {order.service_charge:>8.2f}")
+        
+        # Промежуточный итог (подытог + сервисный сбор)
+        intermediate_total = order.subtotal + order.service_charge
+        receipt.append(f"Промежуточный итог:   {intermediate_total:>8.2f}")
+        
+        # Скидка по бонусной карте
+        if order.discount_amount and order.discount_amount > 0:
+            discount_percent = order.bonus_card.discount_percent if order.bonus_card else 0
+            receipt.append(f"Скидка карта {order.bonus_card.card_number if order.bonus_card else 'XXXXXX'}: -{order.discount_amount:>8.2f}")
+            receipt.append(f"({discount_percent}%)")
+        
         receipt.append("-" * 32)
-        receipt.append(f"ИТОГО: {order.total_amount:.2f}")
+        receipt.append(f"ИТОГО:                {order.total_amount:>8.2f}")
         receipt.append("=" * 32)
-        receipt.append(f"Время заказа: {order.created_at.strftime('%H:%M')}")
-        receipt.append(f"Официант: {waiter.name if waiter else 'Неизвестно'}")
+        receipt.append("Благодарим за посещение!")
         receipt.append("=" * 32)
         
-        return "\n".join(receipt)
+        return "\r\n".join(receipt)
     
     def _send_to_printer(self, content: str, printer_type: str) -> bool:
         """
@@ -236,7 +249,7 @@ class PrintService:
             self._set_code_page(printer, cfg.get('code_page', 37))
 
             # Печать
-            printer.text(content + "\n\n")
+            printer.text(content + "\n")
             try:
                 printer.cut()
             except Exception:

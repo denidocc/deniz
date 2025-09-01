@@ -205,6 +205,9 @@ def get_orders():
                 'total_amount': float(order.total_amount),
                 'comments': order.comments,
                 'language': order.language,
+                'has_added_items': bool(getattr(order, 'has_added_items', False)),
+                'added_items_confirmed': bool(getattr(order, 'added_items_confirmed', False)),
+                'final_receipt_printed': bool(getattr(order, 'final_receipt_printed', False)),
                 'created_at': order.created_at.isoformat(),
                 'confirmed_at': order.confirmed_at.isoformat() if order.confirmed_at else None,
                 'completed_at': order.completed_at.isoformat() if order.completed_at else None,
@@ -397,7 +400,14 @@ def print_order_receipts(order_id):
         kitchen_items = []
         bar_items = []
         
-        for item in order.items:
+        # Если заказ уже подтвержден и есть доп. позиции, печатаем ТОЛЬКО доп. позиции
+        if order.status == 'confirmed' and getattr(order, 'has_added_items', False):
+            base_time = order.created_at
+            source_items = [i for i in order.items if i.created_at and i.created_at > base_time]
+        else:
+            source_items = list(order.items)
+
+        for item in source_items:
             if item.menu_item.preparation_type == 'kitchen':
                 kitchen_items.append(item)
             elif item.menu_item.preparation_type == 'bar':
@@ -413,16 +423,17 @@ def print_order_receipts(order_id):
         if bar_items:
             bar_success = print_service.print_bar_receipt(order, bar_items)
         
-        # Проверяем возможность перехода к статусу confirmed
-        if not order.can_transition_to('confirmed'):
-            return jsonify({
-                'status': 'error',
-                'message': 'Невозможно изменить статус заказа'
-            }), 500
-        
-        # Обновляем статус заказа
-        order.status = 'confirmed'
-        order.confirmed_at = datetime.now()
+        # Если заказ был pending → переводим в confirmed
+        if order.status == 'pending':
+            if not order.can_transition_to('confirmed'):
+                return jsonify({'status': 'error', 'message': 'Невозможно изменить статус заказа'}), 500
+            order.status = 'confirmed'
+            order.confirmed_at = datetime.now()
+
+        # Если печатали доп. позиции — считаем их подтвержденными
+        if getattr(order, 'has_added_items', False) and (kitchen_items or bar_items):
+            order.added_items_confirmed = True
+            order.has_added_items = False
         db.session.commit()
         
         return jsonify({
@@ -467,6 +478,9 @@ def get_order_details(order_id):
         'total_amount': float(order.total_amount),
         'discount_amount': float(order.discount_amount),
         'discount_percent': order.bonus_card.discount_percent if order.bonus_card else 0, 
+        'has_added_items': bool(getattr(order, 'has_added_items', False)),
+        'added_items_confirmed': bool(getattr(order, 'added_items_confirmed', False)),
+        'final_receipt_printed': bool(getattr(order, 'final_receipt_printed', False)),
         'created_at': order.created_at.isoformat(),
         'items': []
     }
@@ -523,18 +537,9 @@ def print_final_receipt(order_id):
         
         print_service = PrintService()
         success = print_service.print_final_receipt(order)
-        
         if success:
-            # Проверяем возможность перехода к статусу completed
-            if not order.can_transition_to('completed'):
-                return jsonify({
-                    'status': 'error',
-                    'message': 'Невозможно изменить статус заказа'
-                }), 500
-            
-            # Обновляем статус заказа
-            order.status = 'completed'
-            order.completed_at = datetime.now()
+            # Только выставляем флаг печати итогового чека, статус не меняем
+            order.final_receipt_printed = True
             db.session.commit()
         
         return jsonify({

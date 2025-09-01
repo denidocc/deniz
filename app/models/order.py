@@ -4,7 +4,7 @@ import sqlalchemy as sa
 import sqlalchemy.orm as so
 from typing import Optional, TYPE_CHECKING, Dict, Any
 from decimal import Decimal
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from .base import BaseModel
 from flask import current_app
 from app import db
@@ -63,6 +63,10 @@ class Order(BaseModel):
         sa.Boolean, default=False, nullable=False
     )
     added_items_confirmed: so.Mapped[bool] = so.mapped_column(
+        sa.Boolean, default=False, nullable=False
+    )
+    # Флаг печати итогового чека
+    final_receipt_printed: so.Mapped[bool] = so.mapped_column(
         sa.Boolean, default=False, nullable=False
     )
     
@@ -156,7 +160,7 @@ class Order(BaseModel):
         timeout_minutes = int(timeout_setting)
         
         # Проверяем, не истекло ли время
-        time_passed = datetime.utcnow() - self.created_at
+        time_passed = datetime.now(timezone.utc) - self.created_at
         return time_passed.total_seconds() < (timeout_minutes * 60)
     
     def get_kitchen_items(self) -> list["OrderItem"]:

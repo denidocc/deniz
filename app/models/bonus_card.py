@@ -168,6 +168,27 @@ class BonusCard(BaseModel):
         
         return data
     
+    def apply_to_order(self, order: "Order") -> None:
+        """Применение бонусной карты к заказу."""
+        from decimal import Decimal
+        
+        # Устанавливаем связь с картой
+        order.bonus_card_id = self.id
+        
+        # Рассчитываем скидку на основе промежуточного итога (подытог + сервисный сбор)
+        total_before_discount = order.subtotal + order.service_charge
+        discount_amount = total_before_discount * (Decimal(str(self.discount_percent)) / Decimal('100'))
+        
+        # Сохраняем размер скидки
+        order.discount_amount = discount_amount
+        
+        # Пересчитываем итоговую сумму
+        order.total_amount = total_before_discount - discount_amount
+        
+        # Обновляем статистику карты
+        self.total_used += 1
+        self.total_saved = float(self.total_saved) + float(discount_amount)
+    
     @classmethod
     def find_by_card_number(cls, card_number: str) -> Optional['BonusCard']:
         """Поиск карты по номеру."""
