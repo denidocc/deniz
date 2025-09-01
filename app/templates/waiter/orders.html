@@ -12,10 +12,8 @@
 }
 
 #selectedItemsSection {
-    position: sticky;
-    bottom: 0;
+    
     background: white;
-    border-top: 2px solid #ddd;
     padding: 8px;
 }
 
@@ -76,12 +74,26 @@
 }
 
 .order-close-btn {
-    color: black;
-    font-size: 1.5rem;
-    font-weight: 600;
+    background: rgba(239, 68, 68, 0.1);
+    border: none;
+    font-size: 20px;
     cursor: pointer;
-    width: 60px;
-    border-radius: 15px;
+    color: #ef4444;
+    padding: 0;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    font-weight: 600;
+}
+
+.order-close-btn:hover {
+  background: #ef4444;
+  color: white;
+  transform: scale(1.1);
 }
 
 .order-status.pending {
@@ -215,9 +227,6 @@
 }
 
 @media (max-width: 768px) {
-    .modal-overlay{
-
-    }
     .menu-items-grid {
         display: flex;
         flex-direction: column;
