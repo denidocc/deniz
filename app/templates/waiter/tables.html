@@ -24,15 +24,6 @@
                 <option value="cleaning">Уборка</option>
             </select>
         </div>
-        <div class="filter-group">
-            <label>Зона:</label>
-            <select id="zoneFilter" class="form-control">
-                <option value="">Все зоны</option>
-                <option value="main">Основная</option>
-                <option value="terrace">Терраса</option>
-                <option value="vip">VIP</option>
-            </select>
-        </div>
     </div>
 
     <div class="tables-grid" id="tablesGrid">
@@ -70,7 +61,6 @@ document.addEventListener('DOMContentLoaded', function() {
     async function loadTables() {
         try {
             const statusFilter = document.getElementById('statusFilter').value;
-            const zoneFilter = document.getElementById('zoneFilter').value;
             
             const tablesGrid = document.getElementById('tablesGrid');
             tablesGrid.innerHTML = '<div class="loading-placeholder"><div class="spinner"></div><p>Загрузка столов...</p></div>';
@@ -113,7 +103,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="table-capacity">
                             <i class="fas fa-users"></i> Мест: <strong>${table.capacity}</strong>
                         </div>
-                        <div class="table-zone">Зона: <strong>Основная зона</strong></div>
                     </div>
                     <!-- Кнопка "Подробнее" убрана по требованию -->
                 </div>
@@ -172,7 +161,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Обработчики событий
     document.getElementById('refreshTables').addEventListener('click', loadTables);
     document.getElementById('statusFilter').addEventListener('change', loadTables);
-    document.getElementById('zoneFilter').addEventListener('change', loadTables);
     
     // Начальная загрузка
     loadTables();

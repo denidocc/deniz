@@ -194,7 +194,7 @@ def get_orders():
         # Формируем данные ответа
         orders_data = []
         for order in orders:
-            orders_data.append({
+            order_data = {
                 'id': order.id,
                 'table_id': order.table_id,
                 'table_number': order.table.table_number,
@@ -211,7 +211,21 @@ def get_orders():
                 'created_at': order.created_at.isoformat(),
                 'confirmed_at': order.confirmed_at.isoformat() if order.confirmed_at else None,
                 'completed_at': order.completed_at.isoformat() if order.completed_at else None,
-            })
+            }
+            
+            # ✅ Добавляем данные о бонусной карте, если есть
+            if order.bonus_card:
+                order_data['bonus_card_id'] = order.bonus_card_id
+                order_data['discount_amount'] = float(order.discount_amount) if order.discount_amount else 0.0
+                order_data['bonus_card'] = {
+                    'card_number': order.bonus_card.card_number,
+                    'discount_percent': order.bonus_card.discount_percent
+                }
+            else:
+                order_data['bonus_card_id'] = None
+                order_data['discount_amount'] = 0.0
+            
+            orders_data.append(order_data)
         
         result = {
             'status': 'success',
