@@ -12,8 +12,10 @@
 }
 
 #selectedItemsSection {
-    
+    position: sticky;
+    bottom: 0;
     background: white;
+    border-top: 2px solid #ddd;
     padding: 8px;
 }
 
@@ -74,26 +76,12 @@
 }
 
 .order-close-btn {
-    background: rgba(239, 68, 68, 0.1);
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
-    color: #ef4444;
-    padding: 0;
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    transition: all 0.2s ease;
+    color: black;
+    font-size: 1.5rem;
     font-weight: 600;
-}
-
-.order-close-btn:hover {
-  background: #ef4444;
-  color: white;
-  transform: scale(1.1);
+    cursor: pointer;
+    width: 60px;
+    border-radius: 15px;
 }
 
 .order-status.pending {
@@ -416,37 +404,37 @@ width: 100%;
 
         <div class="modal-body">
             <!-- Поиск -->
-            <div class="search-section">
-                <div class="search-input-wrapper">
-                    <input type="text" id="menuSearchInput" class="search-input" placeholder="Поиск по названию...">
+                <div class="search-section">
+                    <div class="search-input-wrapper">
+                        <input type="text" id="menuSearchInput" class="search-input" placeholder="Поиск по названию...">
                     <i class="fas fa-search search-icon"></i>
+                    </div>
                 </div>
-            </div>
-
+                
             <!-- Фильтр по категориям -->
-            <div class="category-filter">
+                <div class="category-filter">
                 <label>Категория:</label>
-                <select id="categoryFilter" class="form-control category-dropdown">
-                    <option value="">Все категории</option>
+                    <select id="categoryFilter" class="form-control category-dropdown">
+                        <option value="">Все категории</option>
                     <!-- категории будут добавлены JS -->
-                </select>
+                    </select>
             </div>
 
             <!-- Список блюд -->
-            <div class="menu-items-container">
-                <div id="menuItemsGrid" class="menu-items-grid">
-                    <div class="loading-placeholder">
-                        <div class="spinner"></div>
-                        <p>Загрузка меню...</p>
+                    <div class="menu-items-container">
+                        <div id="menuItemsGrid" class="menu-items-grid">
+                            <div class="loading-placeholder">
+                                <div class="spinner"></div>
+                                <p>Загрузка меню...</p>
+                        </div>
                     </div>
                 </div>
-            </div>
 
             <!-- Выбранные позиции -->
             <div id="selectedItemsSection" class="selected-items-section" style="display:none;">
                 <h4>Выбранные позиции</h4>
                 <div id="selectedItemsList" class="selected-items-list"></div>
-                <div id="selectedItemsTotal" class="selected-items-total">
+                        <div id="selectedItemsTotal" class="selected-items-total">
                     Итого: <span>0</span> TMT
                 </div>
             </div>
@@ -503,7 +491,7 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('❌ Ошибка загрузки справочника статусов:', error);
         }
     }
-
+    
     // ========= ИСПРАВЛЕННАЯ ФУНКЦИЯ ЗАКРЫТИЯ МОДАЛОК =========
     function closeAllModals() {
         console.log('🔧 Закрываем все модальные окна');
@@ -727,21 +715,21 @@ document.addEventListener('DOMContentLoaded', function() {
         list.innerHTML = '';
         let total = 0;
 
-        selected.forEach(card => {
-            const id   = card.dataset.itemId;
-            const name = card.querySelector('.item-name').textContent;
-            const price = parseFloat(card.dataset.price);
-            const qty  = parseInt(card.querySelector('.qty-input').value);
-            total += price * qty;
+            selected.forEach(card => {
+                const id   = card.dataset.itemId;
+                const name = card.querySelector('.item-name').textContent;
+                const price = parseFloat(card.dataset.price);
+                const qty  = parseInt(card.querySelector('.qty-input').value);
+                total += price * qty;
 
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'selected-item';
-            itemDiv.innerHTML = `
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'selected-item';
+                itemDiv.innerHTML = `
                 <div>${name} × ${qty}</div>
                 <div>${(price * qty).toFixed(2)} TMT</div>
-            `;
-            list.appendChild(itemDiv);
-        });
+                `;
+                list.appendChild(itemDiv);
+            });
 
         totalEl.textContent = total.toFixed(2);
         document.getElementById('selectedItemsSection').style.display = selected.length ? 'block' : 'none';
@@ -844,7 +832,7 @@ document.addEventListener('DOMContentLoaded', function() {
             modal.classList.add('hidden');
         }
     }
-
+    
     // Функция загрузки заказов
     async function loadOrders(page = 1) {
         console.log('�� loadOrders вызвана, страница:', page);
@@ -928,16 +916,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     ordersHtml += '</div>';
                 }
                 
-                // Cancelled заказы (отмененные) - красный цвет
-                if (ordersByStatus.cancelled.length > 0) {
-                    const statusInfo = statusReference['cancelled'] || { name: 'Отмененные заказы', icon: '❌' };
-                    ordersHtml += '<div class="status-group cancelled-group">';
-                    ordersHtml += `<h3 class="status-group-title cancelled-title">${statusInfo.icon} ${statusInfo.name}</h3>`;
+                                 // Cancelled заказы (отмененные) - красный цвет
+                 if (ordersByStatus.cancelled.length > 0) {
+                     const statusInfo = statusReference['cancelled'] || { name: 'Отмененные заказы', icon: '❌' };
+                     ordersHtml += '<div class="status-group cancelled-group">';
+                     ordersHtml += `<h3 class="status-group-title cancelled-title">${statusInfo.icon} ${statusInfo.name}</h3>`;
                     ordersByStatus.cancelled.forEach(order => {
-                        ordersHtml += createOrderCard(order);
-                    });
-                    ordersHtml += '</div>';
-                }
+                         ordersHtml += createOrderCard(order);
+                     });
+                     ordersHtml += '</div>';
+                 }
                 
                 ordersList.innerHTML = ordersHtml + createPaginationControls(response.data.pagination);
                 console.log('🔍 Список заказов обновлен');
@@ -1329,7 +1317,7 @@ document.addEventListener('DOMContentLoaded', function() {
             waiterNotifications.showError('Ошибка: модальное окно не найдено');
             return;
         }
-
+        
         const originalItems = order.items.filter(item => 
             new Date(item.created_at) <= new Date(order.created_at)
         );
@@ -1536,15 +1524,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 
                 console.log('🔍 Закрываем модалку через 1.5 секунды');
-                // Закрываем модалку и обновляем список заказов
-                setTimeout(() => {
+                            // Закрываем модалку и обновляем список заказов
+            setTimeout(() => {
                     console.log('�� Выполняем закрытие модалки');
                     closeAllModals();
                     
                     console.log('🔍 Обновляем список заказов после печати');
                     // Обновляем список заказов после печати
                     loadOrders();
-                }, 1500); // Даем время показать уведомление
+            }, 1500); // Даем время показать уведомление
             } else {
                 waiterNotifications.showError(data.message || 'Ошибка печати');
             }
@@ -1822,7 +1810,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.cancelOrder = cancelOrder;
     window.updateGuestCount = updateGuestCount;
     window.updateItemComment = updateItemComment;
-
+    
     // Обработчики событий
     document.getElementById('refreshOrders').addEventListener('click', loadOrders);
     document.getElementById('statusFilter').addEventListener('change', loadOrders);
@@ -1842,10 +1830,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 closeAddItemsModal();
             } else {
                 // Универсальное закрытие для других модалок
-                const modal = this.closest('.modal');
-                if (modal) {
-                    modal.classList.remove('visible');
-                    modal.classList.add('hidden');
+            const modal = this.closest('.modal');
+            if (modal) {
+                modal.classList.remove('visible');
+                modal.classList.add('hidden');
                 }
             }
         });
@@ -1865,8 +1853,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     closeAddItemsModal();
                 } else {
                     // Универсальное закрытие для других модалок
-                    this.classList.remove('visible');
-                    this.classList.add('hidden');
+                this.classList.remove('visible');
+                this.classList.add('hidden');
                 }
             }
         });
@@ -1893,30 +1881,30 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Функция создания пагинации
-    function createPaginationControls(pagination) {
-        if (pagination.pages <= 1) return '';
-        
-        let paginationHtml = '<div class="pagination-controls">';
-        
-        if (pagination.has_prev) {
-            paginationHtml += `<button class="btn btn-secondary" onclick="loadOrders(${pagination.prev_num})">← Предыдущая</button>`;
-        }
-        
-        for (let i = 1; i <= pagination.pages; i++) {
-            if (i === pagination.page) {
-                paginationHtml += `<span class="current-page">${i}</span>`;
-            } else {
-                paginationHtml += `<button class="btn btn-outline-secondary" onclick="loadOrders(${i})">${i}</button>`;
-            }
-        }
-        
-        if (pagination.has_next) {
-            paginationHtml += `<button class="btn btn-secondary" onclick="loadOrders(${pagination.next_num})">Следующая →</button>`;
-        }
-        
-        paginationHtml += '</div>';
-        return paginationHtml;
+function createPaginationControls(pagination) {
+    if (pagination.pages <= 1) return '';
+    
+    let paginationHtml = '<div class="pagination-controls">';
+    
+    if (pagination.has_prev) {
+        paginationHtml += `<button class="btn btn-secondary" onclick="loadOrders(${pagination.prev_num})">← Предыдущая</button>`;
     }
+    
+    for (let i = 1; i <= pagination.pages; i++) {
+        if (i === pagination.page) {
+            paginationHtml += `<span class="current-page">${i}</span>`;
+        } else {
+            paginationHtml += `<button class="btn btn-outline-secondary" onclick="loadOrders(${i})">${i}</button>`;
+        }
+    }
+    
+    if (pagination.has_next) {
+        paginationHtml += `<button class="btn btn-secondary" onclick="loadOrders(${pagination.next_num})">Следующая →</button>`;
+    }
+    
+    paginationHtml += '</div>';
+    return paginationHtml;
+}
 
     // ========= ОБРАБОТЧИКИ ЗАКРЫТИЯ МОДАЛЬНЫХ ОКОН =========
     

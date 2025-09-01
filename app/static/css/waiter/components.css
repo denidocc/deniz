@@ -564,6 +564,7 @@
 
 /* Специальные стили для модального окна добавления позиций */
 .modal-content.large-modal {
+  max-width: 900px;
   width: 95%;
   max-height: 90vh;
   border-radius: 16px;
@@ -573,8 +574,20 @@
 
 .modal-content.large-modal .modal-header {
   padding: 24px 28px 20px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   position: relative;
   border-bottom: 1px solid var(--waiter-border);
+}
+
+.modal-content.large-modal .modal-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4);
+  border-radius: 16px 16px 0 0;
 }
 
 .modal-content.large-modal .modal-header h3 {
@@ -583,6 +596,7 @@
   color: var(--waiter-text);
   display: flex;
   align-items: center;
+  gap: 8px;
   margin: 0;
 }
 
@@ -722,6 +736,18 @@
   overflow: hidden;
 }
 
+.modal-content.large-modal .menu-item-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #10b981, #059669);
+  transform: scaleX(0);
+  transition: transform 0.2s ease;
+}
+
 .modal-content.large-modal .menu-item-card:hover {
   border-color: #10b981;
   transform: translateY(-2px);
@@ -735,6 +761,11 @@
 .modal-content.large-modal .menu-item-card.selected {
   border-color: #3b82f6;
   background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+}
+
+.modal-content.large-modal .menu-item-card.selected::before {
+  background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+  transform: scaleX(1);
 }
 
 .modal-content.large-modal .item-row {
