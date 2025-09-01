@@ -1,157 +1,120 @@
-import sys
-import usb.core
-import usb.util
+from escpos.printer import Serial
 
-def check_usb_printers():
-    """Проверка USB принтеров"""
-    print("Поиск USB принтеров...")
-    print("=" * 50)
-    
+def test_com3_printer():
+    """Тест принтера через COM3"""
     try:
-        # Поиск всех USB устройств
-        devices = usb.core.find(find_all=True)
+        print("Подключение к принтеру через COM3...")
         
-        if devices is None:
-            print("USB устройства не найдены")
-            return
+        printer = Serial(
+            devfile='COM3',
+            baudrate=9600,
+            bytesize=8,
+            parity='N',
+            stopbits=1,
+            timeout=1,
+            dsrdtr=True
+        )
         
-        printer_count = 0
-        for device in devices:
-            try:
-                vendor_id = device.idVendor
-                product_id = device.idProduct
-                
-                # Попытка получить описание устройства
-                try:
-                    vendor_name = usb.util.get_string(device, device.iManufacturer)
-                except:
-                    vendor_name = "Unknown"
-                
-                try:
-                    product_name = usb.util.get_string(device, device.iProduct)
-                except:
-                    product_name = "Unknown"
-                
-                print(f"USB устройство:")
-                print(f"   Vendor ID: 0x{vendor_id:04x}")
-                print(f"   Product ID: 0x{product_id:04x}")
-                print(f"   Vendor: {vendor_name}")
-                print(f"   Product: {product_name}")
-                print(f"   Bus: {device.bus}")
-                print(f"   Address: {device.address}")
-                print("-" * 30)
-                
-                # Проверяем, похоже ли на принтер
-                if any(keyword in product_name.lower() for keyword in ['printer', 'print', 'zywell', '5890k', 'pos-58', 'eml']):
-                    print("ВОЗМОЖНО ЭТО ПРИНТЕР!")
-                    printer_count += 1
-                
-            except Exception as e:
-                print(f"Ошибка чтения устройства: {e}")
-                continue
+        print("✅ COM3 подключен!")
         
-        print(f"Найдено устройств: {len(list(devices))}")
-        print(f"Возможных принтеров: {printer_count}")
+        # Устанавливаем кодировку для кириллицы
+        printer._raw(bytes([0x1b, 0x74, 37]))  # Code Page 37
+        
+        # Тест печати
+        printer.text("=== COM3 ПРИНТЕР ===\n")
+        printer.text("Порт: COM3\n")
+        printer.text("Скорость: 9600\n")
+        printer.text("Тест кириллицы: Привет мир!\n")
+        printer.text("Дата: 29 января 2025\n")
+        printer.text("Принтер: EML POS-58\n")
+        printer.text("========================\n\n")
+        
+        printer.text("Я ЧЕБУРЕК\n\n")
+        
+        # QR код
+        printer.text("QR код COM3:\n")
+        printer.qr("COM3-TEST", size=8)
+        printer.text("\n")
+        
+        printer.cut()
+        print("COM3 тест завершен!")
+        return True
         
     except Exception as e:
-        print(f"Ошибка при поиске USB устройств: {e}")
+        print(f"❌ Ошибка COM3: {e}")
+        return False
 
-def check_escpos_printers():
-    """Проверка через python-escpos"""
-    print("\nПроверка через python-escpos...")
-    print("=" * 50)
-    
+def test_com4_printer():
+    """Тест принтера через COM4"""
     try:
-        from escpos.printer import Usb, Network
+        print("Подключение к принтеру через COM4...")
         
-        print("python-escpos импортирован успешно")
+        printer = Serial(
+            devfile='COM4',
+            baudrate=9600,
+            bytesize=8,
+            parity='N',
+            stopbits=1,
+            timeout=1,
+            dsrdtr=True
+        )
         
-        # Попробуем найти USB принтеры через escpos
-        print("\nПоиск USB принтеров через escpos...")
+        print("✅ COM4 подключен!")
         
-        # Список известных Vendor ID для принтеров
-        known_vendors = {
-            0x1CB0: "ZyWell",
-            0x0483: "STMicroelectronics (EML POS-58)",
-            0x04B8: "Epson",
-            0x0525: "PLX Technology",
-            0x0BDA: "Realtek",
-            0x1A86: "QinHeng Electronics"
-        }
+        # Устанавливаем кодировку для кириллицы
+        printer._raw(bytes([0x1b, 0x74, 37]))  # Code Page 37
         
-        for vendor_id in known_vendors:
-            try:
-                print(f"\nПроверка {known_vendors[vendor_id]} (0x{vendor_id:04x})...")
-                
-                # Поиск устройств с этим Vendor ID
-                devices = usb.core.find(find_all=True, idVendor=vendor_id)
-                
-                if devices:
-                    for device in devices:
-                        try:
-                            product_id = device.idProduct
-                            print(f"   Найден: 0x{product_id:04x}")
-                            
-                            # Попытка подключения через escpos
-                            try:
-                                printer = Usb(vendor_id, product_id)
-                                print(f"   Успешное подключение через escpos!")
-                                print(f"   Bus: {device.bus}, Address: {device.address}")
-                            except Exception as e:
-                                print(f"   Ошибка подключения: {e}")
-                                
-                        except Exception as e:
-                            print(f"   Ошибка чтения: {e}")
-                else:
-                    print(f"   Устройства не найдены")
-                    
-            except Exception as e:
-                print(f"   Ошибка проверки: {e}")
+        # Тест печати
+        printer.text("=== COM4 ПРИНТЕР ===\n")
+        printer.text("Порт: COM4\n")
+        printer.text("Скорость: 9600\n")
+        printer.text("Тест кириллицы: Привет мир!\n")
+        printer.text("Дата: 29 января 2025\n")
+        printer.text("Принтер: EML POS-58\n")
+        printer.text("========================\n\n")
         
-    except ImportError:
-        print("python-escpos не установлен")
+        printer.text("А Я ПИРАЖКИ\n\n")
+        
+        # QR код
+        printer.text("QR код COM4:\n")
+        printer.qr("COM4-TEST", size=8)
+        printer.text("\n")
+        
+        printer.cut()
+        print("COM4 тест завершен!")
+        return True
+        
     except Exception as e:
-        print(f"Ошибка при проверке escpos: {e}")
+        print(f"❌ Ошибка COM4: {e}")
+        return False
 
-def check_network_printers():
-    """Проверка сетевых принтеров"""
-    print("\nПроверка сетевых принтеров...")
+def test_both_ports():
+    """Тест обоих COM-портов"""
+    print("Тест принтеров EML POS-58 через COM3 и COM4")
     print("=" * 50)
     
-    # Список IP адресов для проверки
-    network_ips = [
-        "192.168.1.101",  # Кухонный принтер из документации
-        "192.168.1.1",    # Роутер
-        "192.168.1.10",   # Сервер
-    ]
+    # Тестируем COM3
+    print("\n1. Тестирование COM3:")
+    print("-" * 20)
+    com3_success = test_com3_printer()
     
-    import socket
+    # Тестируем COM4
+    print("\n2. Тестирование COM4:")
+    print("-" * 20)
+    com4_success = test_com4_printer()
     
-    for ip in network_ips:
-        try:
-            print(f"Проверка {ip}...")
-            
-            # Проверка доступности порта 9100 (стандартный для принтеров)
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(2)
-            result = sock.connect_ex((ip, 9100))
-            
-            if result == 0:
-                print(f"   Порт 9100 открыт - возможно это принтер!")
-            else:
-                print(f"   Порт 9100 закрыт")
-                
-            sock.close()
-            
-        except Exception as e:
-            print(f"   Ошибка проверки: {e}")
+    # Результаты
+    print("\n" + "=" * 50)
+    print("РЕЗУЛЬТАТЫ ТЕСТИРОВАНИЯ:")
+    print(f"COM3: {'✅ РАБОТАЕТ' if com3_success else '❌ НЕ РАБОТАЕТ'}")
+    print(f"COM4: {'✅ РАБОТАЕТ' if com4_success else '❌ НЕ РАБОТАЕТ'}")
+    
+    if com3_success and com4_success:
+        print("\n�� Оба порта работают!")
+    elif com3_success or com4_success:
+        print("\n⚠️ Работает только один порт")
+    else:
+        print("\n💥 Ни один порт не работает")
 
 if __name__ == "__main__":
-    print("Проверка подключенных принтеров")
-    print("=" * 50)
-    
-    check_usb_printers()
-    check_escpos_printers()
-    check_network_printers()
-    
-    print("\nПроверка завершена!")
+    test_both_ports()
