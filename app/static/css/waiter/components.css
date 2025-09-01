@@ -460,7 +460,7 @@
 
 .modal-overlay.show {
   display: flex;
-  align-items: center;
+  align-items: center !important;
   justify-content: center;
   opacity: 1;
 }
@@ -502,7 +502,7 @@
   border-radius: 12px;
   box-shadow: var(--shadow-lg);
   max-width: 500px;
-  width: 90%;
+  width: 10%;
   max-height: 80vh;
   overflow: hidden;
   transform: scale(0.9);
@@ -775,8 +775,9 @@
   }
   
   .modal-content {
+    margin: 0 auto;
     width: 95%;
-    margin: 20px;
+    margin-top: 25%;
   }
   
   .tables-grid {
