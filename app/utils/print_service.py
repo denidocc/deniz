@@ -198,6 +198,7 @@ class PrintService:
         
         # Печатаем позиции кухни
         if kitchen_items:
+            receipt.append("")  # Пустая строка перед кухней
             receipt.append("КУХНЯ:")
             receipt.append("-" * 32)
             for item in kitchen_items:

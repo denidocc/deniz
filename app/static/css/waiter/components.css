@@ -497,6 +497,7 @@
   display: none;
   opacity: 0;
 }
+
 .modal-content {
   background: var(--waiter-surface);
   border-radius: 12px;
@@ -566,7 +567,7 @@
 .modal-content.large-modal {
   max-width: 900px;
   width: 95%;
-  max-height: 90vh;
+  max-height: 120vh;
   border-radius: 16px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -592,11 +593,10 @@
 
 .modal-content.large-modal .modal-header h3 {
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--waiter-text);
   display: flex;
   align-items: center;
-  gap: 8px;
   margin: 0;
 }
 
@@ -685,7 +685,6 @@
   margin-bottom: 24px;
   display: flex;
   align-items: center;
-  gap: 12px;
 }
 
 .modal-content.large-modal .category-filter label {
@@ -991,7 +990,7 @@
     width: 98%;
     max-width: none;
     margin: 10px;
-    max-height: 95vh;
+    max-height: 120vh;
   }
   
   .modal-content.large-modal .modal-header {
