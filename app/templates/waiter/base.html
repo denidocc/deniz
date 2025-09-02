@@ -100,7 +100,7 @@
     <script src="{{ url_for('static', filename='js/waiter/notifications.js') }}?v=2.0.9"></script>
     
     <!-- Подключаем Socket.IO и WebSocket клиент -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <script src="{{ url_for('static', filename='libs/socket.io.js') }}"></script>
     <script src="{{ url_for('static', filename='js/waiter/websocket.js') }}"></script>
     
     {% block extra_js %}{% endblock %}

@@ -25,6 +25,7 @@ def generate_z_report_pdf(report) -> bytes:
         bytes: Содержимое PDF файла
     """
     try:
+        
         # Создаем буфер для PDF
         buffer = io.BytesIO()
         

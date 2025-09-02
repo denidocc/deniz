@@ -95,9 +95,6 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="bi bi-file-text"></i> Система аудита</h2>
     <div>
-        <button class="btn btn-outline-primary" onclick="exportAuditLogs()">
-            <i class="bi bi-download"></i> Экспорт логов
-        </button>
         <button class="btn btn-outline-danger" onclick="clearOldLogs()">
             <i class="bi bi-trash"></i> Очистить старые
         </button>
@@ -317,39 +314,6 @@
         });
     });
 
-    // Export audit logs
-    async function exportAuditLogs() {
-        const button = event.target;
-        const originalText = showLoading(button);
-        
-        try {
-            // Get current filter parameters
-            const params = new URLSearchParams(window.location.search);
-            
-            const response = await fetch(`{{ url_for('admin.audit_logs') }}/export?${params.toString()}`);
-            
-            if (response.ok) {
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `audit_logs_${new Date().toISOString().split('T')[0]}.csv`;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
-                
-                showAlert('Логи аудита экспортированы', 'success');
-            } else {
-                throw new Error('Ошибка экспорта');
-            }
-            
-        } catch (error) {
-            showAlert('Ошибка при экспорте логов: ' + error.message, 'danger');
-        } finally {
-            hideLoading(button, originalText);
-        }
-    }
 
     // Clear old logs
     async function clearOldLogs() {

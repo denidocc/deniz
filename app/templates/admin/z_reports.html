@@ -84,6 +84,70 @@
         color: white;
     }
     
+    .report-print-version {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+    }
+    
+    .report-print-version .card {
+        border: 1px solid #dee2e6;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .report-print-version .card-title {
+        color: var(--admin-primary);
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    
+    .report-print-version .table {
+        margin-bottom: 0;
+    }
+    
+    .report-print-version .table th {
+        background-color: var(--admin-primary) !important;
+        color: white !important;
+        border-color: var(--admin-primary) !important;
+    }
+    
+    .report-print-version .table td {
+        border-color: #dee2e6;
+    }
+    
+    .report-print-version .table-striped tbody tr:nth-of-type(odd) {
+        background-color: rgba(0,0,0,0.02);
+    }
+    
+    /* Стили для печати */
+    @media print {
+        .report-print-version {
+            padding: 0;
+            box-shadow: none;
+        }
+        
+        .report-print-version .card {
+            border: 1px solid #000;
+            box-shadow: none;
+            page-break-inside: avoid;
+        }
+        
+        .report-print-version .table {
+            border-collapse: collapse;
+        }
+        
+        .report-print-version .table th,
+        .report-print-version .table td {
+            border: 1px solid #000;
+            padding: 8px;
+        }
+        
+        .report-print-version .table th {
+            background-color: #f8f9fa !important;
+            color: #000 !important;
+        }
+    }
+    
     .tax-info {
         background: #f8f9fa;
         border-left: 4px solid var(--admin-accent);
@@ -109,34 +173,6 @@
     <button class="btn btn-admin" onclick="showGenerateModal()">
         <i class="bi bi-plus-circle"></i> Создать Z-отчет
     </button>
-</div>
-
-<!-- Generate Z-Report Section -->
-<div class="generate-section">
-    <div class="row align-items-center">
-        <div class="col-md-8">
-            <h4><i class="bi bi-calendar-day"></i> Создание Z-отчета</h4>
-            <p class="mb-0">
-                Z-отчет формируется автоматически в конце дня или может быть создан вручную.
-                Отчет содержит полную информацию о продажах и выручке за указанный период.
-            </p>
-            <!-- ДОБАВЛЯЕМ СТАТУС ОТЧЕТА ЗА СЕГОДНЯ -->
-            {% if today_report %}
-                <div class="mt-2">
-                    <span class="badge bg-success">
-                        <i class="bi bi-check-circle"></i> Отчет за сегодня уже создан
-                    </span>
-                    <small class="text-white-50 ms-2">ID: {{ today_report.id }}</small>
-                </div>
-            {% else %}
-                <div class="mt-2">
-                    <span class="badge bg-warning">
-                        <i class="bi bi-clock"></i> Отчет за сегодня еще не создан
-                    </span>
-                </div>
-            {% endif %}
-        </div>
-    </div>
 </div>
 
 <!-- Statistics Overview -->
@@ -259,11 +295,6 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i>
-                    <strong>Информация:</strong> Z-отчет формируется за полный день (00:00 - 23:59).
-                    После создания отчет нельзя изменить.
-                </div>
                 
                 <form id="generateReportForm" method="post">
                     {{ z_report_form.hidden_tag() }}
@@ -412,6 +443,10 @@
 
     // Generate report HTML
     function generateReportHTML(report) {
+        // Получаем данные отчета
+        const reportData = report.report_data || {};
+        const completedOrdersCount = reportData.completed_orders_count || 0;
+        
         return `
             <div class="report-print-version">
                 <div class="text-center mb-4">
@@ -420,35 +455,70 @@
                     <p>Дата: ${new Date(report.report_date).toLocaleDateString('ru-RU')}</p>
                 </div>
                 
-                <table class="table table-bordered">
-                    <tr>
-                        <td><strong>Количество заказов:</strong></td>
-                        <td class="text-end">${report.total_orders}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Общая сумма продаж:</strong></td>
-                        <td class="text-end">${formatCurrency(report.total_revenue)}</td>
-                    </tr>
-                    <!-- Налоговые строки скрыты по требованиям -->
-                    <!--
-                    <tr>
-                        <td><strong>Сумма без НДС:</strong></td>
-                        <td class="text-end">${formatCurrency(report.total_revenue / 1.2)}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>НДС (20%):</strong></td>
-                        <td class="text-end">${formatCurrency(report.total_revenue * 0.2 / 1.2)}</td>
-                    </tr>
-                    <tr class="table-primary">
-                        <td><strong>ИТОГО с НДС:</strong></td>
-                        <td class="text-end"><strong>${formatCurrency(report.total_revenue)}</strong></td>
-                    </tr>
-                    -->
-                </table>
-                
-                <div class="mt-4">
-                    <p><strong>Создан:</strong> ${new Date(report.created_at).toLocaleString('ru-RU')}</p>
+                <!-- Основные показатели -->
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h5 class="card-title">${report.total_orders}</h5>
+                                <p class="card-text">Количество заказов</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h5 class="card-title">${formatCurrency(report.total_revenue)}</h5>
+                                <p class="card-text">Общая сумма продаж</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h5 class="card-title">${new Date(report.created_at).toLocaleString('ru-RU')}</h5>
+                                <p class="card-text">Создан</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+                
+                <!-- Детализация -->
+                <h5 class="mb-3"><i class="bi bi-list-ul"></i> Детализация</h5>
+                <table class="table table-bordered table-striped">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Показатель</th>
+                            <th class="text-end">Значение</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Всего заказов создано</strong></td>
+                            <td class="text-end">${report.total_orders}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Завершенных заказов</strong></td>
+                            <td class="text-end">${completedOrdersCount}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Отмененных заказов</strong></td>
+                            <td class="text-end">${report.cancelled_orders || 0}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Выручка</strong></td>
+                            <td class="text-end">${formatCurrency(report.total_revenue)}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Сервисный сбор</strong></td>
+                            <td class="text-end">${formatCurrency(report.total_service_charge || 0)}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Средний чек</strong></td>
+                            <td class="text-end">${formatCurrency(report.average_order_value || 0)}</td>
+                        </tr>
+                    </tbody>
+                </table>
                 
                 <div class="mt-4 text-center">
                     <small class="text-muted">
