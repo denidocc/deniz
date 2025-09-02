@@ -123,9 +123,8 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="bannerModalLabel">Добавить баннер</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="closeBannerModal()">
-                    <span aria-hidden="true">&times;</span>
-                </button>
+                
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form id="bannerForm" enctype="multipart/form-data">
                 <div class="modal-body">
@@ -220,8 +219,8 @@
                     Это действие нельзя отменить. Изображение также будет удалено с сервера.
                 </p>
             </div>
-                            <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeDeleteBannerModal()">Отмена</button>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
                     <button type="button" class="btn btn-danger" id="confirmDeleteBanner">Удалить</button>
                 </div>
         </div>

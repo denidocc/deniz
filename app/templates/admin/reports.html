@@ -223,7 +223,7 @@
 
 {% block extra_js %}
 <!-- Подключаем Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='libs/chart.min.js') }}"></script>
 
 <script>
     let salesChart, categoryChart;

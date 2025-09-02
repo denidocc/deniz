@@ -549,10 +549,6 @@ def z_reports():
     today = datetime.now().date()
     today_report = DailyReport.query.filter_by(report_date=today).first()
     
-    # Если нет отчета за сегодня, предлагаем создать
-    if not today_report:
-        flash('Отчет за сегодня еще не создан. Создайте его вручную или дождитесь автоматического создания в конце дня.', 'info')
-    
     reports = DailyReport.query.order_by(desc(DailyReport.report_date)).limit(30).all()
     
     # Создаем форму для валидации
@@ -988,7 +984,7 @@ def export_z_report(report_id):
         return response
         
     except Exception as e:
-        current_app.logger.error(f"PDF export failed: {e}")
+        current_app.logger.error(f"PDF export failed: {e}", exc_info=True)
         return jsonify({
             'status': 'error',
             'message': f'Ошибка экспорта PDF: {str(e)}'
