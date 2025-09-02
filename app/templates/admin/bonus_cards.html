@@ -432,11 +432,14 @@
                 </td>
                 <td>${new Date(card.created_at).toLocaleDateString('ru-RU')}</td>
                 <td>
-                    <button class="btn btn-sm btn-outline-warning" onclick="editCard(${card.id})">
+                    <button class="btn btn-sm btn-outline-warning" onclick="editCard(${card.id})" title="Редактировать">
                         <i class="bi bi-pencil"></i>
                     </button>
-                    <button class="btn btn-sm btn-outline-success" onclick="toggleCardStatus(${card.id})">
+                    <button class="btn btn-sm btn-outline-success" onclick="toggleCardStatus(${card.id})" title="${card.is_active ? 'Деактивировать' : 'Активировать'}">
                         <i class="bi bi-toggle-${card.is_active ? 'on' : 'off'}"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteCard(${card.id})" title="Удалить">
+                        <i class="bi bi-trash"></i>
                     </button>
                 </td>
             </tr>
@@ -601,6 +604,35 @@
         document.getElementById('createCardForm').style.display = 'block';
         // Очищаем форму редактирования
         document.getElementById('updateCardForm').reset();
+    }
+    
+    async function deleteCard(cardId) {
+        // Подтверждение удаления
+        if (!confirm('Вы уверены, что хотите удалить эту бонусную карту?\n\nЭто действие нельзя отменить!')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/admin/api/bonus-cards/${cardId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                showAlert('Бонусная карта успешно удалена!', 'success');
+                loadBonusCards();
+            } else {
+                showAlert(data.message || 'Ошибка удаления карты', 'danger');
+            }
+        } catch (error) {
+            console.error('Error deleting bonus card:', error);
+            showAlert('Ошибка соединения с сервером', 'danger');
+        }
     }
     
     function showAlert(message, type) {
