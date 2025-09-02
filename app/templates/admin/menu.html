@@ -1,0 +1,1146 @@
+{% extends "admin/base.html" %}
+
+{% block page_title %}Управление меню{% endblock %}
+
+{% block extra_css %}
+<style>
+    .menu-section {
+        margin-bottom: 2rem;
+    }
+    
+    .category-card {
+        border-left: 4px solid var(--admin-accent);
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 1rem;
+    }
+    
+    .category-header {
+        background: var(--admin-light);
+        padding: 1rem;
+        border-radius: 8px 8px 0 0;
+        cursor: pointer;
+        transition: background 0.3s ease;
+    }
+    
+    .category-header:hover {
+        background: #d5dbdb;
+    }
+    
+    .menu-item {
+        border-bottom: 1px solid #eee;
+        padding: 1rem;
+        transition: background 0.3s ease;
+    }
+    
+    .menu-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .menu-item:last-child {
+        border-bottom: none;
+        border-radius: 0 0 8px 8px;
+    }
+    
+    .item-image {
+        width: 60px;
+        height: 60px;
+        border-radius: 8px;
+        object-fit: cover;
+        background: var(--admin-light);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #7f8c8d;
+    }
+    
+    .price-tag {
+        background: var(--admin-success);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-weight: bold;
+    }
+    
+    .availability-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+    }
+    
+    .available {
+        background: var(--admin-success);
+        color: white;
+    }
+    
+    .unavailable {
+        background: var(--admin-danger);
+        color: white;
+    }
+    
+    .cooking-time {
+        background: var(--admin-warning);
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.8rem;
+    }
+    
+    /* Стили для загрузки изображений */
+    .image-upload-container {
+        text-align: center;
+    }
+    
+    .image-upload-area {
+        border: 2px dashed var(--admin-accent);
+        border-radius: 8px;
+        padding: 2rem;
+        background: var(--admin-light);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        min-height: 200px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+    }
+    
+    .image-upload-area:hover {
+        border-color: var(--admin-primary);
+        background: #e8f4fd;
+    }
+    
+    .image-upload-area.dragover {
+        border-color: var(--admin-success);
+        background: #e8f5e8;
+        transform: scale(1.02);
+    }
+    
+    .upload-placeholder {
+        text-align: center;
+        color: var(--admin-secondary);
+    }
+    
+    .upload-placeholder i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        color: var(--admin-accent);
+    }
+    
+    .upload-placeholder p {
+        margin: 0.5rem 0;
+        font-weight: 500;
+    }
+    
+    .upload-placeholder small {
+        color: #7f8c8d;
+    }
+    
+    .image-preview {
+        max-width: 100%;
+        max-height: 180px;
+        border-radius: 8px;
+        object-fit: cover;
+    }
+    
+    .image-upload-area.has-image {
+        border-style: solid;
+        border-color: var(--admin-success);
+        background: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-journal-text"></i> Управление меню</h2>
+    <div>
+        <button class="btn btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+            <i class="bi bi-folder-plus"></i> Добавить категорию
+        </button>
+        <button class="btn btn-admin" data-bs-toggle="modal" data-bs-target="#addItemModal">
+            <i class="bi bi-plus-circle"></i> Добавить блюдо
+        </button>
+    </div>
+</div>
+
+<!-- Menu Statistics -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-value">{{ categories|length }}</div>
+            <div class="stat-label">
+                <i class="bi bi-folder"></i> Категорий
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card success">
+            <div class="stat-value">{{ items|selectattr('is_active')|list|length }}</div>
+            <div class="stat-label">
+                <i class="bi bi-check-circle"></i> Доступных блюд
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card warning">
+            <div class="stat-value">{{ items|rejectattr('is_active')|list|length }}</div>
+            <div class="stat-label">
+                <i class="bi bi-x-circle"></i> Недоступных блюд
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card danger">
+            <div class="stat-value">{{ items|length }}</div>
+            <div class="stat-label">
+                <i class="bi bi-list"></i> Всего блюд
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Search and Filters -->
+<div class="admin-card mb-4">
+    <div class="card-body">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <input type="text" 
+                       class="form-control search-box" 
+                       id="menuSearch" 
+                       placeholder="Поиск блюд...">
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="categoryFilter">
+                    <option value="">Все категории</option>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}">{{ category.name_ru }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="availabilityFilter">
+                    <option value="">Все блюда</option>
+                    <option value="available">Доступные</option>
+                    <option value="unavailable">Недоступные</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Menu Categories and Items -->
+<div class="menu-section" id="menuContainer">
+    
+    {% for category in categories %}
+    <div class="category-card" data-category-id="{{ category.id }}">
+        <div class="category-header" onclick="toggleCategory({{ category.id }})">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                                            <h5 class="mb-1">
+                            <i class="bi bi-folder"></i> {{ category.name_ru }}
+                            <small class="text-muted">({{ category.items|length if category.items else 0 }} блюд)</small>
+                        </h5>
+                    {% if category.description_ru %}
+                        <p class="mb-0 text-muted">{{ category.description_ru }}</p>
+                    {% endif %}
+                </div>
+                <div>
+                    <span class="badge bg-primary">{{ category.sort_order }}</span>
+                    <button class="btn btn-sm btn-outline-primary ms-2" 
+                            onclick="editCategory({{ category.id }}); event.stopPropagation();">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger ms-2" 
+                            onclick="deleteCategory({{ category.id }}); event.stopPropagation();">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                    <i class="bi bi-chevron-down category-arrow ms-2"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="category-items" id="category-{{ category.id }}" style="display: block;">
+            {% if category.items %}
+                {% for item in category.items|sort(attribute='sort_order') %}
+            <div class="menu-item" 
+                 data-item-id="{{ item.id }}" 
+                 data-category="{{ category.id }}"
+                 data-available="{{ item.is_active|lower }}">
+                <div class="row align-items-center">
+                    <div class="col-md-1">
+                        <div class="item-image">
+                            {% if item.image_url %}
+                                <img src="{{ item.image_url }}" alt="{{ item.name_ru }}" class="item-image">
+                            {% else %}
+                                <i class="bi bi-image"></i>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <h6 class="mb-1">{{ item.name_ru }}</h6>
+                        {% if item.name_en %}
+                            <small class="text-muted">{{ item.name_en }}</small><br>
+                        {% endif %}
+                        {% if item.description_ru %}
+                            <small class="text-muted">{{ item.description_ru[:100] }}{% if item.description_ru|length > 100 %}...{% endif %}</small>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <span class="price-tag">{{ "%.2f"|format(item.price) }} {{ settings.get('currency', 'TMT') }}</span>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        {% if item.estimated_time %}
+                            <span class="cooking-time">
+                                <i class="bi bi-clock"></i> {{ item.estimated_time }} мин
+                            </span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <span class="availability-badge {{ 'available' if item.is_active else 'unavailable' }}">
+                            {{ 'Доступно' if item.is_active else 'Недоступно' }}
+                        </span>
+                    </div>
+                    
+                    <div class="col-md-1">
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-sm btn-outline-primary" 
+                                    onclick="editItem({{ item.id }})" 
+                                    title="Редактировать">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-{{ 'warning' if item.is_active else 'success' }}" 
+                                    onclick="toggleItemAvailability({{ item.id }}, {{ 'false' if item.is_active else 'true' }})" 
+                                    title="{{ 'Скрыть' if item.is_active else 'Показать' }}">
+                                <i class="bi bi-{{ 'eye-slash' if item.is_active else 'eye' }}"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger ms-1" 
+                                    onclick="deleteItem({{ item.id }})" 
+                                    title="Удалить">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+                <div class="menu-item text-center text-muted">
+                    <i class="bi bi-inbox"></i> В этой категории пока нет блюд
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Add Category Modal -->
+<div class="modal fade" id="addCategoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-folder-plus"></i> Добавить категорию
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addCategoryForm" method="post">
+                    {{ category_form.hidden_tag() }}
+                    <div class="mb-3">
+                        <label for="categoryNameRu" class="form-label">Название (русский) *</label>
+                        {{ category_form.name_ru(class="form-control", required=true) }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="categoryNameEn" class="form-label">Название (английский)</label>
+                        {{ category_form.name_en(class="form-control") }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="categoryNameTk" class="form-label">Название (туркменский)</label>
+                        {{ category_form.name_tk(class="form-control") }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="categorySortOrder" class="form-label">Порядок сортировки</label>
+                        {{ category_form.sort_order(class="form-control", value=0) }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            {{ category_form.is_active(class="form-check-input", checked=true) }}
+                            <label class="form-check-label" for="categoryActive">
+                                Активная категория
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-admin" onclick="saveCategory()">
+                    <i class="bi bi-check"></i> Создать
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Item Modal -->
+<div class="modal fade" id="addItemModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-plus-circle"></i> Добавить блюдо
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addItemForm" method="post">
+                    {{ item_form.hidden_tag() }}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="itemCategory" class="form-label">Категория</label>
+                                {{ item_form.category_id(class="form-select", required=true) }}
+                                <div class="invalid-feedback">
+                                    {{ item_form.category_id.errors[0] if item_form.category_id.errors else '' }}
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="itemNameRu" class="form-label">Название (русский)</label>
+                                {{ item_form.name_ru(class="form-control", required=true) }}
+                                <div class="invalid-feedback">
+                                    {{ item_form.name_ru.errors[0] if item_form.name_ru.errors else '' }}
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="itemNameEn" class="form-label">Название (английский)</label>
+                                {{ item_form.name_en(class="form-control") }}
+                                <div class="invalid-feedback">
+                                    {{ item_form.name_en.errors[0] if item_form.name_en.errors else '' }}
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="itemNameTk" class="form-label">Название (туркменский)</label>
+                                {{ item_form.name_tk(class="form-control") }}
+                                <div class="invalid-feedback">
+                                    {{ item_form.name_tk.errors[0] if item_form.name_tk.errors else '' }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="itemPrice" class="form-label">Цена ({{ settings.get('currency', 'TMT') }})</label>
+                                {{ item_form.price(class="form-control", step="0.01", required=true) }}
+                                <div class="invalid-feedback">
+                                    {{ item_form.price.errors[0] if item_form.price.errors else '' }}
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="itemCookingTime" class="form-label">Время приготовления (мин)</label>
+                                {{ item_form.estimated_time(class="form-control", value=15) }}
+                                <div class="invalid-feedback">
+                                    {{ item_form.estimated_time.errors[0] if item_form.estimated_time.errors else '' }}
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="itemPreparationType" class="form-label">Тип приготовления</label>
+                                {{ item_form.preparation_type(class="form-select", required=true) }}
+                                <div class="invalid-feedback">
+                                    {{ item_form.preparation_type.errors[0] if item_form.preparation_type.errors else '' }}
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="itemImageUpload" class="form-label">Изображение блюда</label>
+                                <div class="image-upload-container">
+                                    <div class="image-upload-area" id="imageUploadArea" 
+                                         ondrop="handleImageDrop(event)" 
+                                         ondragover="handleDragOver(event)" 
+                                         ondragleave="handleDragLeave(event)"
+                                         onclick="document.getElementById('itemImageFile').click()">
+                                        <div class="upload-placeholder" id="uploadPlaceholder">
+                                            <i class="bi bi-cloud-upload"></i>
+                                            <p>Перетащите изображение сюда или кликните для выбора</p>
+                                            <small>Поддерживаемые форматы: JPG, PNG, GIF, WebP (макс. 5MB)</small>
+                                        </div>
+                                        <img id="imagePreview" class="image-preview" style="display: none;" alt="Preview">
+                                    </div>
+                                    <input type="file" id="itemImageFile" name="image" accept="image/*" style="display: none;" onchange="handleImageSelect(event)">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm mt-2" onclick="document.getElementById('itemImageFile').click()">
+                                        <i class="bi bi-folder2-open"></i> Выбрать файл
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger btn-sm mt-2 ms-2" id="removeImageBtn" onclick="removeImage()" style="display: none;">
+                                        <i class="bi bi-trash"></i> Убрать
+                                    </button>
+                                </div>
+                                <div class="form-text">Изображение будет сохранено в папке static/assets/meals/</div>
+                            </div>
+                            
+                            <input type="hidden" name="sort_order" value="0">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="itemDescRu" class="form-label">Описание (русский)</label>
+                        {{ item_form.description_ru(class="form-control", rows=3) }}
+                        <div class="invalid-feedback">
+                            {{ item_form.description_ru.errors[0] if item_form.description_ru.errors else '' }}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            {{ item_form.is_active(class="form-check-input", checked=true) }}
+                            <label class="form-check-label" for="itemAvailable">
+                                Блюдо доступно для заказа
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-admin" onclick="saveItem()">
+                    <i class="bi bi-check"></i> Создать
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Category Modal -->
+<div class="modal fade" id="editCategoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-pencil"></i> Редактировать категорию
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editCategoryForm" method="post">
+                    <input type="hidden" id="editCategoryId" name="category_id">
+                    <div class="mb-3">
+                        <label for="editCategoryNameRu" class="form-label">Название (русский) *</label>
+                        <input type="text" class="form-control" id="editCategoryNameRu" name="name_ru" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editCategoryNameEn" class="form-label">Название (английский)</label>
+                        <input type="text" class="form-control" id="editCategoryNameEn" name="name_en">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editCategoryNameTk" class="form-label">Название (туркменский)</label>
+                        <input type="text" class="form-control" id="editCategoryNameTk" name="name_tk">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editCategorySortOrder" class="form-label">Порядок сортировки</label>
+                        <input type="number" class="form-control" id="editCategorySortOrder" name="sort_order" value="0">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="editCategoryActive" name="is_active" checked>
+                            <label class="form-check-label" for="editCategoryActive">
+                                Активная категория
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-admin" onclick="updateCategory()">
+                    <i class="bi bi-check"></i> Обновить
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Item Modal -->
+<div class="modal fade" id="editItemModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-pencil"></i> Редактировать блюдо
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editItemForm" method="post">
+                    <input type="hidden" id="editItemId" name="item_id">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editItemCategory" class="form-label">Категория</label>
+                                <select class="form-select" id="editItemCategory" name="category_id" required>
+                                    <option value="">Выберите категорию</option>
+                                    {% for category in categories %}
+                                    <option value="{{ category.id }}">{{ category.name_ru }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="editItemNameRu" class="form-label">Название (русский)</label>
+                                <input type="text" class="form-control" id="editItemNameRu" name="name_ru" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="editItemNameEn" class="form-label">Название (английский)</label>
+                                <input type="text" class="form-control" id="editItemNameEn" name="name_en">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="editItemNameTk" class="form-label">Название (туркменский)</label>
+                                <input type="text" class="form-control" id="editItemNameTk" name="name_tk">
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editItemPrice" class="form-label">Цена ({{ settings.get('currency', 'TMT') }})</label>
+                                <input type="number" class="form-control" id="editItemPrice" name="price" step="0.01" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="editItemCookingTime" class="form-label">Время приготовления (мин)</label>
+                                <input type="number" class="form-control" id="editItemCookingTime" name="estimated_time" value="15">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="editItemPreparationType" class="form-label">Тип приготовления</label>
+                                <select class="form-select" id="editItemPreparationType" name="preparation_type" required>
+                                    <option value="kitchen">Кухня</option>
+                                    <option value="bar">Бар</option>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="editItemImageUrl" class="form-label">URL изображения</label>
+                                <input type="url" class="form-control" id="editItemImageUrl" name="image_url">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="editItemSortOrder" class="form-label">Порядок сортировки</label>
+                                <input type="number" class="form-control" id="editItemSortOrder" name="sort_order" value="0">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editItemDescRu" class="form-label">Описание (русский)</label>
+                        <textarea class="form-control" id="editItemDescRu" name="description_ru" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="editItemAvailable" name="is_active" checked>
+                            <label class="form-check-label" for="editItemAvailable">
+                                Блюдо доступно для заказа
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-admin" onclick="updateItem()">
+                    <i class="bi bi-check"></i> Обновить
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Search and filter functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('menuSearch');
+        const categoryFilter = document.getElementById('categoryFilter');
+        const availabilityFilter = document.getElementById('availabilityFilter');
+        
+        function filterMenu() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const selectedCategory = categoryFilter.value;
+            const selectedAvailability = availabilityFilter.value;
+            
+            const items = document.querySelectorAll('.menu-item');
+            const categories = document.querySelectorAll('.category-card');
+            
+            items.forEach(item => {
+                const itemName = item.querySelector('h6').textContent.toLowerCase();
+                const itemCategory = item.dataset.category;
+                const itemAvailable = item.dataset.available;
+                
+                const matchesSearch = itemName.includes(searchTerm);
+                const matchesCategory = !selectedCategory || itemCategory === selectedCategory;
+                const matchesAvailability = !selectedAvailability || 
+                    (selectedAvailability === 'available' && itemAvailable === 'true') ||
+                    (selectedAvailability === 'unavailable' && itemAvailable === 'false');
+                
+                if (matchesSearch && matchesCategory && matchesAvailability) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+            
+            // Hide categories with no visible items
+            categories.forEach(category => {
+                const categoryId = category.dataset.categoryId;
+                const visibleItems = category.querySelectorAll('.menu-item[style=""], .menu-item:not([style])');
+                
+                if (visibleItems.length === 0 && (selectedCategory || searchTerm || selectedAvailability)) {
+                    category.style.display = 'none';
+                } else {
+                    category.style.display = '';
+                }
+            });
+        }
+        
+        searchInput.addEventListener('input', filterMenu);
+        categoryFilter.addEventListener('change', filterMenu);
+        availabilityFilter.addEventListener('change', filterMenu);
+    });
+
+    // Toggle category visibility
+    function toggleCategory(categoryId) {
+        const categoryItems = document.getElementById(`category-${categoryId}`);
+        const arrow = event.currentTarget.querySelector('.category-arrow');
+        
+        if (categoryItems.style.display === 'none') {
+            categoryItems.style.display = 'block';
+            arrow.classList.remove('bi-chevron-right');
+            arrow.classList.add('bi-chevron-down');
+        } else {
+            categoryItems.style.display = 'none';
+            arrow.classList.remove('bi-chevron-down');
+            arrow.classList.add('bi-chevron-right');
+        }
+    }
+
+    // Save new category
+    async function saveCategory() {
+        const button = event.target;
+        const originalText = showLoading(button);
+        
+        // Получаем значения из WTForms полей
+        const form = document.getElementById('addCategoryForm');
+        const formData = new FormData(form);
+        
+        const data = {
+            name_ru: formData.get('name_ru'),
+            name_en: formData.get('name_en') || '',
+            name_tk: formData.get('name_tk') || '',
+            sort_order: parseInt(formData.get('sort_order') || '0'),
+            is_active: true  // Категории всегда активны по умолчанию
+        };
+        
+        try {
+            const response = await apiRequest('{{ url_for("admin.create_category") }}', 'POST', data);
+            
+            showAlert('Категория успешно создана', 'success');
+            
+            // Close modal and refresh page
+            $('#addCategoryModal').modal('hide');
+            
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+            
+        } catch (error) {
+            showAlert('Ошибка при создании категории: ' + error.message, 'danger');
+        } finally {
+            hideLoading(button, originalText);
+        }
+    }
+
+    // Save new item
+    async function saveItem() {
+        const button = event.target;
+        const originalText = showLoading(button);
+        
+        // Получаем значения из WTForms полей
+        const form = document.getElementById('addItemForm');
+        const formData = new FormData(form);
+        
+        const data = {
+            category_id: parseInt(formData.get('category_id')),
+            name_ru: formData.get('name_ru'),
+            name_en: formData.get('name_en') || '',
+            name_tk: formData.get('name_tk') || '',
+            description_ru: formData.get('description_ru') || '',
+            price: parseFloat(formData.get('price')),
+            estimated_time: parseInt(formData.get('estimated_time') || '15'),
+            preparation_type: formData.get('preparation_type') || 'kitchen',
+            image_url: formData.get('image_url') || '',
+            sort_order: parseInt(formData.get('sort_order') || '0'),
+            is_active: formData.get('is_active') === 'on' || formData.get('is_active') === 'true'
+        };
+        
+        try {
+            const response = await apiRequest('{{ url_for("admin.create_menu_item_api") }}', 'POST', data);
+            
+            showAlert('Блюдо успешно создано', 'success');
+            
+            // Close modal and refresh page
+            $('#addItemModal').modal('hide');
+            
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+            
+        } catch (error) {
+            showAlert('Ошибка при создании блюда: ' + error.message, 'danger');
+        } finally {
+            hideLoading(button, originalText);
+        }
+    }
+
+    // Toggle item availability
+    async function toggleItemAvailability(itemId, newAvailability) {
+        try {
+            const response = await apiRequest(`/admin/menu/item/${itemId}/toggle`, 'POST', {
+                is_available: newAvailability
+            });
+            
+            showAlert(`Блюдо ${newAvailability ? 'доступно' : 'скрыто'}`, 'success');
+            
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+            
+        } catch (error) {
+            showAlert('Ошибка при изменении доступности: ' + error.message, 'danger');
+        }
+    }
+
+    // Edit functions
+    function editCategory(categoryId) {
+        // Загружаем данные категории и открываем модальное окно
+        fetch(`/admin/menu/category/${categoryId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const category = data.data;
+                    // Заполняем форму редактирования
+                    document.getElementById('editCategoryId').value = category.id;
+                    document.getElementById('editCategoryNameRu').value = category.name_ru;
+                    document.getElementById('editCategoryNameEn').value = category.name_en || '';
+                    document.getElementById('editCategoryNameTk').value = category.name_tk || '';
+                    document.getElementById('editCategorySortOrder').value = category.sort_order || 0;
+                    document.getElementById('editCategoryActive').checked = category.is_active;
+                    
+                    // Показываем модальное окно
+                    $('#editCategoryModal').modal('show');
+                } else {
+                    showAlert('Ошибка загрузки данных категории', 'danger');
+                }
+            })
+            .catch(error => {
+                showAlert('Ошибка загрузки данных категории: ' + error.message, 'danger');
+            });
+    }
+
+    function editItem(itemId) {
+        // Загружаем данные блюда и открываем модальное окно
+        fetch(`/admin/menu/item/${itemId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const item = data.data;
+                    // Заполняем форму редактирования
+                    document.getElementById('editItemId').value = item.id;
+                    document.getElementById('editItemCategory').value = item.category_id;
+                    document.getElementById('editItemNameRu').value = item.name_ru;
+                    document.getElementById('editItemNameEn').value = item.name_en || '';
+                    document.getElementById('editItemNameTk').value = item.name_tk || '';
+                    document.getElementById('editItemDescRu').value = item.description_ru || '';
+                    document.getElementById('editItemPrice').value = item.price;
+                    document.getElementById('editItemCookingTime').value = item.estimated_time || 15;
+                    document.getElementById('editItemPreparationType').value = item.preparation_type || 'kitchen';
+                    document.getElementById('editItemImageUrl').value = item.image_url || '';
+                    document.getElementById('editItemSortOrder').value = item.sort_order || 0;
+                    document.getElementById('editItemAvailable').checked = item.is_active;
+                    
+                    // Показываем модальное окно
+                    $('#editItemModal').modal('show');
+                } else {
+                    showAlert('Ошибка загрузки данных блюда', 'danger');
+                }
+            })
+            .catch(error => {
+                showAlert('Ошибка загрузки данных блюда: ' + error.message, 'danger');
+            });
+    }
+
+    // Update functions
+    async function updateCategory() {
+        const button = event.target;
+        const originalText = showLoading(button);
+        
+        const categoryId = document.getElementById('editCategoryId').value;
+        const data = {
+            name_ru: document.getElementById('editCategoryNameRu').value,
+            name_en: document.getElementById('editCategoryNameEn').value || '',
+            name_tk: document.getElementById('editCategoryNameTk').value || '',
+            sort_order: parseInt(document.getElementById('editCategorySortOrder').value || '0'),
+            is_active: document.getElementById('editCategoryActive').checked
+        };
+        
+        try {
+            const response = await apiRequest(`/admin/menu/category/${categoryId}`, 'POST', data);
+            
+            showAlert('Категория успешно обновлена', 'success');
+            
+            // Close modal and refresh page
+            $('#editCategoryModal').modal('hide');
+            
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+            
+        } catch (error) {
+            showAlert('Ошибка при обновлении категории: ' + error.message, 'danger');
+        } finally {
+            hideLoading(button, originalText);
+        }
+    }
+
+    async function updateItem() {
+        const button = event.target;
+        const originalText = showLoading(button);
+        
+        const itemId = document.getElementById('editItemId').value;
+        const data = {
+            category_id: parseInt(document.getElementById('editItemCategory').value),
+            name_ru: document.getElementById('editItemNameRu').value,
+            name_en: document.getElementById('editItemNameEn').value || '',
+            name_tk: document.getElementById('editItemNameTk').value || '',
+            description_ru: document.getElementById('editItemDescRu').value || '',
+            price: parseFloat(document.getElementById('editItemPrice').value),
+            estimated_time: parseInt(document.getElementById('editItemCookingTime').value || '15'),
+            preparation_type: document.getElementById('editItemPreparationType').value || 'kitchen',
+            image_url: document.getElementById('editItemImageUrl').value || '',
+            sort_order: parseInt(document.getElementById('editItemSortOrder').value || '0'),
+            is_active: document.getElementById('editItemAvailable').checked
+        };
+        
+        try {
+            const response = await apiRequest(`/admin/menu/item/${itemId}`, 'PUT', data);
+            
+            showAlert('Блюдо успешно обновлено', 'success');
+            
+            // Close modal and refresh page
+            $('#editItemModal').modal('hide');
+            
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+            
+        } catch (error) {
+            showAlert('Ошибка при обновлении блюда: ' + error.message, 'danger');
+        } finally {
+            hideLoading(button, originalText);
+        }
+    }
+
+    // Delete functions
+    async function deleteCategory(categoryId) {
+        if (!confirm('Вы уверены, что хотите удалить эту категорию? Все блюда в ней также будут удалены.')) {
+            return;
+        }
+        
+        try {
+            const response = await apiRequest(`/admin/menu/category/${categoryId}`, 'DELETE');
+            
+            showAlert('Категория успешно удалена', 'success');
+            
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+            
+        } catch (error) {
+            showAlert('Ошибка при удалении категории: ' + error.message, 'danger');
+        }
+    }
+
+    async function deleteItem(itemId) {
+        if (!confirm('Вы уверены, что хотите удалить это блюдо?')) {
+            return;
+        }
+        
+        try {
+            const response = await apiRequest(`/admin/menu/item/${itemId}`, 'DELETE');
+            
+            showAlert('Блюдо успешно удалено', 'success');
+            
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+            
+        } catch (error) {
+            showAlert('Ошибка при удалении блюда: ' + error.message, 'danger');
+        }
+    }
+
+    // Drag & Drop функции для загрузки изображений
+    function handleDragOver(event) {
+        event.preventDefault();
+        event.currentTarget.classList.add('dragover');
+    }
+
+    function handleDragLeave(event) {
+        event.preventDefault();
+        event.currentTarget.classList.remove('dragover');
+    }
+
+    function handleImageDrop(event) {
+        event.preventDefault();
+        event.currentTarget.classList.remove('dragover');
+        
+        const files = event.dataTransfer.files;
+        if (files.length > 0) {
+            handleImageFile(files[0]);
+        }
+    }
+
+    function handleImageSelect(event) {
+        const file = event.target.files[0];
+        if (file) {
+            handleImageFile(file);
+        }
+    }
+
+    function handleImageFile(file) {
+        // Проверка типа файла
+        if (!file.type.startsWith('image/')) {
+            showAlert('Пожалуйста, выберите изображение', 'warning');
+            return;
+        }
+
+        // Проверка размера файла (5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            showAlert('Размер файла не должен превышать 5MB', 'warning');
+            return;
+        }
+
+        // Показываем превью
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.getElementById('imagePreview');
+            const placeholder = document.getElementById('uploadPlaceholder');
+            const uploadArea = document.getElementById('imageUploadArea');
+            const removeBtn = document.getElementById('removeImageBtn');
+
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+            placeholder.style.display = 'none';
+            uploadArea.classList.add('has-image');
+            removeBtn.style.display = 'inline-block';
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function removeImage() {
+        const preview = document.getElementById('imagePreview');
+        const placeholder = document.getElementById('uploadPlaceholder');
+        const uploadArea = document.getElementById('imageUploadArea');
+        const removeBtn = document.getElementById('removeImageBtn');
+        const fileInput = document.getElementById('itemImageFile');
+
+        preview.style.display = 'none';
+        placeholder.style.display = 'block';
+        uploadArea.classList.remove('has-image');
+        removeBtn.style.display = 'none';
+        fileInput.value = '';
+    }
+
+    // Очистка формы при открытии модала
+    function resetImageUpload() {
+        removeImage();
+    }
+
+    // Обновляем функцию saveItem для работы с файлами
+    async function saveItem() {
+        const button = event.target;
+        const originalText = showLoading(button);
+        
+        try {
+            const formData = new FormData();
+            
+            // Добавляем все поля формы
+            const form = document.getElementById('addItemForm');
+            const formElements = form.elements;
+            
+            for (let element of formElements) {
+                if (element.name && element.type !== 'file') {
+                    formData.append(element.name, element.value);
+                }
+            }
+            
+            // Добавляем файл изображения, если есть
+            const imageFile = document.getElementById('itemImageFile').files[0];
+            if (imageFile) {
+                formData.append('image', imageFile);
+            }
+            
+            // Добавляем CSRF токен
+            formData.append('csrf_token', document.querySelector('meta[name="csrf-token"]').content);
+            
+            const response = await fetch('/admin/api/menu-items', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                showAlert('Блюдо успешно создано', 'success');
+                
+                // Закрываем модал и обновляем страницу
+                            $('#addItemModal').modal('hide');
+                
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            } else {
+                throw new Error(result.message || 'Неизвестная ошибка');
+            }
+            
+        } catch (error) {
+            showAlert('Ошибка при создании блюда: ' + error.message, 'danger');
+        } finally {
+            hideLoading(button, originalText);
+        }
+    }
+</script>
+{% endblock %}

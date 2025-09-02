@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}Административная панель - DENIZ Restaurant{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Chart.js для графиков -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+            <!-- jQuery - используем надежный CDN -->
+        <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    
+    <style>
+        :root {
+            --admin-primary: #2c3e50;
+            --admin-secondary: #34495e;
+            --admin-accent: #3498db;
+            --admin-success: #27ae60;
+            --admin-warning: #f39c12;
+            --admin-danger: #e74c3c;
+            --admin-light: #ecf0f1;
+            --admin-dark: #212529;
+        }
+
+        body {
+            background-color: var(--admin-light);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .admin-sidebar {
+            background: linear-gradient(135deg, var(--admin-primary), var(--admin-secondary));
+            min-height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 280px;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+
+        .admin-sidebar.collapsed {
+            width: 80px;
+        }
+
+        .admin-sidebar .sidebar-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .admin-sidebar .sidebar-header h3 {
+            color: white;
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .admin-sidebar .nav-link {
+            color: rgba(255,255,255,0.8);
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            margin: 0.25rem 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .admin-sidebar .nav-link:hover,
+        .admin-sidebar .nav-link.active {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .admin-sidebar .nav-link i {
+            width: 20px;
+            margin-right: 10px;
+        }
+
+        .admin-content {
+            margin-left: 280px;
+            padding: 0;
+            transition: all 0.3s ease;
+        }
+
+        .admin-content.expanded {
+            margin-left: 80px;
+        }
+
+        .admin-navbar {
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 1rem 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .admin-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border: none;
+            transition: transform 0.3s ease;
+        }
+
+        .admin-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.15);
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, var(--admin-accent), #5dade2);
+            color: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat-card.success {
+            background: linear-gradient(135deg, var(--admin-success), #58d68d);
+        }
+
+        .stat-card.warning {
+            background: linear-gradient(135deg, var(--admin-warning), #f7dc6f);
+        }
+
+        .stat-card.danger {
+            background: linear-gradient(135deg, var(--admin-danger), #ec7063);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .table-responsive {
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .table {
+            margin-bottom: 0;
+        }
+
+        .table th {
+            background: var(--admin-primary);
+            color: white;
+            border: none;
+            font-weight: 600;
+        }
+
+        .btn-admin {
+            background: var(--admin-accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .btn-admin:hover {
+            background: #2980b9;
+            color: white;
+            transform: translateY(-1px);
+        }
+
+        .modal-header {
+            background: var(--admin-primary);
+            color: white;
+        }
+
+        .modal-header .close {
+            color: white;
+            text-shadow: none;
+            opacity: 1;
+            font-size: 1.5rem;
+            line-height: 1;
+            padding: 0;
+            margin: 0;
+            background: none;
+            border: none;
+        }
+        
+        .modal-header .close:hover {
+            color: #f8f9fa;
+            opacity: 0.8;
+        }
+        
+        .modal-header .close span {
+            color: white;
+            font-weight: bold;
+        }
+
+        .badge-role {
+            padding: 0.5rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            color: white;
+        }
+
+        .badge-admin { background: var(--admin-danger); }
+        .badge-waiter { background: var(--admin-accent); }
+        .badge-kitchen { background: var(--admin-warning); }
+        .badge-bar { background: var(--admin-success); }
+
+        .search-box {
+            border-radius: 25px;
+            border: 2px solid var(--admin-light);
+            padding: 0.5rem 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .search-box:focus {
+            border-color: var(--admin-accent);
+            box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+        }
+
+        .sidebar-toggle {
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            z-index: 1001;
+            background: var(--admin-primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.5rem;
+            cursor: pointer;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .alert-admin {
+            border-radius: 8px;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        @media (max-width: 768px) {
+            .admin-sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .admin-sidebar.show {
+                transform: translateX(0);
+            }
+            
+            .admin-content {
+                margin-left: 0;
+            }
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+    </head>
+<body>
+    <!-- Sidebar Toggle Button -->
+    <button class="sidebar-toggle d-md-none" id="sidebarToggle">
+        <i class="bi bi-list"></i>
+    </button>
+
+    <!-- Sidebar -->
+    <nav class="admin-sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3><i class="bi bi-shield-check"></i> <span class="sidebar-text">DENIZ Admin</span></h3>
+        </div>
+        
+        <ul class="nav flex-column mt-3">
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'admin.dashboard' %}active{% endif %}" 
+                   href="{{ url_for('admin.dashboard') }}">
+                    <i class="bi bi-speedometer2"></i>
+                    <span class="sidebar-text">Панель управления</span>
+                </a>
+            </li>
+            
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'admin.menu' %}active{% endif %}" 
+                   href="{{ url_for('admin.menu') }}">
+                    <i class="bi bi-journal-text"></i>
+                    <span class="sidebar-text">Управление меню</span>
+                </a>
+            </li>
+            
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'admin.staff' %}active{% endif %}" 
+                   href="{{ url_for('admin.staff') }}">
+                    <i class="bi bi-people"></i>
+                    <span class="sidebar-text">Персонал</span>
+                </a>
+            </li>
+            
+
+            
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'admin.tables_page' %}active{% endif %}"
+                    href="{{ url_for('admin.tables_page') }}">
+                    <i class="bi bi-table"></i>
+                    <span class="sidebar-text">Столы</span>
+                </a>
+            </li>
+            
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'admin.banners_page' %}active{% endif %}"
+                    href="{{ url_for('admin.banners_page') }}">
+                    <i class="bi bi-images"></i>
+                    <span class="sidebar-text">Баннеры</span>
+                </a>
+            </li>
+            
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'admin.orders' %}active{% endif %}" 
+                   href="{{ url_for('admin.all_orders') }}">
+                    <i class="bi bi-list-ul"></i>
+                    <span class="sidebar-text">Все заказы</span>
+                </a>
+            </li>
+            
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'admin.bonus_cards' %}active{% endif %}" 
+                   href="{{ url_for('admin.bonus_cards') }}">
+                    <i class="bi bi-credit-card"></i>
+                    <span class="sidebar-text">Бонусные карты</span>
+                </a>
+            </li>
+            
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'admin.reports' %}active{% endif %}" 
+                   href="{{ url_for('admin.reports') }}">
+                    <i class="bi bi-graph-up"></i>
+                    <span class="sidebar-text">Отчеты</span>
+                </a>
+            </li>
+            
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'admin.audit_logs' %}active{% endif %}" 
+                   href="{{ url_for('admin.audit_logs') }}">
+                    <i class="bi bi-file-text"></i>
+                    <span class="sidebar-text">Аудит</span>
+                </a>
+            </li>
+            
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'admin.z_reports' %}active{% endif %}" 
+                   href="{{ url_for('admin.z_reports') }}">
+                    <i class="bi bi-receipt"></i>
+                    <span class="sidebar-text">Z-отчеты</span>
+                </a>
+            </li>
+            
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'admin.settings' %}active{% endif %}" 
+                   href="{{ url_for('admin.settings') }}">
+                    <i class="bi bi-gear"></i>
+                    <span class="sidebar-text">Настройки</span>
+                </a>
+            </li>
+            
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('auth.logout') }}">
+                    <i class="bi bi-box-arrow-right"></i>
+                    <span class="sidebar-text">Выход</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="admin-content" id="content">
+        <!-- Top Navbar -->
+        <nav class="admin-navbar">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <button class="btn btn-link d-none d-md-block" id="sidebarCollapseBtn">
+                        <i class="bi bi-list"></i>
+                    </button>
+                    <span class="h5 mb-0 ml-3">{% block page_title %}Административная панель{% endblock %}</span>
+                </div>
+                
+                <div class="d-flex align-items-center">
+                    <span class="me-3">
+                        <i class="bi bi-person-circle"></i>
+                        {{ current_user.name }} ({{ current_user.role }})
+                    </span>
+                    <span class="badge bg-success">
+                        <i class="bi bi-circle-fill"></i> Онлайн
+                    </span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Page Content -->
+        <div class="container-fluid px-4">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-admin alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Admin JS -->
+    <script>
+        // Sidebar toggle functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.getElementById('sidebar');
+            const content = document.getElementById('content');
+            const toggleBtn = document.getElementById('sidebarToggle');
+            const collapseBtn = document.getElementById('sidebarCollapseBtn');
+
+            // Mobile sidebar toggle
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', function() {
+                    sidebar.classList.toggle('show');
+                });
+            }
+
+            // Desktop sidebar collapse
+            if (collapseBtn) {
+                collapseBtn.addEventListener('click', function() {
+                    sidebar.classList.toggle('collapsed');
+                    content.classList.toggle('expanded');
+                });
+            }
+
+            // Close mobile sidebar when clicking outside
+            document.addEventListener('click', function(e) {
+                if (window.innerWidth <= 768) {
+                    if (!sidebar.contains(e.target) && !toggleBtn.contains(e.target)) {
+                        sidebar.classList.remove('show');
+                    }
+                }
+            });
+        });
+
+        // Utility functions
+        function showLoading(element) {
+            const originalText = element.innerHTML;
+            element.innerHTML = '<span class="loading-spinner"></span> Загрузка...';
+            element.disabled = true;
+            return originalText;
+        }
+
+        function hideLoading(element, originalText) {
+            element.innerHTML = originalText;
+            element.disabled = false;
+        }
+
+        function showAlert(message, type = 'info') {
+            // Удаляем старые алерты перед показом нового
+            const oldAlerts = document.querySelectorAll('.alert.alert-admin');
+            oldAlerts.forEach(alert => {
+                alert.remove();
+            });
+            
+            const alertHTML = `
+                <div class="alert alert-${type} alert-admin fade show" role="alert">
+                    ${message}
+                </div>
+            `;
+            
+            const container = document.querySelector('.container-fluid');
+            container.insertAdjacentHTML('afterbegin', alertHTML);
+            
+            // Получаем только что созданный алерт
+            const newAlert = container.querySelector('.alert.alert-admin');
+            
+            // Auto-dismiss after 3 seconds
+            setTimeout(() => {
+                if (newAlert && newAlert.parentNode) {
+                    newAlert.remove();
+                }
+            }, 3000);
+        }
+
+        // Функция обновления CSRF токена
+        async function refreshCSRFToken() {
+            try {
+                const response = await fetch('/admin/csrf-token', {
+                    method: 'GET',
+                    credentials: 'same-origin'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.csrf_token) {
+                        const metaTag = document.querySelector('meta[name="csrf-token"]');
+                        if (metaTag) {
+                            metaTag.setAttribute('content', data.csrf_token);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.warn('Не удалось обновить CSRF токен:', error);
+            }
+        }
+
+        // AJAX helper function
+        async function apiRequest(url, method = 'GET', data = null, options = {}) {
+            // Обновляем CSRF токен перед каждым запросом
+            await refreshCSRFToken();
+            
+            const defaultOptions = {
+                method: method,
+                headers: {
+                    'X-CSRFToken': document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || ''
+                }
+            };
+
+            // Если передаем FormData, не устанавливаем Content-Type
+            if (!(data instanceof FormData)) {
+                defaultOptions.headers['Content-Type'] = 'application/json';
+            }
+
+            const finalOptions = { ...defaultOptions, ...options };
+            
+            // Отладочная информация
+            console.log('🎠 API Request:', {
+                url: url,
+                method: method,
+                headers: finalOptions.headers,
+                hasFormData: data instanceof FormData,
+                dataType: data ? data.constructor.name : 'null'
+            });
+            
+            // Добавляем тело запроса
+            if (data) {
+                if (data instanceof FormData) {
+                    finalOptions.body = data;
+                } else {
+                    finalOptions.body = JSON.stringify(data);
+                }
+            }
+            
+            try {
+                const response = await fetch(url, finalOptions);
+                
+                // Проверяем, является ли ответ JSON
+                const contentType = response.headers.get('content-type');
+                let data;
+                
+                if (contentType && contentType.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    // Если ответ не JSON, создаем базовый объект
+                    data = {
+                        status: response.ok ? 'success' : 'error',
+                        message: response.statusText || 'Произошла ошибка'
+                    };
+                }
+                
+                if (!response.ok) {
+                    throw new Error(data.message || `HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                return data;
+            } catch (error) {
+                console.error('API Error:', error);
+                throw error;
+            }
+        }
+
+        // Format currency
+        function formatCurrency(amount) {
+            // Получаем валюту из настроек или используем TMT по умолчанию
+            const currency = '{{ settings.get("currency", "TMT") }}';
+            return new Intl.NumberFormat('ru-RU', {
+                style: 'currency',
+                currency: currency
+            }).format(amount);
+        }
+
+        // Format date
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleString('ru-RU');
+        }
+
+        // Обновляем CSRF токен каждые 30 минут (1800000 мс)
+        setInterval(() => {
+            refreshCSRFToken();
+        }, 1800000);
+    </script>
+
+    <!-- Bootstrap JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,422 @@
+{% extends "admin/base.html" %}
+
+{% block page_title %}Аудит системы{% endblock %}
+
+{% block extra_css %}
+<style>
+    .audit-log-entry {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 1rem;
+        padding: 1rem;
+        border-left: 4px solid var(--admin-accent);
+        transition: transform 0.2s ease;
+    }
+    
+    .audit-log-entry:hover {
+        transform: translateX(2px);
+    }
+    
+    .audit-log-entry.critical {
+        border-left-color: var(--admin-danger);
+    }
+    
+    .audit-log-entry.warning {
+        border-left-color: var(--admin-warning);
+    }
+    
+    .audit-log-entry.success {
+        border-left-color: var(--admin-success);
+    }
+    
+    .audit-header {
+        display: flex;
+        justify-content: between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+    
+    .audit-action {
+        font-weight: 600;
+        color: var(--admin-primary);
+    }
+    
+    .audit-timestamp {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+    
+    .audit-details {
+        font-size: 0.9rem;
+        color: #495057;
+        margin-top: 0.5rem;
+    }
+    
+    .audit-meta {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-top: 0.5rem;
+    }
+    
+    .audit-meta span {
+        font-size: 0.8rem;
+        background: var(--admin-light);
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+    }
+    
+    .stats-overview {
+        background: linear-gradient(135deg, var(--admin-primary), var(--admin-secondary));
+        color: white;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .action-chart {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 2rem;
+        position: relative;
+        height: 300px;
+    }
+
+    .action-chart canvas {
+        height: 100% !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-file-text"></i> Система аудита</h2>
+    <div>
+        <button class="btn btn-outline-primary" onclick="exportAuditLogs()">
+            <i class="bi bi-download"></i> Экспорт логов
+        </button>
+        <button class="btn btn-outline-danger" onclick="clearOldLogs()">
+            <i class="bi bi-trash"></i> Очистить старые
+        </button>
+    </div>
+</div>
+
+<!-- Stats Overview -->
+<div class="stats-overview">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="text-center">
+                <h3>{{ logs.total }}</h3>
+                <p class="mb-0">Всего записей</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="text-center">
+                <h3>{{ logs.items|length }}</h3>
+                <p class="mb-0">За 24 часа</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="text-center">
+                <h3>{{ staff_members|length }}</h3>
+                <p class="mb-0">Активных пользователей</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="text-center">
+                <h3>{{ actions_stats|length }}</h3>
+                <p class="mb-0">Типов действий</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Popular Actions Chart -->
+<div class="action-chart">
+    <h5><i class="bi bi-bar-chart"></i> Популярные действия</h5>
+    <canvas id="actionsChart" width="400" height="150"></canvas>
+</div>
+
+<!-- Audit Logs -->
+<div class="row">
+    <div class="col-12">
+        <h5><i class="bi bi-list"></i> Журнал аудита</h5>
+        
+        {% if logs.items %}
+            {% for log in logs.items %}
+            <div class="audit-log-entry {{ getLogSeverity(log.action) }}">
+                <div class="audit-header">
+                    <div class="flex-grow-1">
+                        <span class="audit-action">{{ log.action }}</span>
+                        {% if log.staff %}
+                            <span class="text-muted">— {{ log.staff.name }}</span>
+                        {% endif %}
+                    </div>
+                    <span class="audit-timestamp">
+                        {{ log.created_at.strftime('%d.%m.%Y %H:%M:%S') }}
+                    </span>
+                </div>
+                
+                {% if log.details %}
+                <div class="audit-details">
+                    {% if log.details.endpoint %}
+                        <strong>Эндпоинт:</strong> {{ log.details.method }} {{ log.details.endpoint }}<br>
+                    {% endif %}
+                    {% if log.details.url %}
+                        <strong>URL:</strong> {{ log.details.url }}<br>
+                    {% endif %}
+                    {% if log.details.result_status %}
+                        <strong>Статус:</strong> 
+                        <span class="badge {{ 'bg-success' if log.details.result_status == 'success' else 'bg-danger' }}">
+                            {{ log.details.result_status }}
+                        </span>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
+                <div class="audit-meta">
+                    {% if log.ip_address %}
+                        <span><i class="bi bi-geo-alt"></i> IP: {{ log.ip_address }}</span>
+                    {% endif %}
+                    {% if log.table_affected %}
+                        <span><i class="bi bi-table"></i> Стол: {{ log.table_affected }}</span>
+                    {% endif %}
+                    {% if log.order_affected %}
+                        <span><i class="bi bi-receipt"></i> Заказ: {{ log.order_affected }}</span>
+                    {% endif %}
+                    {% if log.details and log.details.user_agent %}
+                        <span><i class="bi bi-browser-chrome"></i> {{ getUserAgentInfo(log.details.user_agent) }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+            
+            <!-- Pagination -->
+            <nav aria-label="Pagination">
+                <ul class="pagination justify-content-center">
+                    {% if logs.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('admin.audit_logs', page=logs.prev_num, **request.args) }}">
+                                <i class="bi bi-chevron-left"></i> Предыдущая
+                            </a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for page_num in logs.iter_pages() %}
+                        {% if page_num %}
+                            {% if page_num != logs.page %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('admin.audit_logs', page=page_num, **request.args) }}">
+                                        {{ page_num }}
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ page_num }}</span>
+                                </li>
+                            {% endif %}
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if logs.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('admin.audit_logs', page=logs.next_num, **request.args) }}">
+                                Следующая <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            
+        {% else %}
+            <div class="text-center text-muted p-5">
+                <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                <h4 class="mt-3">Нет записей аудита</h4>
+                <p>Попробуйте изменить фильтры или проверьте настройки аудита</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Log Details Modal -->
+<div class="modal fade" id="logDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-info-circle"></i> Детали записи аудита
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="logDetailsContent">
+                    <!-- Content will be populated by JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Initialize actions chart
+    document.addEventListener('DOMContentLoaded', function() {
+        const canvas = document.getElementById('actionsChart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        // Фиксируем высоту, чтобы избежать бесконечного роста при ресайзе
+        canvas.style.height = '280px';
+        canvas.height = 280;
+        
+        const actionsData = {{ actions_stats|tojson }};
+        const labels = actionsData.map(item => item[0]);
+        const data = actionsData.map(item => item[1]);
+        
+        // Уничтожаем предыдущий инстанс, если есть
+        if (window.actionsChartInstance) {
+            window.actionsChartInstance.destroy();
+        }
+        
+        window.actionsChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Количество действий',
+                    data: data,
+                    backgroundColor: 'rgba(52, 152, 219, 0.8)',
+                    borderColor: 'rgba(52, 152, 219, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+    });
+
+    // Export audit logs
+    async function exportAuditLogs() {
+        const button = event.target;
+        const originalText = showLoading(button);
+        
+        try {
+            // Get current filter parameters
+            const params = new URLSearchParams(window.location.search);
+            
+            const response = await fetch(`{{ url_for('admin.audit_logs') }}/export?${params.toString()}`);
+            
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `audit_logs_${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                showAlert('Логи аудита экспортированы', 'success');
+            } else {
+                throw new Error('Ошибка экспорта');
+            }
+            
+        } catch (error) {
+            showAlert('Ошибка при экспорте логов: ' + error.message, 'danger');
+        } finally {
+            hideLoading(button, originalText);
+        }
+    }
+
+    // Clear old logs
+    async function clearOldLogs() {
+        if (!confirm('Удалить логи старше 30 дней? Это действие нельзя отменить.')) {
+            return;
+        }
+        
+        const button = event.target;
+        const originalText = showLoading(button);
+        
+        try {
+            const response = await apiRequest('/admin/audit/cleanup', 'POST', {
+                days_old: 30
+            });
+            
+            showAlert('Старые логи очищены', 'success');
+            
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+            
+        } catch (error) {
+            showAlert('Ошибка при очистке логов: ' + error.message, 'danger');
+        } finally {
+            hideLoading(button, originalText);
+        }
+    }
+
+    // Show log details
+    function showLogDetails(logId) {
+        // This would fetch detailed log information
+        const modal = new bootstrap.Modal(document.getElementById('logDetailsModal'));
+        modal.show();
+    }
+
+    // Auto-refresh every 30 seconds for real-time updates
+    setInterval(() => {
+        if (!document.querySelector('.modal.show')) {
+            // Only refresh if no modal is open
+            location.reload();
+        }
+    }, 30000);
+</script>
+
+{%- macro getLogSeverity(action) -%}
+    {%- if 'error' in action.lower() or 'fail' in action.lower() -%}
+        critical
+    {%- elif 'warning' in action.lower() or 'unauthorized' in action.lower() -%}
+        warning
+    {%- elif 'login' in action.lower() or 'create' in action.lower() or 'update' in action.lower() -%}
+        success
+    {%- else -%}
+        info
+    {%- endif -%}
+{%- endmacro -%}
+
+{%- macro getUserAgentInfo(user_agent) -%}
+    {%- if 'Chrome' in user_agent -%}
+        Chrome
+    {%- elif 'Firefox' in user_agent -%}
+        Firefox
+    {%- elif 'Safari' in user_agent -%}
+        Safari
+    {%- elif 'Edge' in user_agent -%}
+        Edge
+    {%- else -%}
+        Unknown Browser
+    {%- endif -%}
+{%- endmacro -%}
+{% endblock %}

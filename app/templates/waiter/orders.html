@@ -1,0 +1,1963 @@
+{% extends "waiter/base.html" %}
+
+{% block title %}Заказы - Официант - DENIZ Restaurant{% endblock %}
+
+{% block content %}
+<style>
+/* Стили для группировки заказов */
+#addItemsModal.visible {
+    display: flex !important;
+    opacity: 1;
+    z-index: 3000;
+}
+
+#selectedItemsSection {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    border-top: 2px solid #ddd;
+    padding: 8px;
+}
+
+.status-group {
+    margin-bottom: 2rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.status-group-title {
+    margin: 0;
+    padding: 1rem;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.pending-title {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+}
+
+.confirmed-title {
+    background: linear-gradient(135deg, #ffc107, #e0a800);
+    color: black;
+}
+
+.completed-title {
+    background: linear-gradient(135deg, #6c757d, #495057);
+    color: white;
+}
+
+.cancelled-title {
+    background: linear-gradient(135deg, #dc3545, #c82333);
+    color: white;
+}
+
+.status-group .order-card {
+    border: none;
+    border-radius: 0;
+    margin: 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.status-group .order-card:last-child {
+    border-bottom: none;
+}
+
+/* Стили для статусов заказов */
+.order-status {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    color: white;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
+.order-close-btn {
+    color: black;
+    font-size: 1.5rem;
+    font-weight: 600;
+    cursor: pointer;
+    width: 60px;
+    border-radius: 15px;
+}
+
+.order-status.pending {
+    background: #28a745 !important;
+}
+
+.order-status.completed {
+    background: #6c757d !important;
+}
+
+.order-status.cancelled {
+    background: #dc3545 !important;
+}
+
+.order-status.confirmed {
+    background: #ffc107 !important;
+}
+
+/* Стили для кнопок действий */
+.btn-success {
+    background-color: #28a745;
+    border-color: #28a745;
+    color: white;
+}
+
+.btn-info {
+    background-color: #17a2b8;
+    border-color: #17a2b8;
+    color: white;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: white;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: white;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Стили для спиннера */
+.fa-spin {
+    animation: spin 1s linear infinite;
+}
+
+/* мобильные категории */
+.category-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.cat-btn {
+    padding: 6px 12px;
+    border: 1px solid #ccc;
+    border-radius: 20px;
+    font-size: 14px;
+    background: #f8f9fa;
+    cursor: pointer;
+}
+.cat-btn.active {
+    background: #007bff;
+    color: white;
+}
+
+/* Стили для дропдауна категорий */
+.category-filter {
+    margin-bottom: 20px;
+}
+
+.category-filter label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333;
+}
+
+.category-dropdown {
+    width: 100%;
+    max-width: 300px;
+    padding: 12px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 16px;
+    background: white;
+    cursor: pointer;
+    transition: border-color 0.3s;
+}
+
+.category-dropdown:focus {
+    border-color: #007bff;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.category-dropdown:hover {
+    border-color: #007bff;
+}
+
+/* Мобильные стили для дропдауна */
+@media (max-width: 768px) {
+    .category-dropdown {
+        font-size: 18px; /* Больше для мобильных */
+        padding: 16px 20px;
+        max-width: 100%;
+    }
+    
+    .category-filter label {
+        font-size: 16px;
+        margin-bottom: 12px;
+    }
+}
+
+/* Стили для опций дропдауна */
+.category-dropdown option {
+    padding: 8px 12px;
+    font-size: 16px;
+}
+
+/* Убираем старые кнопки категорий */
+.category-buttons {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .menu-items-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .menu-item-card {
+        padding: 12px;
+        font-size: 14px;
+    }
+    .menu-item-image {
+        height: 100px;
+    }
+    .waiter-modal-footer{
+        display: flex;
+        flex-direction: column;
+    }
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.item-comments-section {
+width: 100%;
+}
+
+.comment-textarea {
+    width: 100%;
+    min-height: 60px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    resize: vertical;
+}
+
+.comment-textarea:focus {
+    border-color: #007bff;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.order-item {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 8px;
+    background: #f8f9fa;
+}
+
+.item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.item-quantity {
+    font-weight: bold;
+    color: #007bff;
+}
+
+.item-name {
+    flex: 1;
+    margin: 0 12px;
+    font-weight: 500;
+}
+
+.item-price {
+    font-weight: bold;
+    color: #28a745;
+}
+
+/* Стили для поля количества гостей */
+.guest-count-input {
+    width: 80px;
+    display: inline-block;
+    margin-right: 8px;
+}
+
+.summary-item small {
+    display: block;
+    margin-top: 4px;
+    color: #6c757d;
+}
+
+/* Стили для пагинации */
+.pagination-controls {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.pagination-controls .btn {
+    margin: 0 5px;
+}
+
+.current-page {
+    display: inline-block;
+    padding: 8px 12px;
+    margin: 0 5px;
+    background-color: #007bff;
+    color: white;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+</style>
+
+<div class="orders-container">
+    <div class="page-header">
+        <h1>Заказы</h1>
+        <div class="header-actions">
+            <button class="btn btn-secondary" id="refreshOrders">
+                <i class="fas fa-sync-alt"></i> Обновить
+            </button>
+        </div>
+    </div>
+
+    <div class="orders-filters">
+        <div class="filter-group">
+            <label>Статус:</label>
+            <select id="statusFilter" class="form-control">
+                <option value="">Все</option>
+                <option value="pending">Новые заказы</option>
+                <option value="confirmed">Подтвержденные заказы</option>
+                <option value="completed">Оплаченные заказы</option>
+                <option value="cancelled">Отмененные заказы</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="orders-list" id="ordersList">
+        <div class="loading-placeholder">
+            <div class="spinner"></div>
+            <p>Загрузка заказов...</p>
+        </div>
+    </div>
+
+    <!-- Order Detail Modal -->
+    <div class="modal modal-overlay hidden" id="orderDetailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Детали заказа</h3>
+                <button type="button" class="order-close-btn" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body" id="orderDetailContent">
+                <!-- Содержимое будет загружено динамически -->
+            </div>
+            <div class="modal-footer waiter-modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Закрыть</button>
+                <button type="button" class="btn btn-info" id="applyBonusCard" style="display: none;">Применить карту</button>
+                <button type="button" class="btn btn-primary" id="printOrderReceipts">Отправить на печать</button>
+                <button type="button" class="btn btn-success" id="printFinalReceipt" style="display: none;">Печать финального чека</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Print Status Modal -->
+    <div class="modal modal-overlay hidden" id="printStatusModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Статус печати</h3>
+                <button type="button" class="btn-close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="printStatusContent">
+                    <!-- Статус печати будет загружен динамически -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =====  Модальное окно "Добавить позиции"  ===== -->
+<div class="modal modal-overlay hidden" id="addItemsModal">
+    <div class="modal-content large-modal">
+        <div class="modal-header">
+            <h3>Добавить позиции к заказу #<span id="modalOrderId"></span></h3>
+            <button type="button" class="order-close-btn" data-dismiss="modal">&times;</button>
+        </div>
+
+        <div class="modal-body">
+            <!-- Поиск -->
+                <div class="search-section">
+                    <div class="search-input-wrapper">
+                        <input type="text" id="menuSearchInput" class="search-input" placeholder="Поиск по названию...">
+                    <i class="fas fa-search search-icon"></i>
+                    </div>
+                </div>
+                
+            <!-- Фильтр по категориям -->
+                <div class="category-filter">
+                <label>Категория:</label>
+                    <select id="categoryFilter" class="form-control category-dropdown">
+                        <option value="">Все категории</option>
+                    <!-- категории будут добавлены JS -->
+                    </select>
+            </div>
+
+            <!-- Список блюд -->
+                    <div class="menu-items-container">
+                        <div id="menuItemsGrid" class="menu-items-grid">
+                            <div class="loading-placeholder">
+                                <div class="spinner"></div>
+                                <p>Загрузка меню...</p>
+                        </div>
+                    </div>
+                </div>
+
+            <!-- Выбранные позиции -->
+            <div id="selectedItemsSection" class="selected-items-section" style="display:none;">
+                <h4>Выбранные позиции</h4>
+                <div id="selectedItemsList" class="selected-items-list"></div>
+                        <div id="selectedItemsTotal" class="selected-items-total">
+                    Итого: <span>0</span> TMT
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+            <button type="button" class="btn btn-success" id="confirmAddItems" disabled>
+                <i class="fas fa-plus"></i> Добавить
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// CSRF токен для AJAX запросов
+const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+// Объявляем функции глобально
+let updateOrderStatus, viewOrderDetails, printOrderReceipts, printFinalReceipt, applyBonusCard;
+
+// Глобальные переменные для справочника статусов
+let statusReference = {};
+
+// Состояние модальных окон
+const modalState = {
+    orderDetailOpen: false,
+    addItemsOpen: false
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // Загружаем справочник статусов
+    loadStatusReference();
+    
+    // Функция загрузки справочника статусов
+    async function loadStatusReference() {
+        try {
+            const response = await fetch('/waiter/api/order-statuses');
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                statusReference = {};
+                data.data.forEach(status => {
+                    statusReference[status.code] = status;
+                });
+            } else {
+                console.error('❌ Ошибка загрузки справочника статусов:', data.message);
+            }
+        } catch (error) {
+            console.error('❌ Ошибка загрузки справочника статусов:', error);
+        }
+    }
+    
+    // ========= ИСПРАВЛЕННАЯ ФУНКЦИЯ ЗАКРЫТИЯ МОДАЛОК =========
+    function closeAllModals() {
+        console.log('🔧 Закрываем все модальные окна');
+        
+        // Закрываем модалку деталей заказа
+        const orderModal = document.getElementById('orderDetailModal');
+        if (orderModal) {
+            orderModal.style.display = 'none';
+            orderModal.classList.remove('show', 'visible');
+            orderModal.classList.add('hidden');
+            orderModal.setAttribute('aria-hidden', 'true');
+            orderModal.removeAttribute('aria-modal');
+            modalState.orderDetailOpen = false;
+        }
+        
+        // Закрываем модалку добавления позиций
+        const addItemsModal = document.getElementById('addItemsModal');
+        if (addItemsModal) {
+            addItemsModal.classList.remove('visible');
+            addItemsModal.classList.add('hidden');
+            modalState.addItemsOpen = false;
+        }
+        
+        // Убираем все backdrop'ы
+        document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+        
+        // ИСПРАВЛЯЕМ: Правильно восстанавливаем состояние body
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+        document.body.style.marginRight = '';
+        document.body.style.position = '';
+        
+        console.log('✅ Все модальные окна закрыты, body восстановлен');
+    }
+
+    // ========= ИСПРАВЛЕННАЯ ФУНКЦИЯ РЕГИСТРАЦИИ ОБРАБОТЧИКОВ =========
+    function registerEventHandlers() {
+        console.log('🔧 Регистрируем обработчики событий');
+        
+        // Сначала удаляем все старые обработчики с наших кнопок
+        document.querySelectorAll('[data-action]').forEach(button => {
+            // Клонируем элемент чтобы удалить все обработчики
+            const newButton = button.cloneNode(true);
+            button.parentNode.replaceChild(newButton, button);
+        });
+        
+        // Теперь добавляем новые обработчики
+        document.querySelectorAll('[data-action]').forEach(button => {
+            const action = button.getAttribute('data-action');
+            const orderId = button.getAttribute('data-order-id');
+            
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                console.log('🔧 Клик по кнопке:', action, 'для заказа #' + orderId);
+                
+                switch(action) {
+                    case 'view-details':
+                        viewOrderDetails(orderId);
+                        break;
+                    case 'print-receipts':
+                        printOrderReceiptsFromCard(orderId);
+                        break;
+                    case 'mark-paid':
+                        updateOrderStatus(orderId);
+                        break;
+                    case 'add-items':
+                        addMoreItems(orderId);
+                        break;
+                    case 'cancel-order':
+                        cancelOrder(orderId);
+                        break;
+                }
+            });
+        });
+        
+        console.log('✅ Обработчики зарегистрированы');
+    }
+
+    // ========= ИСПРАВЛЕННАЯ ЛОГИКА МОДАЛЬНОГО ОКНА «ДОБАВИТЬ ПОЗИЦИИ» =========
+    window.addMoreItems = function(orderId) {
+        console.log('🔧 Открываем модалку добавления для заказа #' + orderId);
+        
+        // Сначала закрываем все модалки
+        closeAllModals();
+        
+        const modal = document.getElementById('addItemsModal');
+        modal.dataset.orderId = orderId;
+        document.getElementById('modalOrderId').textContent = orderId;
+        modal.classList.remove('hidden');
+        modal.classList.add('visible');
+        modalState.addItemsOpen = true;
+        
+        loadMenuForOrder(orderId);
+    }
+
+    // Обработчики закрытия модалки добавления позиций
+    document.querySelectorAll('#addItemsModal [data-dismiss="modal"]').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            closeAllModals();
+        });
+    });
+
+    // Загрузка меню и категорий
+    async function loadMenuForOrder(orderId) {
+        try {
+            const res = await fetch('/api/menu');
+            const data = await res.json();
+
+            // Удаляем спиннер
+            document.querySelector('#menuItemsGrid .loading-placeholder')?.remove();
+
+            // Если всё ок – рендерим
+            if (data.status === 'success') {
+                renderMenuItems(data.data.categories);
+                document.getElementById('modalOrderId').textContent = orderId;
+            } else {
+                throw new Error(data.message || 'Ошибка данных');
+            }
+        } catch (e) {
+            console.error('❌ loadMenuForOrder error:', e);
+            waiterNotifications.showError('Не удалось загрузить меню: ' + e.message);
+        }
+    }
+
+    function renderMenuItems(categories) {
+        const grid = document.getElementById('menuItemsGrid');
+        const dropdown = document.getElementById('categoryFilter');
+        
+        // чистим
+        grid.innerHTML = '';
+        dropdown.innerHTML = '<option value="">Все категории</option>';
+
+        categories.forEach(cat => {
+            // опция для дропдауна
+            const option = document.createElement('option');
+            option.value = cat.id;
+            option.textContent = cat.name;
+            dropdown.appendChild(option);
+
+            // карточки
+            (cat.items || []).forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'menu-item-card';
+                card.dataset.itemId = item.id;
+                card.dataset.price = item.price;
+                card.dataset.categoryId = cat.id;
+
+                card.innerHTML = `
+                    <div class="item-row">
+                        <div class="item-info">
+                            <div class="item-name">${item.name}</div>
+                            <div class="item-price">${item.price} TMT</div>
+                        </div>
+                        <div class="item-controls">
+                            <button onclick="toggleSelectItem(this.closest('.menu-item-card'))">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="item-details hidden">
+                        <input type="number" min="1" value="1" class="qty-input">
+                        <textarea placeholder="Комментарий" class="comment-input"></textarea>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        });
+
+        // убираем спиннер
+        document.querySelector('#menuItemsGrid .loading-placeholder')?.remove();
+    }
+
+
+    // Упрощенная функция фильтрации
+    function filterMenu() {
+        const searchTerm = document.getElementById('menuSearchInput').value.toLowerCase();
+        const categoryId = document.getElementById('categoryFilter').value;
+        
+        document.querySelectorAll('.menu-item-card').forEach(card => {
+            const name = card.querySelector('.item-name').textContent.toLowerCase();
+            const cardCategoryId = card.dataset.categoryId;
+            
+            const matchesSearch = !searchTerm || name.includes(searchTerm);
+            const matchesCategory = !categoryId || cardCategoryId === categoryId;
+            
+            card.style.display = (matchesSearch && matchesCategory) ? 'block' : 'none';
+        });
+    }
+
+    // Выбор / отмена блюда
+    window.toggleSelectItem = function(card) {
+        card.classList.toggle('selected');
+        const details = card.querySelector('.item-details');
+        details.classList.toggle('hidden');
+        updateSelectedSection();
+    };
+
+    window.changeQty = function(btn, delta) {
+        const input = btn.parentElement.querySelector('input');
+        let val = parseInt(input.value) + delta;
+        if (val < 1) val = 1;
+        input.value = val;
+        updateSelectedSection();
+    };
+
+    // Обработчики событий
+    document.getElementById('menuSearchInput').addEventListener('input', filterMenu);
+    document.getElementById('categoryFilter').addEventListener('change', filterMenu);
+
+
+    // Обновление списка выбранных
+    function updateSelectedSection() {
+        const selected = document.querySelectorAll('.menu-item-card.selected');
+        const list = document.getElementById('selectedItemsList');
+        const totalEl = document.getElementById('selectedItemsTotal').querySelector('span');
+        list.innerHTML = '';
+        let total = 0;
+
+            selected.forEach(card => {
+                const id   = card.dataset.itemId;
+                const name = card.querySelector('.item-name').textContent;
+                const price = parseFloat(card.dataset.price);
+                const qty  = parseInt(card.querySelector('.qty-input').value);
+                total += price * qty;
+
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'selected-item';
+                itemDiv.innerHTML = `
+                <div>${name} × ${qty}</div>
+                <div>${(price * qty).toFixed(2)} TMT</div>
+                `;
+                list.appendChild(itemDiv);
+            });
+
+        totalEl.textContent = total.toFixed(2);
+        document.getElementById('selectedItemsSection').style.display = selected.length ? 'block' : 'none';
+        document.getElementById('confirmAddItems').disabled = !selected.length;
+    }
+
+    // ========= ИСПРАВЛЕННАЯ ОТПРАВКА ДОБАВЛЕННЫХ ПОЗИЦИЙ =========
+    document.getElementById('confirmAddItems').addEventListener('click', async () => {
+        const orderId = document.getElementById('modalOrderId').textContent;
+        const items = [...document.querySelectorAll('.menu-item-card.selected')].map(card => ({
+            menu_item_id: parseInt(card.dataset.itemId),
+            quantity: parseInt(card.querySelector('.qty-input').value),
+            comments: card.querySelector('.comment-input').value.trim()
+        }));
+
+        try {
+            const res = await fetch(`/waiter/api/orders/${orderId}/add-items`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ items })
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                waiterNotifications.showSuccess(data.message);
+                
+                // ИСПРАВЛЕНО: Правильно закрываем модалку и обновляем данные
+                closeAllModals();
+                
+                // Небольшая задержка перед обновлением для избежания конфликтов
+                setTimeout(() => {
+                    loadOrders();
+                }, 100);
+                
+            } else {
+                waiterNotifications.showError(data.message);
+            }
+        } catch (e) {
+            waiterNotifications.showError('Ошибка соединения');
+        }
+    });
+
+
+    function closeOrderModal() {
+        console.log('🔍 closeOrderModal вызвана');
+        const modal = document.getElementById('orderDetailModal');
+        if (modal) {
+            const orderId = modal.dataset.orderId;
+            console.log(' Модалка деталей заказа #' + (orderId || 'неизвестно') + ' ЗАКРЫТА');
+            
+            // Логируем состояние модалки перед закрытием
+            console.log('🔍 Состояние модалки перед закрытием:', {
+                display: modal.style.display,
+                classes: modal.className,
+                ariaHidden: modal.getAttribute('aria-hidden'),
+                ariaModal: modal.getAttribute('aria-modal')
+            });
+            
+            // ЕДИНЫЙ СПОСОБ: только через классы
+            modal.classList.remove('visible', 'show');
+            modal.classList.add('hidden');
+            
+            // Убираем backdrop
+            const backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) {
+                console.log('🔍 Убираем backdrop');
+                backdrop.remove();
+            }
+            
+            // Возвращаем скролл к body
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+            document.body.style.marginRight = '';
+            
+            console.log('🔍 Модалка полностью закрыта, обработчики должны быть активны');
+            
+            // ПРОВЕРЯЕМ: что происходит с обработчиками после закрытия
+            setTimeout(() => {
+                console.log('�� Проверка обработчиков после закрытия модалки...');
+                const testButton = document.querySelector('[data-action="view-details"]');
+                if (testButton) {
+                    console.log('🔍 Тестовая кнопка после закрытия:', testButton);
+                    console.log('🔍 Обработчики на кнопке после закрытия:', testButton.onclick, testButton._clickHandler);
+                }
+            }, 500);
+        }
+    }
+
+    // Функция закрытия модалки добавления позиций
+    function closeAddItemsModal() {
+        const modal = document.getElementById('addItemsModal');
+        if (modal) {
+            const orderId = modal.dataset.orderId;
+            console.log('🔧 Модалка "Добавить позиции" для заказа #' + (orderId || 'неизвестно') + ' ЗАКРЫТА');
+            
+            modal.classList.remove('visible');
+            modal.classList.add('hidden');
+        }
+    }
+    
+    // Функция загрузки заказов
+    async function loadOrders(page = 1) {
+        console.log('�� loadOrders вызвана, страница:', page);
+        try {
+            const statusFilter = document.getElementById('statusFilter').value;
+            
+            const filters = {};
+            if (statusFilter) filters.status = statusFilter;
+            if (page) filters.page = page; // Добавляем параметр страницы
+            
+            const ordersList = document.getElementById('ordersList');
+            ordersList.innerHTML = '<div class="loading-placeholder"><div class="spinner"></div><p>Загрузка заказов...</p></div>';
+            
+            // Получаем заказы через API
+            const response = await window.WaiterAPI.getOrders(filters);
+            
+            if (response.status === 'success' && response.data.orders.length > 0) {
+                console.log('🔍 Получено заказов:', response.data.orders.length);
+                
+                // Сортируем заказы: сначала pending, потом confirmed, потом completed, потом cancelled
+                const sortedOrders = response.data.orders.sort((a, b) => {
+                    const statusOrder = { 'pending': 1, 'confirmed': 2, 'completed': 3, 'cancelled': 4 };
+                    const aOrder = statusOrder[a.status] || 5;
+                    const bOrder = statusOrder[b.status] || 5;
+                    
+                    if (aOrder !== bOrder) {
+                        return aOrder - bOrder;
+                    }
+                    
+                    // Если статусы одинаковые, сортируем по времени создания (новые первыми)
+                    return new Date(b.created_at) - new Date(a.created_at);
+                });
+                
+                // Группируем заказы по статусам
+                const ordersByStatus = {
+                    pending: [],
+                    confirmed: [],
+                    completed: [],
+                    cancelled: []
+                };
+                
+                sortedOrders.forEach(order => {
+                    if (ordersByStatus[order.status]) {
+                        ordersByStatus[order.status].push(order);
+                    }
+                });
+
+                // Отображаем заказы с группировкой
+                let ordersHtml = '';
+                
+                // Pending заказы (новые) - зеленый цвет
+                if (ordersByStatus.pending.length > 0) {
+                    const statusInfo = statusReference['pending'] || { name: 'Новые заказы', icon: '🟢' };
+                    ordersHtml += '<div class="status-group pending-group">';
+                    ordersHtml += `<h3 class="status-group-title pending-title">${statusInfo.icon} ${statusInfo.name}</h3>`;
+                    ordersByStatus.pending.forEach(order => {
+                        ordersHtml += createOrderCard(order);
+                    });
+                    ordersHtml += '</div>';
+                }
+                
+                // Confirmed заказы (подтвержденные) - желтый цвет
+                if (ordersByStatus.confirmed.length > 0) {
+                    const statusInfo = statusReference['confirmed'] || { name: 'Подтвержденные заказы', icon: '✅' };
+                    ordersHtml += '<div class="status-group confirmed-group">';
+                    ordersHtml += `<h3 class="status-group-title confirmed-title">${statusInfo.icon} ${statusInfo.name}</h3>`;
+                    ordersByStatus.confirmed.forEach(order => {
+                        ordersHtml += createOrderCard(order);
+                    });
+                    ordersHtml += '</div>';
+                }
+                
+                // Completed заказы (оплаченные) - серый цвет
+                if (ordersByStatus.completed.length > 0) {
+                    const statusInfo = statusReference['completed'] || { name: 'Оплаченные заказы', icon: '⚫' };
+                    ordersHtml += '<div class="status-group completed-group">';
+                    ordersHtml += `<h3 class="status-group-title completed-title">${statusInfo.icon} ${statusInfo.name}</h3>`;
+                    ordersByStatus.completed.forEach(order => {
+                        ordersHtml += createOrderCard(order);
+                    });
+                    ordersHtml += '</div>';
+                }
+                
+                                 // Cancelled заказы (отмененные) - красный цвет
+                 if (ordersByStatus.cancelled.length > 0) {
+                     const statusInfo = statusReference['cancelled'] || { name: 'Отмененные заказы', icon: '❌' };
+                     ordersHtml += '<div class="status-group cancelled-group">';
+                     ordersHtml += `<h3 class="status-group-title cancelled-title">${statusInfo.icon} ${statusInfo.name}</h3>`;
+                    ordersByStatus.cancelled.forEach(order => {
+                         ordersHtml += createOrderCard(order);
+                     });
+                     ordersHtml += '</div>';
+                 }
+                
+                ordersList.innerHTML = ordersHtml + createPaginationControls(response.data.pagination);
+                console.log('🔍 Список заказов обновлен');
+                
+                // ИСПРАВЛЕНО: Небольшая задержка перед регистрацией обработчиков
+                setTimeout(() => {
+                    registerEventHandlers();
+                }, 50);
+                
+            } else {
+                // Нет заказов
+                ordersList.innerHTML = `
+                    <div class="no-data">
+                        <i class="fas fa-clipboard-list"></i>
+                        <h3>Заказы не найдены</h3>
+                        <p>В данный момент нет заказов соответствующих фильтрам</p>
+                    </div>
+                `;
+                console.log('🔍 Заказы не найдены');
+            }
+            
+        } catch (error) {
+            console.error('Error loading orders:', error);
+            waiterNotifications.showError('Ошибка загрузки заказов');
+        }
+    }
+    
+    // Функция создания карточки заказа
+    function createOrderCard(order) {
+        const statusColor = getStatusColor(order.status);
+        const statusIcon = getStatusIcon(order.status);
+        const calculatedTotal = (parseFloat(order.subtotal) + parseFloat(order.service_charge) - parseFloat(order.discount_amount || 0)).toFixed(2);
+        
+        return `
+            <div class="order-card" data-order-id="${order.id}">
+                <div class="order-header">
+                    <div class="order-info">
+                        <div class="order-title">
+                            <h3>Заказ #${order.id}</h3>
+                            <span class="order-status ${order.status}" style="background: ${statusColor};">
+                                ${statusIcon} ${order.status.toUpperCase()}
+                            </span>
+                        </div>
+                        <div class="order-table-info">
+                            <i class="fas fa-table"></i>
+                            <span>Стол: ${order.table_number}</span>
+                            <i class="fas fa-users"></i>
+                            <span>Гостей: ${order.guest_count}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="order-body">
+                    <div class="order-total">
+                        <div class="total-label">Итого к оплате:</div>
+                        <div class="total-amount">${calculatedTotal} TMT</div>
+                    </div>
+                    <div class="order-meta">
+                        <div class="meta-item">
+                            <i class="fas fa-clock"></i>
+                            <span>Создан: ${new Date(order.created_at).toLocaleString('ru-RU')}</span>
+                        </div>
+                        <div class="meta-item">
+                            <i class="fas fa-language"></i>
+                            <span>Язык: ${order.language.toUpperCase()}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="order-actions">
+                    <button class="btn btn-primary" data-action="view-details" data-order-id="${order.id}">
+                        <i class="fas fa-eye"></i> Подробности
+                    </button>
+                    ${order.status === 'pending' ? `
+                        <button class="btn btn-info" data-action="print-receipts" data-order-id="${order.id}">
+                            <i class="fas fa-print"></i> Отправить на печать
+                        </button>
+                        <button class="btn btn-danger" data-action="cancel-order" data-order-id="${order.id}">
+                            <i class="fas fa-times"></i> Отменить заказ
+                        </button>
+                    ` : order.status === 'confirmed' ? `
+                        <button class="btn btn-success" ${order.final_receipt_printed ? '' : 'disabled'} data-action="mark-paid" data-order-id="${order.id}">
+                            <i class="fas fa-check"></i> Отметить как оплаченный
+                        </button>
+                        <button class="btn btn-warning" data-action="add-items" data-order-id="${order.id}">
+                            <i class="fas fa-plus"></i> Добавить
+                        </button>
+                        <button class="btn btn-danger" data-action="cancel-order" data-order-id="${order.id}">
+                            <i class="fas fa-times"></i> Отменить заказ
+                        </button>
+                    ` : order.status === 'completed' ? `
+                        <button class="btn btn-secondary" disabled>
+                            <i class="fas fa-check"></i> Заказ оплачен
+                        </button>
+                    ` : order.status === 'cancelled' ? `
+                        <button class="btn btn-secondary" disabled>
+                            <i class="fas fa-times"></i> Заказ отменен
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }
+    
+    // Функция получения цвета статуса из справочника
+    function getStatusColor(status) {
+        if (statusReference[status] && statusReference[status].color) {
+            return statusReference[status].color;
+        }
+        const fallbackColors = {
+            'pending': '#28a745',
+            'confirmed': '#ffc107',
+            'completed': '#6c757d',
+            'cancelled': '#dc3545'
+        };
+        return fallbackColors[status] || '#6c757d';
+    }
+    
+    // Функция получения иконки статуса из справочника
+    function getStatusIcon(status) {
+        if (statusReference[status] && statusReference[status].icon) {
+            return statusReference[status].icon;
+        }
+        const fallbackIcons = {
+            'pending': '🟢',
+            'confirmed': '✅',
+            'completed': '⚫',
+            'cancelled': '❌'
+        };
+        return fallbackIcons[status] || '⚫';
+    }
+
+    // Функция обновления количества гостей
+    async function updateGuestCount(orderId) {
+        const guestCountInput = document.getElementById('guestCountInput');
+        const guestCount = parseInt(guestCountInput.value);
+        
+        if (!guestCount || guestCount < 1) {
+            waiterNotifications.showError('Введите корректное количество гостей');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/waiter/api/orders/${orderId}/guest-count`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({ guest_count: guestCount })
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                waiterNotifications.showSuccess('Количество гостей обновлено');
+                // Обновляем отображение
+                loadOrders();
+            } else {
+                waiterNotifications.showError(result.message);
+                guestCountInput.value = result.data?.previous_guest_count || guestCountInput.defaultValue;
+            }
+        } catch (error) {
+            console.error('Error updating guest count:', error);
+            waiterNotifications.showError('Ошибка обновления');
+        }
+    }
+
+    // Функция обновления комментариев к позиции
+    async function updateItemComment(orderId, itemId, comments) {
+        try {
+            const response = await fetch(`/waiter/api/orders/${orderId}/items/${itemId}/comments`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({ comments: comments })
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                waiterNotifications.showSuccess('Комментарий обновлен');
+            } else {
+                waiterNotifications.showError(result.message);
+            }
+        } catch (error) {
+            console.error('Error updating comments:', error);
+            waiterNotifications.showError('Ошибка обновления');
+        }
+    }
+
+    // Функция получения CSRF токена
+    function getCsrfToken() {
+        return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    }
+    
+    // Функция изменения статуса заказа
+    function updateOrderStatus(orderId) {
+        
+        // Находим заказ в списке
+        const orderCards = document.querySelectorAll('.order-card');
+        
+        let currentOrder = null;
+        
+        orderCards.forEach(card => {
+            if (card.dataset.orderId == orderId) {
+                currentOrder = card;
+            }
+        });
+        
+        if (!currentOrder) {
+            console.error(`❌ Карточка заказа ${orderId} не найдена`);
+            waiterNotifications.showError('Заказ не найден');
+            return;
+        }
+        
+        // Определяем текущий статус из DOM
+        const statusElement = currentOrder.querySelector('.order-status');
+        
+        if (!statusElement) {
+            console.error(`❌ Элемент статуса не найден для заказа ${orderId}`);
+            waiterNotifications.showError('Не удалось определить статус заказа');
+            return;
+        }
+        
+        const currentStatus = statusElement.textContent.trim();
+        
+        let newStatus;
+        let actionText;
+        
+        // Проверяем статус, игнорируя эмодзи и пробелы
+        const cleanStatus = currentStatus.replace(/[🟢⚫🔴✅❌]/g, '').trim().toLowerCase();
+        
+        // Получаем информацию о текущем статусе из справочника
+        const currentStatusInfo = statusReference[cleanStatus];
+        if (!currentStatusInfo) {
+            console.error(`❌ Статус "${cleanStatus}" не найден в справочнике`);
+            waiterNotifications.showError('Неизвестный статус заказа');
+            return;
+        }
+        
+        // Проверяем возможность перехода к статусу completed
+        if (canTransitionTo(cleanStatus, 'completed')) {
+            newStatus = 'completed';
+            actionText = 'отметить как оплаченный';
+        } else if (cleanStatus === 'completed') {
+            waiterNotifications.showInfo('Заказ уже оплачен');
+            return;
+        } else if (cleanStatus === 'cancelled') {
+            waiterNotifications.showInfo('Заказ уже отменен');
+            return;
+        } else {
+            console.error(`❌ Переход к completed не разрешен для статуса "${cleanStatus}"`);
+            const currentStatusName = getStatusName(cleanStatus);
+            const targetStatusName = getStatusName('completed');
+            waiterNotifications.showError(`Невозможно изменить статус заказа с "${currentStatusName}" на "${targetStatusName}"`);
+            return;
+        }
+        
+        // Отправляем запрос на сервер
+        
+        fetch(`/waiter/api/orders/${orderId}/status`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ status: newStatus })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                waiterNotifications.showSuccess(`Статус заказа изменен на "${newStatus}"`);
+                loadOrders(); // Перезагружаем список
+            } else {
+                waiterNotifications.showError(data.message || 'Ошибка изменения статуса');
+            }
+        })
+        .catch(error => {
+            console.error('Error updating order status:', error);
+            waiterNotifications.showError('Ошибка соединения с сервером');
+        });
+    }
+
+    // Функция проверки возможности перехода статуса
+    function canTransitionTo(currentStatus, targetStatus) {
+        if (!statusReference[currentStatus]) {
+            console.warn(`⚠️ Статус "${currentStatus}" не найден в справочнике`);
+            return false;
+        }
+        
+        const allowedTransitions = statusReference[currentStatus].can_transition_to || [];
+        const canTransition = allowedTransitions.includes(targetStatus);
+        
+        return canTransition;
+    }
+    
+    // Функция получения названия статуса на русском языке
+    function getStatusName(statusCode) {
+        if (statusReference[statusCode] && statusReference[statusCode].name) {
+            return statusReference[statusCode].name;
+        }
+        // Fallback названия
+        const fallbackNames = {
+            'pending': 'Новый заказ',
+            'confirmed': 'Подтвержден',
+            'completed': 'Завершен',
+            'cancelled': 'Отменен'
+        };
+        return fallbackNames[statusCode] || statusCode;
+    }
+    
+    // Функция отмены заказа
+    function cancelOrder(orderId) {
+        
+        // Подтверждение отмены
+        if (!confirm('Вы уверены, что хотите отменить этот заказ? Заказ будет полностью удален.')) {
+            return;
+        }
+        
+        // Отправляем запрос на отмену
+        fetch(`/waiter/api/orders/${orderId}/cancel`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                waiterNotifications.showSuccess('Заказ успешно отменен');
+                // Перезагружаем список заказов
+                loadOrders();
+            } else {
+                waiterNotifications.showError(data.message || 'Ошибка отмены заказа');
+            }
+        })
+        .catch(error => {
+            console.error('Error cancelling order:', error);
+            waiterNotifications.showError('Ошибка соединения с сервером');
+        });
+    }
+
+    // ========= ИСПРАВЛЕННАЯ ФУНКЦИЯ ПРОСМОТРА ДЕТАЛЕЙ ЗАКАЗА =========
+    function viewOrderDetails(orderId) {
+        console.log('🔧 Открываем детали заказа #' + orderId);
+        
+        // Проверяем, не заблокирована ли страница
+        if (document.body.style.pointerEvents === 'none') {
+            console.log('🔧 Страница заблокирована, разблокируем');
+            document.body.style.pointerEvents = '';
+        }
+        
+        // Сначала закрываем все модалки
+        closeAllModals();
+        
+        fetch(`/waiter/api/orders/${orderId}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    displayOrderDetails(data.data.order);
+                } else {
+                    waiterNotifications.showError(data.message || 'Ошибка загрузки деталей заказа');
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error loading order details:', error);
+                waiterNotifications.showError('Ошибка соединения с сервером');
+            });
+    }
+
+    // ========= ИСПРАВЛЕННАЯ ФУНКЦИЯ ОТОБРАЖЕНИЯ ДЕТАЛЕЙ ЗАКАЗА =========
+    function displayOrderDetails(order) {
+        console.log('🔧 Отображаем детали заказа #' + order.id);
+        
+        const modal = document.getElementById('orderDetailModal');
+        const content = document.getElementById('orderDetailContent');
+        const printButton = document.getElementById('printOrderReceipts');
+        const finalReceiptButton = document.getElementById('printFinalReceipt');
+        
+        if (!modal || !content) {
+            console.error('❌ Элементы модального окна не найдены!');
+            waiterNotifications.showError('Ошибка: модальное окно не найдено');
+            return;
+        }
+        
+        const originalItems = order.items.filter(item => 
+            new Date(item.created_at) <= new Date(order.created_at)
+        );
+        const addedItems = order.items.filter(item => 
+            new Date(item.created_at) > new Date(order.created_at)
+        );
+        
+        let itemsHtml = '';
+        
+        // Основные позиции (изначально в заказе)
+        if (originalItems.length > 0) {
+            const originalKitchenItems = originalItems.filter(item => item.preparation_type === 'kitchen');
+            const originalBarItems = originalItems.filter(item => item.preparation_type === 'bar');
+            
+            if (originalKitchenItems.length > 0) {
+                itemsHtml += '<div class="items-section"><h4>🍽️ КУХНЯ</h4>';
+                originalKitchenItems.forEach(item => {
+                    itemsHtml += createItemHtml(item, order.id);
+                });
+                itemsHtml += '</div>';
+            }
+            
+            if (originalBarItems.length > 0) {
+                itemsHtml += '<div class="items-section"><h4>🍺 БАР</h4>';
+                originalBarItems.forEach(item => {
+                    itemsHtml += createItemHtml(item, order.id);
+                });
+                itemsHtml += '</div>';
+            }
+        }
+
+        // Дополнительные позиции (добавленные позже)
+        if (addedItems.length > 0) {
+            itemsHtml += '<div class="items-section added-items"><h4>➕ ДОП. ЗАКАЗЫ</h4>';
+            
+            const addedKitchenItems = addedItems.filter(item => item.preparation_type === 'kitchen');
+            const addedBarItems = addedItems.filter(item => item.preparation_type === 'bar');
+            
+            if (addedKitchenItems.length > 0) {
+                itemsHtml += '<div class="added-kitchen items-section"><h4>🍽️ КУХНЯ</h4>';
+                addedKitchenItems.forEach(item => {
+                    itemsHtml += createItemHtml(item, order.id);
+                });
+                itemsHtml += '</div>';
+            }
+            
+            if (addedBarItems.length > 0) {
+                itemsHtml += '<div class="added-bar items-section"><h4>🍺 БАР</h4>';
+                addedBarItems.forEach(item => {
+                    itemsHtml += createItemHtml(item, order.id);
+                });
+                itemsHtml += '</div>';
+            }
+            
+            itemsHtml += '</div>';
+        }
+        
+        content.innerHTML = `
+            <div class="order-details">
+                <div class="order-summary">
+                    <div class="summary-item">
+                        <strong>Заказ #${order.id}</strong>
+                        <span class="status-badge ${order.status}">${order.status}</span>
+                    </div>
+                    <div class="summary-item">
+                        <strong>Стол:</strong> ${order.table_number}
+                    </div>
+                    <div class="summary-item">
+                        <strong>Гостей:</strong> 
+                        <input type="number" 
+                            id="guestCountInput" 
+                            value="${order.guest_count}" 
+                            min="1" 
+                            max="${order.table ? order.table.capacity : 20}" 
+                            class="form-control guest-count-input">
+                        <button class="btn btn-sm btn-primary" onclick="updateGuestCount(${order.id})">Обновить</button>
+                    </div>
+                    <div class="summary-item">
+                        <strong>Время:</strong> ${new Date(order.created_at).toLocaleTimeString()}
+                    </div>
+                    ${order.bonus_card ? `
+                    <div class="summary-item bonus-card-info">
+                        <strong>Бонусная карта:</strong> 
+                        <span class="bonus-card-number">${order.bonus_card.card_number}</span>
+                        <span class="bonus-card-discount">(${order.bonus_card.discount_percent}% скидка)</span>
+                    </div>
+                    ` : ''}
+                </div>
+                
+                <div class="order-items">
+                    ${itemsHtml}
+                </div>
+                
+                <div class="order-total">
+                    <div class="total-item">
+                        <strong>Подытог:</strong> ${order.subtotal} TMT
+                    </div>
+                    <div class="total-item">
+                        <strong>Сервисный сбор:</strong> ${order.service_charge} TMT
+                    </div>
+                    ${order.discount_amount > 0 ? `
+                    <div class="total-item discount-item">
+                        <strong>Скидка по карте (${order.discount_percent}%):</strong> -${order.discount_amount} TMT
+                    </div>
+                    ` : ''}
+                    <div class="total-item total-final">
+                        <strong>ИТОГО:</strong> ${(parseFloat(order.subtotal) + parseFloat(order.service_charge) - parseFloat(order.discount_amount || 0)).toFixed(2)} TMT
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Показываем/скрываем кнопки в зависимости от статуса
+        const applyBonusCardButton = document.getElementById('applyBonusCard');
+        
+        if (order.status === 'pending') {
+            printButton.style.display = 'inline-block';
+            finalReceiptButton.style.display = 'none';
+            applyBonusCardButton.style.display = 'inline-block';
+        } else if (order.status === 'confirmed') {
+            // В confirmed показываем отправку на печать ТОЛЬКО если есть доп. позиции
+            if (order.has_added_items) {
+                printButton.style.display = 'inline-block';
+                printButton.disabled = false;
+            } else {
+                printButton.style.display = 'inline-block';
+                printButton.disabled = true;
+            }
+            // Итоговый чек всегда доступен
+            finalReceiptButton.style.display = 'inline-block';
+            applyBonusCardButton.style.display = 'none';
+        } else {
+            printButton.style.display = 'none';
+            finalReceiptButton.style.display = 'none';
+            applyBonusCardButton.style.display = 'none';
+        }
+        
+        // Сохраняем ID заказа и показываем модалку
+        modal.dataset.orderId = order.id;
+        modal.style.display = 'block';
+        modal.classList.add('show', 'visible');
+        modal.classList.remove('hidden');
+        modal.setAttribute('aria-modal', 'true');
+        modal.removeAttribute('aria-hidden');
+        modalState.orderDetailOpen = true;
+        
+        console.log('✅ Модалка деталей заказа #' + order.id + ' открыта');
+    }
+
+    // Добавляем вспомогательную функцию для создания HTML позиции
+    function createItemHtml(item, orderId) {
+        return `
+            <div class="order-item" data-item-id="${item.id}">
+                <div class="item-header">
+                    <span class="item-quantity">${item.quantity}x</span>
+                    <span class="item-name">${item.name}</span>
+                    <span class="item-price">${item.unit_price} TMT</span>
+                </div>
+                <div class="item-comments-section">
+                    <textarea 
+                        class="form-control comment-textarea" 
+                        placeholder="Комментарий к блюду..."
+                        onchange="updateItemComment(${orderId}, ${item.id}, this.value)"
+                    >${item.comments || ''}</textarea>
+                </div>
+            </div>
+        `;
+    }
+
+    // ========= ИСПРАВЛЕННАЯ ФУНКЦИЯ ПЕЧАТИ ИЗ МОДАЛЬНОГО ОКНА =========
+    function printOrderReceipts() {
+        console.log('🔧 printOrderReceipts вызвана');
+        const modal = document.getElementById('orderDetailModal');
+        const orderId = modal.dataset.orderId;
+        
+        if (!orderId) {
+            waiterNotifications.showError('ID заказа не найден');
+            return;
+        }
+        
+        const printButton = document.getElementById('printOrderReceipts');
+        const originalText = printButton.textContent;
+        printButton.textContent = 'Печать...';
+        printButton.disabled = true;
+        
+        fetch(`/waiter/api/orders/${orderId}/print`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                console.log('✅ Печать успешна');
+                waiterNotifications.showSuccess('Чеки отправлены на печать!');
+                
+                // ИСПРАВЛЕНО: Не закрываем модалку автоматически
+                // Просто обновляем кнопки
+                document.getElementById('printFinalReceipt').style.display = 'inline-block';
+                printButton.style.display = 'none';
+                
+
+                
+                console.log('🔍 Закрываем модалку через 1.5 секунды');
+                            // Закрываем модалку и обновляем список заказов
+            setTimeout(() => {
+                    console.log('�� Выполняем закрытие модалки');
+                    closeAllModals();
+                    
+                    console.log('🔍 Обновляем список заказов после печати');
+                    // Обновляем список заказов после печати
+                    loadOrders();
+            }, 1500); // Даем время показать уведомление
+            } else {
+                waiterNotifications.showError(data.message || 'Ошибка печати');
+            }
+        })
+        .catch(error => {
+            console.error('Error printing receipts:', error);
+            waiterNotifications.showError('Ошибка соединения с сервером');
+        })
+        .finally(() => {
+            // Восстанавливаем кнопку
+            printButton.textContent = originalText;
+            printButton.disabled = false;
+        });
+    }
+
+    // Функция применения бонусной карты
+    function applyBonusCard() {
+        const modal = document.getElementById('orderDetailModal');
+        const orderId = modal.dataset.orderId;
+        
+        if (!orderId) {
+            waiterNotifications.showError('ID заказа не найден');
+            return;
+        }
+        
+        // Запрашиваем номер карты
+        const cardNumber = prompt('Введите номер бонусной карты (6 цифр):');
+        
+        if (!cardNumber) {
+            return;
+        }
+        
+        if (cardNumber.length !== 6 || !/^\d+$/.test(cardNumber)) {
+            waiterNotifications.showError('Номер карты должен содержать 6 цифр');
+            return;
+        }
+        
+        // Показываем индикатор загрузки
+        const applyButton = document.getElementById('applyBonusCard');
+        const originalText = applyButton.textContent;
+        applyButton.textContent = 'Применение...';
+        applyButton.disabled = true;
+        
+        fetch(`/api/bonus-cards/apply/${orderId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                card_number: cardNumber
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                waiterNotifications.showSuccess(data.message);
+                
+                // Обновляем отображение заказа в модальном окне
+                viewOrderDetails(orderId);
+                
+                // Обновляем карточку заказа в списке
+                updateOrderCardInList(orderId, data.data.order);
+                
+            } else {
+                waiterNotifications.showError(data.message || 'Ошибка применения карты');
+            }
+        })
+        .catch(error => {
+            console.error('Error applying bonus card:', error);
+            waiterNotifications.showError('Ошибка соединения с сервером');
+        })
+        .finally(() => {
+            // Восстанавливаем кнопку
+            applyButton.textContent = originalText;
+            applyButton.disabled = false;
+        });
+    }
+
+    // Функция печати чеков заказа (для карточки заказа)
+    function printOrderReceiptsFromCard(orderId) {
+        console.log('�� printOrderReceiptsFromCard вызвана для заказа #' + orderId);
+        
+        // Показываем индикатор загрузки
+        const printButton = event.target;
+        const originalText = printButton.innerHTML;
+        printButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Печать...';
+        printButton.disabled = true;
+        
+        fetch(`/waiter/api/orders/${orderId}/print`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                console.log('�� Печать успешна для заказа #' + orderId);
+                waiterNotifications.showSuccess('Чеки отправлены на печать!');
+                
+                // Определяем, был ли это переход из pending в confirmed или печать добавленных позиций
+                const orderCard = document.querySelector(`[data-order-id="${orderId}"]`);
+                const currentStatus = orderCard ? orderCard.querySelector('.order-status')?.textContent.toLowerCase() : '';
+                
+                console.log('🔍 Текущий статус заказа:', currentStatus);
+                
+                // Если заказ был pending - обновляем статус на confirmed
+                if (currentStatus.includes('pending') || currentStatus.includes('новый')) {
+                    console.log('�� Обновляем статус с pending на confirmed');
+                    if (orderCard) {
+                        const statusElement = orderCard.querySelector('.order-status');
+                        if (statusElement) {
+                            const statusInfo = statusReference['confirmed'];
+                            if (statusInfo) {
+                                statusElement.textContent = `${statusInfo.icon} ${statusInfo.name.toUpperCase()}`;
+                                statusElement.style.background = statusInfo.color;
+                            } else {
+                                // Fallback если справочник не загружен
+                                const statusIcon = getStatusIcon('confirmed');
+                                const statusColor = getStatusColor('confirmed');
+                                statusElement.textContent = `${statusIcon} CONFIRMED`;
+                                statusElement.style.background = statusColor;
+                            }
+                            statusElement.className = 'order-status confirmed';
+                        }
+                        
+                        // Обновляем кнопки действий для confirmed статуса
+                        const actionsContainer = orderCard.querySelector('.order-actions');
+                        if (actionsContainer) {
+                            actionsContainer.innerHTML = `
+                                <button class="btn btn-primary" onclick="window.viewOrderDetails(${orderId})">
+                                    <i class="fas fa-eye"></i> Подробности
+                                </button>
+                                <button class="btn btn-success" disabled onclick="window.updateOrderStatus(${orderId})">
+                                    <i class="fas fa-check"></i> Отметить как оплаченный
+                                </button>
+                                <button class="btn btn-warning" onclick="window.addMoreItems(${orderId})">
+                                    <i class="fas fa-plus"></i> Добавить
+                                </button>
+                                <button class="btn btn-danger" onclick="window.cancelOrder(${orderId})">
+                                    <i class="fas fa-times"></i> Отменить заказ
+                                </button>
+                            `;
+                        }
+                    }
+                }
+                
+                console.log('🔍 Обновляем список заказов');
+                // Обновляем список заказов
+                loadOrders();
+            } else {
+                waiterNotifications.showError(data.message || 'Ошибка печати');
+            }
+        })
+        .catch(error => {
+            console.error('Error printing receipts:', error);
+            waiterNotifications.showError('Ошибка соединения с сервером');
+        })
+        .finally(() => {
+            // Восстанавливаем кнопку
+            printButton.innerHTML = originalText;
+            printButton.disabled = false;
+        });
+    }
+
+    // Функция печати финального чека
+    function printFinalReceipt() {
+        const modal = document.getElementById('orderDetailModal');
+        const orderId = modal.dataset.orderId;
+        
+        if (!orderId) {
+            waiterNotifications.showError('ID заказа не найден');
+            return;
+        }
+        
+        // Показываем индикатор загрузки
+        const printButton = document.getElementById('printFinalReceipt');
+        const originalText = printButton.textContent;
+        printButton.textContent = 'Печать...';
+        printButton.disabled = true;
+        
+        fetch(`/waiter/api/orders/${orderId}/print-final`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                waiterNotifications.showSuccess('Финальный чек напечатан!');
+                
+                // Обновляем статус заказа в модальном окне
+                const statusBadge = document.querySelector('.status-badge');
+                if (statusBadge) {
+                    statusBadge.textContent = 'completed';
+                    statusBadge.className = 'status-badge completed';
+                }
+                
+                // Скрываем кнопку печати
+                printButton.style.display = 'none';
+                
+                // Закрываем модалку и обновляем список заказов
+                setTimeout(() => {
+                    closeAllModals();
+                    loadOrders(); // Обновляем список заказов
+                }, 1500); // Даем время показать уведомление
+            } else {
+                waiterNotifications.showError(data.message || 'Ошибка печати финального чека');
+            }
+        })
+        .catch(error => {
+            console.error('Error printing final receipt:', error);
+            waiterNotifications.showError('Ошибка соединения с сервером');
+        })
+        .finally(() => {
+            // Восстанавливаем кнопку
+            printButton.textContent = originalText;
+            printButton.disabled = false;
+        });
+    }
+
+    // Функция отображения статуса печати
+    function showPrintStatus(printData) {
+        const modal = document.getElementById('printStatusModal');
+        const content = document.getElementById('printStatusContent');
+        
+        let statusHtml = '<div class="print-status">';
+        
+        if (printData.kitchen_printed) {
+            statusHtml += '<div class="status-item success">✅ Кухонный чек напечатан</div>';
+        } else {
+            statusHtml += '<div class="status-item error">❌ Ошибка печати кухонного чека</div>';
+        }
+        
+        if (printData.bar_printed) {
+            statusHtml += '<div class="status-item success">✅ Барный чек напечатан</div>';
+        } else {
+            statusHtml += '<div class="status-item error">❌ Ошибка печати барного чека</div>';
+        }
+        
+        statusHtml += `<div class="status-summary">
+            <p>Кухонных позиций: ${printData.kitchen_items_count}</p>
+            <p>Барных позиций: ${printData.bar_items_count}</p>
+        </div>`;
+        
+        statusHtml += '</div>';
+        content.innerHTML = statusHtml;
+        
+        modal.style.display = 'block';
+    }
+    
+    // Добавляем обработчики для закрытия модалки
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log(' DOMContentLoaded - начало инициализации обработчиков модалки');
+        
+        // Регистрируем обработчики при загрузке страницы
+        registerEventHandlers();
+        
+        console.log(' DOMContentLoaded - инициализация завершена');
+    });
+
+    // Экспортируем функции в глобальную область
+    window.updateOrderStatus = updateOrderStatus;
+    window.viewOrderDetails = viewOrderDetails;
+    window.closeOrderModal = closeOrderModal;
+    window.closeAddItemsModal = closeAddItemsModal;
+    window.printOrderReceipts = printOrderReceipts;
+    window.printOrderReceiptsFromCard = printOrderReceiptsFromCard;
+    window.printFinalReceipt = printFinalReceipt;
+    window.applyBonusCard = applyBonusCard;
+    window.cancelOrder = cancelOrder;
+    window.updateGuestCount = updateGuestCount;
+    window.updateItemComment = updateItemComment;
+    
+    // Обработчики событий
+    document.getElementById('refreshOrders').addEventListener('click', loadOrders);
+    document.getElementById('statusFilter').addEventListener('change', loadOrders);
+    
+    // Обработчики печати
+    document.getElementById('printOrderReceipts').addEventListener('click', printOrderReceipts);
+    document.getElementById('printFinalReceipt').addEventListener('click', printFinalReceipt);
+    document.getElementById('applyBonusCard').addEventListener('click', applyBonusCard);
+    
+    // Обработчики закрытия модальных окон
+    document.querySelectorAll('[data-dismiss="modal"]').forEach(button => {
+        button.addEventListener('click', function() {
+            // Определяем, какая модалка закрывается
+            if (this.closest('#orderDetailModal')) {
+                closeAllModals();
+            } else if (this.closest('#addItemsModal')) {
+                closeAddItemsModal();
+            } else {
+                // Универсальное закрытие для других модалок
+            const modal = this.closest('.modal');
+            if (modal) {
+                modal.classList.remove('visible');
+                modal.classList.add('hidden');
+                }
+            }
+        });
+    });
+    
+    // Закрытие модальных окон при клику вне их
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                const orderId = this.dataset.orderId;
+                
+                if (this.id === 'orderDetailModal') {
+                    console.log('🔍 Модалка "Детали заказа" для заказа #' + (orderId || 'неизвестно') + ' ЗАКРЫТА (клик вне модалки)');
+                    closeAllModals();
+                } else if (this.id === 'addItemsModal') {
+                    console.log('🔍 Модалка "Добавить позиции" для заказа #' + (orderId || 'неизвестно') + ' ЗАКРЫТА (клик вне модалки)');
+                    closeAddItemsModal();
+                } else {
+                    // Универсальное закрытие для других модалок
+                this.classList.remove('visible');
+                this.classList.add('hidden');
+                }
+            }
+        });
+    });
+    
+             // Начальная загрузка
+    loadOrders();
+    
+    // Функция обновления карточки заказа в списке
+    function updateOrderCardInList(orderId, updatedOrder) {
+        const orderCard = document.querySelector(`[data-order-id="${orderId}"]`);
+        if (!orderCard) {
+            console.warn(`Order card with ID ${orderId} not found in list`);
+            return;
+        }
+        
+        // Обновляем итоговую сумму в карточке
+        const totalAmountElement = orderCard.querySelector('.total-amount');
+        if (totalAmountElement) {
+            const newTotal = (parseFloat(updatedOrder.subtotal) + parseFloat(updatedOrder.service_charge) - parseFloat(updatedOrder.discount_amount || 0)).toFixed(2);
+            totalAmountElement.textContent = `${newTotal} TMT`;
+        }
+        
+    }
+    
+    // Функция создания пагинации
+function createPaginationControls(pagination) {
+    if (pagination.pages <= 1) return '';
+    
+    let paginationHtml = '<div class="pagination-controls">';
+    
+    if (pagination.has_prev) {
+        paginationHtml += `<button class="btn btn-secondary" onclick="loadOrders(${pagination.prev_num})">← Предыдущая</button>`;
+    }
+    
+    for (let i = 1; i <= pagination.pages; i++) {
+        if (i === pagination.page) {
+            paginationHtml += `<span class="current-page">${i}</span>`;
+        } else {
+            paginationHtml += `<button class="btn btn-outline-secondary" onclick="loadOrders(${i})">${i}</button>`;
+        }
+    }
+    
+    if (pagination.has_next) {
+        paginationHtml += `<button class="btn btn-secondary" onclick="loadOrders(${pagination.next_num})">Следующая →</button>`;
+    }
+    
+    paginationHtml += '</div>';
+    return paginationHtml;
+}
+
+    // ========= ОБРАБОТЧИКИ ЗАКРЫТИЯ МОДАЛЬНЫХ ОКОН =========
+    
+    // Кнопки закрытия
+    document.querySelectorAll('[data-dismiss="modal"]').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            closeAllModals();
+        });
+    });
+    
+    // Клик по backdrop
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeAllModals();
+            }
+        });
+    });
+    
+    // Закрытие по ESC
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            if (modalState.orderDetailOpen || modalState.addItemsOpen) {
+                closeAllModals();
+            }
+        }
+    });
+
+    // Экспортируем функции в глобальную область
+    window.updateOrderStatus = updateOrderStatus;
+    window.viewOrderDetails = viewOrderDetails;
+    window.printOrderReceipts = printOrderReceipts;
+    window.printFinalReceipt = printFinalReceipt;
+    window.applyBonusCard = applyBonusCard;
+    window.cancelOrder = cancelOrder;
+    window.updateGuestCount = updateGuestCount;
+    window.updateItemComment = updateItemComment;
+    window.loadOrders = loadOrders;
+
+    // Обработчики основных кнопок
+    document.getElementById('refreshOrders').addEventListener('click', () => loadOrders());
+    document.getElementById('statusFilter').addEventListener('change', () => loadOrders());
+    document.getElementById('printOrderReceipts').addEventListener('click', printOrderReceipts);
+    document.getElementById('printFinalReceipt').addEventListener('click', printFinalReceipt);
+    document.getElementById('applyBonusCard').addEventListener('click', applyBonusCard);
+    
+    // Начальная загрузка
+    setTimeout(() => {
+        loadOrders();
+    }, 100);
+    
+});
+</script>
+{% endblock %}

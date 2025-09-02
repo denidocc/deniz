@@ -1,0 +1,315 @@
+/* Touch-карусель промо-блюд */
+
+.carousel-container {
+  position: relative;
+  width: 100%;
+}
+
+.promo-carousel {
+  position: relative;
+  width: 100%;
+  height: 300px;
+  background: var(--gradient);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-medium);
+  cursor: grab;
+  user-select: none;
+}
+
+.promo-carousel:active {
+  cursor: grabbing;
+}
+
+.carousel-track {
+  display: flex;
+  width: 500%; /* Для 5 слайдов максимум */
+  height: 100%;
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: transform;
+}
+
+.carousel-track.dragging {
+  transition: none;
+}
+
+.carousel-slide {
+  width: 20%; /* 100% / 5 слайдов */
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gradient);
+  flex-shrink: 0;
+  pointer-events: none; /* Предотвращаем клики по содержимому во время перетаскивания */
+}
+
+.carousel-slide.active {
+  pointer-events: auto;
+}
+
+.slide-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 90%;
+  height: 80%;
+  padding: var(--gap-large);
+  position: relative;
+}
+
+.slide-text {
+  flex: 1;
+  color: var(--dark-text);
+  z-index: 2;
+}
+
+.slide-title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--gap-medium);
+  color: var(--deep-blue);
+}
+
+.slide-description {
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-relaxed);
+  margin-bottom: var(--gap-medium);
+  color: var(--dark-text);
+}
+
+.slide-price {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--deep-blue);
+}
+
+.slide-image {
+  flex: 0 0 200px;
+  height: 200px;
+  position: relative;
+  z-index: 2;
+}
+
+.slide-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-medium);
+}
+
+/* Паттерн штурвала в слайдах */
+.slide-pattern {
+  position: absolute;
+  top: -20px;
+  right: -20px;
+  width: 150px;
+  height: 150px;
+  background-image: url('/static/assets/images/rudder.svg');
+  background-size: contain;
+  background-repeat: no-repeat;
+  opacity: 0.1;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Точки навигации (вынесены за пределы карусели) */
+.carousel-dots {
+  display: flex;
+  justify-content: center;
+  gap: var(--gap-small);
+  margin-top: var(--gap-medium);
+  padding: 0 var(--gap-medium);
+}
+
+.carousel-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(0, 119, 182, 0.3);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  border: 1px solid var(--deep-blue);
+  position: relative;
+}
+
+.carousel-dot.active {
+  background: var(--deep-blue);
+  transform: scale(1.2);
+}
+
+.carousel-dot:hover {
+  background: var(--plus-btn);
+  transform: scale(1.1);
+}
+
+/* Прогресс-бар удален - мешает пользователю */
+
+/* Индикатор перетаскивания */
+.carousel-track::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 4;
+}
+
+.carousel-track.dragging::before {
+  opacity: 1;
+}
+
+/* Touch feedback */
+.promo-carousel::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.05);
+  opacity: 0;
+  transition: opacity 0.1s;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.promo-carousel:active::after {
+  opacity: 1;
+}
+
+/* Анимации */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.carousel-slide.slide-in {
+  animation: slideIn 0.4s ease-out;
+}
+
+/* Адаптивность */
+@media (max-width: 1200px) {
+  .promo-carousel {
+    height: 250px;
+  }
+  
+  .slide-content {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .slide-image {
+    flex: 0 0 120px;
+    height: 120px;
+    margin-top: var(--gap-medium);
+  }
+  
+  .slide-title {
+    font-size: var(--font-size-xl);
+  }
+  
+  .slide-description {
+    font-size: var(--font-size-base);
+  }
+}
+
+@media (max-width: 768px) {
+  .promo-carousel {
+    height: 200px;
+  }
+  
+  .slide-title {
+    font-size: var(--font-size-lg);
+  }
+  
+  .slide-description {
+    font-size: var(--font-size-sm);
+    display: none; /* Скрываем описание на малых экранах */
+  }
+  
+  .slide-image {
+    flex: 0 0 80px;
+    height: 80px;
+  }
+  
+  .carousel-dot {
+    width: 10px;
+    height: 10px;
+  }
+}
+
+/* Состояние загрузки */
+.carousel-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 300px;
+  background: var(--light-gray);
+  color: var(--gray-text);
+  font-size: var(--font-size-lg);
+  border-radius: var(--border-radius);
+}
+
+.carousel-loading::after {
+  content: '';
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--light-gray);
+  border-top: 3px solid var(--deep-blue);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-left: var(--gap-medium);
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Отсутствие слайдов */
+.carousel-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  background: var(--light-gray);
+  color: var(--gray-text);
+  font-size: var(--font-size-base);
+  border-radius: var(--border-radius);
+  border: 2px dashed var(--gray-text);
+}
+
+/* Темная тема */
+[data-theme="dark"] .promo-carousel {
+  background: linear-gradient(to bottom, #2a4a5a, #1a3a4a);
+}
+
+[data-theme="dark"] .slide-title,
+[data-theme="dark"] .slide-description,
+[data-theme="dark"] .slide-price {
+  color: var(--white);
+}
+
+[data-theme="dark"] .carousel-dot {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: var(--plus-btn);
+}
+
+[data-theme="dark"] .carousel-dot.active {
+  background: var(--plus-btn);
+}

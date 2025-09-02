@@ -1,0 +1,146 @@
+:root {
+  /* Основные цвета */
+  --background: #E1EBEE; /* Основной фон */
+  --ocean-green: #7FB069; /* Морская пена */
+  --deep-blue: #0077B6; /* Индиго */
+  --light-gray: #F8F9FA; /* Светлый фон */
+  --white: #FFFFFF; /* Белый */
+  --light-blue: #E8F1F4; /* Светло-синий */
+
+  /* Кнопки */
+  --plus-btn: #00B4D8; /* Кнопка добавления */
+  --minus-btn: #F93C65; /* Кнопка удаления/очистки */
+  --primary-btn: #0077B6; /* Основные кнопки */
+  --secondary-btn: #00B4D8; /* Вторичные кнопки */
+
+  /* Текст */
+  --dark-blue: #00263A; /* Темно-синий */
+  --dark-text: #212121; /* Темный текст */
+  --gray-text: #6A6A6A; /* Серый текст для счетчиков */
+  --gray-text-light: #999999; /* Серый текст для счетчиков */
+  --white-text: #FFFFFF; /* Белый текст */
+
+  /* Градиенты */
+  --gradient: linear-gradient(to bottom, #ECF2F5, #D2E3E9); /* Сверху вниз */
+
+  /* Статусы */
+  --accent-orange: #FF6B35; /* Акцент для кнопок */
+  --success-green: #28A745; /* Успех */
+  --warning-yellow: #FFC107; /* Предупреждение */
+  --danger-red: #DC3545; /* Ошибка */
+
+  /* Бонусная карта */
+  --bonus-pink: #FF69B4; /* Розовый для бонусной карты */
+
+  /* Тени и границы */
+  --shadow-light: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-medium: 0 4px 16px rgba(0, 0, 0, 0.15);
+  --shadow-heavy: 0 8px 32px rgba(0, 0, 0, 0.2);
+  --border-radius: 12px;
+  --border-radius-small: 8px;
+  --border-radius-large: 20px;
+  --border-radius-big: 28px;
+
+  /* Размеры и отступы для планшетов */
+  --header-height: 80px;
+  --sidebar-width: 250px;
+  --cart-width: 380px;
+  --content-padding: 24px;
+  --gap-small: 12px;
+  --gap-medium: 16px;
+  --gap-large: 24px;
+  --gap-xl: 32px;
+
+  /* Кнопки - минимальные размеры для планшетов */
+  --btn-min-height: 48px;
+  --btn-min-width: 48px;
+  --btn-padding: 12px 24px;
+  --btn-font-size: 18px;
+
+  /* Карточки */
+  --card-border-radius: var(--border-radius);
+  --card-padding: 20px;
+  --card-shadow: var(--shadow-light);
+
+  /* Модальные окна */
+  --modal-border-radius: var(--border-radius-large);
+  --modal-padding: 32px;
+  --modal-shadow: var(--shadow-heavy);
+
+  /* Анимации */
+  --transition-fast: 0.2s ease;
+  --transition-medium: 0.3s ease;
+  --transition-slow: 0.5s ease;
+
+  /* Z-индексы */
+  --z-header: 100;
+  --z-sidebar: 50;
+  --z-cart: 50;
+  --z-modal-overlay: 1000;
+  --z-modal: 1010;
+  --z-tooltip: 1020;
+
+  /* Типографика для планшетов */
+  --font-family: 'Roboto', 'Arial', sans-serif;
+  --font-size-xs: 14px;
+  --font-size-sm: 16px;
+  --font-size-base: 18px;
+  --font-size-lg: 20px;
+  --font-size-xl: 24px;
+  --font-size-2xl: 28px;
+  --font-size-3xl: 32px;
+
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.8;
+
+  /* Специфические размеры для Redmi Tab SE 11" (1920x1200) */
+  --tablet-width: 1920px;
+  --tablet-height: 1200px;
+  --content-max-width: calc(var(--tablet-width) - var(--sidebar-width) - var(--cart-width));
+
+  /* Адаптивные точки останова */
+  --breakpoint-tablet-min: 1024px;
+  --breakpoint-tablet-max: 1920px;
+}
+
+/* Темная тема */
+[data-theme="dark"] {
+  --background: #1a1a1a;
+  --white: #2d2d2d;
+  --light-gray: #333333;
+  --dark-text: #ffffff;
+  --gray-text: #cccccc;
+  --gradient: linear-gradient(to bottom, #2a2a2a, #1f1f1f);
+  --shadow-light: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-medium: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-heavy: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* Переменные для анимаций карусели */
+:root {
+  --carousel-slide-duration: 5s; /* Настраивается в админке 1-10 сек */
+  --carousel-transition-speed: 0.5s; /* Настраивается в админке 1-10 сек */
+  --carousel-slides-count: 3; /* Настраивается в админке 1-10 */
+}
+
+/* Настройки времени отмены заказа */
+:root {
+  --order-cancel-timeout: 300; /* 5 минут в секундах, настраивается в админке */
+}
+
+/* Настройки PIN-кода стола */
+:root {
+  --table-pin-enabled: 1; /* 1 - включен, 0 - выключен */
+  --tables-count: 28; /* Количество столов, настраивается в админке */
+}
+
+/* Сервисный сбор */
+:root {
+  --service-charge-percent: 5; /* Процент сервисного сбора, настраивается в админке */
+}

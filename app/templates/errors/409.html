@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>409 - Конфликт данных | DENIZ Restaurant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/errors.css') }}">
+</head>
+<body>
+    <div class="wave"></div>
+    <div class="container">
+        <h1 class="error-code">409</h1>
+        <h2 class="error-title">Конфликт данных</h2>
+        <p class="error-message">
+            Запись с такими данными уже существует.<br>
+            Пожалуйста, проверьте введенную информацию.
+        </p>
+        
+        <div class="buttons">
+            <a href="{{ url_for('main.index') }}" class="btn btn-primary">На главную</a>
+            <a href="javascript:history.back()" class="btn btn-secondary">Назад</a>
+        </div>
+    </div>
+</body>
+</html> 

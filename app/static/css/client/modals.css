@@ -1,0 +1,657 @@
+/* Модальные окна для клиентского интерфейса */
+
+/* Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: var(--z-modal-overlay);
+  opacity: 0;
+  visibility: hidden;
+  transition: all var(--transition-medium);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.modal-overlay.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Базовый модальный контейнер */
+.modal {
+  background: var(--white);
+  border-radius: var(--modal-border-radius);
+  box-shadow: var(--modal-shadow);
+  padding: var(--modal-padding);
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  transform: scale(0.9) translateY(20px);
+  transition: transform var(--transition-medium);
+  z-index: var(--z-modal);
+}
+
+.modal-overlay.show .modal {
+  transform: scale(1) translateY(0);
+}
+
+/* Заголовок модального окна */
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--gap-large);
+  padding-bottom: var(--gap-medium);
+  border-bottom: 1px solid var(--light-gray);
+}
+
+.modal-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-medium);
+  color: var(--dark-text);
+  margin: 0;
+}
+
+.modal-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  cursor: pointer;
+  border-radius: 50%;
+  display: flex;
+  background: var(--minus-btn);
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-fast);
+  color: var(--white);
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+}
+
+.modal-close:hover {
+  background: #d32f2f;
+  transform: scale(1.1);
+}
+
+.modal-close svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+/* Специальные стили для PIN модального окна */
+.pin-modal .modal-close {
+  width: 24px;
+  height: 24px;
+  top: 10px;
+  right: 10px;
+  color: var(--white);
+}
+
+.pin-modal .modal-close svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Контент модального окна */
+.modal-content {
+  margin-bottom: var(--gap-large);
+}
+
+/* Футер модального окна */
+.modal-footer {
+  display: flex;
+  gap: var(--gap-medium);
+  justify-content: flex-end;
+  padding-top: var(--gap-medium);
+  border-top: 1px solid var(--light-gray);
+}
+
+/* PIN-код модальное окно */
+.pin-modal {
+  width: 400px;
+  text-align: center;
+  background: var(--gradient);
+}
+
+.pin-display {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--dark-text);
+  margin: var(--gap-large) 0;
+  letter-spacing: 8px;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.pin-delete {
+  position: absolute;
+  right: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--minus-btn);
+  color: var(--white);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  transition: var(--transition-fast);
+}
+
+.pin-delete:hover {
+  background: #e91e63;
+  transform: translateY(-50%) scale(1.1);
+}
+
+.pin-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--gap-medium);
+  margin: var(--gap-large) 0;
+}
+
+.pin-key {
+  width: 80px;
+  height: 80px;
+  border: 1px solid var(--deep-blue);
+  background: var(--gradient);
+  color: var(--deep-blue);
+  border-radius: var(--border-radius-big);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pin-key:hover {
+  background: var(--gradient);
+  transform: scale(1.05);
+}
+
+.pin-key:active {
+  transform: scale(0.95);
+}
+
+/* Выбор стола */
+.table-modal {
+  width: 600px;
+  background: var(--gradient);
+}
+
+.tables-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+  gap: var(--gap-medium);
+  max-width: 500px;
+  margin: var(--gap-large) auto;
+}
+
+.table-option {
+  min-width: 60px;
+  height: 60px;
+  border: 1px solid var(--deep-blue);
+  background: var(--gradient);
+  color: var(--deep-blue);
+  border-radius: var(--border-radius-large);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+}
+
+.table-option:hover {
+  background: var(--light-gray);
+  transform: scale(1.05);
+}
+
+.table-option.selected {
+  background: var(--deep-blue);
+  color: var(--white);
+}
+
+.table-option.occupied {
+  background: var(--gray-text-light);
+  color: var(--white);
+  cursor: not-allowed;
+  border-color: var(--gray-text-light);
+}
+
+.table-option.occupied:hover {
+  transform: none;
+}
+
+/* Бонусная карта */
+.bonus-modal {
+  width: 400px;
+  text-align: center;
+  background: var(--gradient);
+}
+
+.card-number-display {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--dark-text);
+  margin: var(--gap-large) 0;
+  letter-spacing: 4px;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.card-delete {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--minus-btn);
+  color: var(--white);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  transition: var(--transition-fast);
+}
+
+.card-delete:hover {
+  background: #e91e63;
+  transform: translateY(-50%) scale(1.1);
+}
+
+/* Подтверждение заказа */
+.order-confirmation-modal {
+  width: 500px;
+  text-align: center;
+}
+
+.order-success-icon {
+  font-size: 64px;
+  color: var(--success-green);
+  margin-bottom: var(--gap-large);
+}
+
+.order-message {
+  font-size: var(--font-size-lg);
+  color: var(--dark-text);
+  margin-bottom: var(--gap-medium);
+}
+
+.order-submessage {
+  font-size: var(--font-size-base);
+  color: var(--gray-text);
+  margin-bottom: var(--gap-large);
+}
+
+.countdown-timer {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--deep-blue);
+  margin: var(--gap-large) 0;
+  font-family: 'Courier New', monospace;
+}
+
+.countdown-timer.warning {
+  color: var(--warning-yellow);
+}
+
+.countdown-timer.danger {
+  color: var(--danger-red);
+}
+
+.order-actions {
+  display: flex;
+  gap: var(--gap-medium);
+  justify-content: center;
+  margin-top: var(--gap-large);
+}
+
+/* Подтверждение действия */
+.confirm-modal {
+  width: 400px;
+  text-align: center;
+  z-index: 9999;
+}
+
+.confirm-modal .modal-overlay {
+  z-index: 9998;
+}
+
+.confirm-overlay {
+  z-index: 9998 !important;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.confirm-modal {
+  z-index: 9999 !important;
+}
+
+.confirm-icon {
+  font-size: 48px;
+  color: var(--warning-yellow);
+  margin-bottom: var(--gap-large);
+}
+
+.confirm-message {
+  font-size: var(--font-size-lg);
+  color: var(--dark-text);
+  margin-bottom: var(--gap-medium);
+}
+
+.confirm-submessage {
+  font-size: var(--font-size-base);
+  color: var(--gray-text);
+  margin-bottom: var(--gap-large);
+}
+
+/* Адаптивность для планшетов */
+@media (max-width: 768px) {
+  .modal {
+    margin: var(--gap-medium);
+    padding: var(--gap-large);
+  }
+  
+  .pin-modal,
+  .bonus-modal {
+    width: 100%;
+    max-width: 350px;
+  }
+  
+  .table-modal {
+    width: 100%;
+    max-width: 500px;
+  }
+  
+  .tables-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+  
+  .table-option {
+    width: 50px;
+    height: 50px;
+    font-size: var(--font-size-sm);
+  }
+  
+  .pin-key {
+    width: 70px;
+    height: 70px;
+    font-size: var(--font-size-lg);
+  }
+}
+
+/* Portrait ориентация */
+@media (orientation: portrait) {
+  .modal-overlay {
+    padding: var(--gap-medium);
+  }
+  
+  .tables-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .pin-keypad {
+    gap: var(--gap-small);
+  }
+  
+  .pin-key {
+    width: 60px;
+    height: 60px;
+  }
+}
+
+/* Анимации */
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8) translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes modalSlideOut {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.8) translateY(40px);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.modal-animate-in {
+  animation: modalSlideIn var(--transition-medium) ease forwards;
+}
+
+.modal-animate-out {
+  animation: modalSlideOut var(--transition-medium) ease forwards;
+}
+
+.pulse {
+  animation: pulse 1s infinite;
+}
+
+/* Темная тема */
+[data-theme="dark"] .modal {
+  background: var(--dark-blue);
+  color: var(--white);
+}
+
+[data-theme="dark"] .modal-title {
+  color: var(--white);
+}
+
+[data-theme="dark"] .pin-key,
+[data-theme="dark"] .table-option {
+  background: var(--dark-blue);
+  color: var(--white);
+  border-color: var(--deep-blue);
+}
+
+[data-theme="dark"] .pin-key:hover,
+[data-theme="dark"] .table-option:hover {
+  background: var(--deep-blue);
+}
+
+/* Стили для информационной модалки */
+.info-modal {
+  max-width: 500px;
+}
+
+.info-icon {
+  font-size: 48px;
+  text-align: center;
+  margin-bottom: var(--gap-medium);
+}
+
+.info-message {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+  color: var(--dark-text);
+  text-align: center;
+  margin-bottom: var(--gap-medium);
+}
+
+.info-details {
+  background: var(--light-gray);
+  padding: var(--gap-medium);
+  border-radius: var(--border-radius);
+  margin-bottom: var(--gap-medium);
+}
+
+.info-details p {
+  margin: 0;
+  color: var(--medium-text);
+  line-height: 1.5;
+}
+
+/* Стили для модала бонусной карты */
+.bonus-card-modal .modal-header {
+    border-bottom: 3px solid;
+}
+
+.bonus-card-modal .modal-header.success {
+    border-color: #28a745;
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+}
+
+.bonus-card-modal .modal-header.error {
+    border-color: #dc3545;
+    background: linear-gradient(135deg, #dc3545, #fd7e14);
+    color: white;
+}
+
+.card-info {
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.card-number {
+    font-size: 1.2rem;
+    font-weight: bold;
+    text-align: center;
+    padding: 0.5rem;
+    background: white;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    border: 2px solid #dee2e6;
+}
+
+.card-details {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    background: white;
+    border-radius: 4px;
+}
+
+.detail-row .label {
+    font-weight: 500;
+    color: #6c757d;
+}
+
+.detail-row .value {
+    font-weight: bold;
+}
+
+.detail-row .value.discount {
+    color: #28a745;
+    font-size: 1.1rem;
+}
+
+.detail-row .value.status.active {
+    color: #28a745;
+}
+
+.detail-row .value.status.inactive {
+    color: #dc3545;
+}
+
+.reason-box {
+    padding: 1rem;
+    border-radius: 6px;
+    margin: 1rem 0;
+    border-left: 4px solid;
+}
+
+.reason-box.success {
+    background: #d4edda;
+    border-color: #28a745;
+    color: #155724;
+}
+
+.reason-box.error {
+    background: #f8d7da;
+    border-color: #dc3545;
+    color: #721c24;
+}
+
+.card-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 1.5rem;
+}
+
+.bonus-card-input-modal .input-group {
+    margin-bottom: 1.5rem;
+}
+
+.bonus-card-input-modal label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.bonus-card-input-modal .form-control {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
+    font-size: 1.1rem;
+    text-align: center;
+    letter-spacing: 2px;
+}
+
+.bonus-card-input-modal .form-control:focus {
+    border-color: #007bff;
+    outline: none;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.bonus-card-input-modal .input-help {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: #6c757d;
+    text-align: center;
+}

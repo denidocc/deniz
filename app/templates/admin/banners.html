@@ -1,0 +1,633 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Управление баннерами{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="bi bi-images"></i> Управление баннерами
+        </h1>
+        <button class="btn btn-primary" onclick="openAddBannerModal()">
+            <i class="bi bi-plus"></i> Добавить баннер
+        </button>
+    </div>
+
+    <!-- Статистика баннеров -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Всего баннеров
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalBanners">0</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-images fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Активные баннеры
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="activeBanners">0</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Баннеры с истекающей датой
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="expiringBanners">0</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-exclamation-triangle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Общий размер
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalSize">0 MB</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-hdd fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Список баннеров -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Список баннеров</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="bannersTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Изображение</th>
+                            <th>Название</th>
+                            <th>Описание</th>
+                            <th>Статус</th>
+                            <th>Порядок</th>
+                            <th>Даты</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bannersTableBody">
+                        <!-- Баннеры будут загружены динамически -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно добавления/редактирования баннера -->
+<div class="modal fade" id="bannerModal" tabindex="-1" role="dialog" aria-labelledby="bannerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bannerModalLabel">Добавить баннер</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="closeBannerModal()">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form id="bannerForm" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="bannerTitle">Название *</label>
+                                <input type="text" class="form-control" id="bannerTitle" name="title" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="bannerDescription">Описание</label>
+                                <textarea class="form-control" id="bannerDescription" name="description" rows="3"></textarea>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="bannerLinkUrl">Ссылка</label>
+                                <input type="url" class="form-control" id="bannerLinkUrl" name="link_url" placeholder="https://...">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="bannerLinkText">Текст ссылки</label>
+                                <input type="text" class="form-control" id="bannerLinkText" name="link_text" placeholder="Нажмите здесь">
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="bannerImage">Изображение *</label>
+                                <div class="custom-file">
+                                    <input type="file" class="custom-file-input" id="bannerImage" name="image" accept="image/*" required>
+                                    <label class="custom-file-label" for="bannerImage">Выберите файл</label>
+                                </div>
+                                <small class="form-text text-muted">
+                                    Поддерживаемые форматы: JPG, PNG, GIF, WebP. Максимальный размер: 5MB.
+                                </small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Предварительный просмотр</label>
+                                <div class="image-preview-container">
+                                    <img id="imagePreview" src="" alt="Предварительный просмотр" class="img-fluid rounded" style="max-height: 200px; display: none;">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="bannerStartDate">Дата начала показа</label>
+                                <input type="datetime-local" class="form-control" id="bannerStartDate" name="start_date">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="bannerEndDate">Дата окончания показа</label>
+                                <input type="datetime-local" class="form-control" id="bannerEndDate" name="end_date">
+                            </div>
+                            
+                            <div class="form-group">
+                                <input type="hidden" name="is_active" value="false">
+                                <div class="custom-control custom-switch">
+                                    <input type="checkbox" class="custom-control-input" id="bannerIsActive" onchange="updateHiddenField(this)">
+                                    <label class="custom-control-label" for="bannerIsActive">Активный</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeBannerModal()">Отмена</button>
+                    <button type="submit" class="btn btn-primary" id="bannerSubmitBtn">
+                        <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                        Сохранить
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно подтверждения удаления -->
+<div class="modal fade" id="deleteBannerModal" tabindex="-1" role="dialog" aria-labelledby="deleteBannerModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteBannerModalLabel">Подтверждение удаления</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="closeDeleteBannerModal()">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Вы уверены, что хотите удалить баннер "<span id="deleteBannerTitle"></span>"?</p>
+                <p class="text-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Это действие нельзя отменить. Изображение также будет удалено с сервера.
+                </p>
+            </div>
+                            <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeDeleteBannerModal()">Отмена</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteBanner">Удалить</button>
+                </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let banners = [];
+let editingBannerId = null;
+
+// Инициализация при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    loadBanners();
+    setupEventListeners();
+});
+
+function setupEventListeners() {
+    // Предварительный просмотр изображения
+    document.getElementById('bannerImage').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const preview = document.getElementById('imagePreview');
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+    
+    // Обработка формы
+    document.getElementById('bannerForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (editingBannerId) {
+            updateBanner(editingBannerId);
+        } else {
+            createBanner();
+        }
+    });
+}
+
+async function loadBanners() {
+    try {
+        console.log('🎠 Loading banners...');
+        showLoading();
+        const response = await apiRequest('/admin/api/banners');
+        
+        console.log('🎠 API response:', response);
+        
+        if (response.status === 'success') {
+            banners = response.data;
+            console.log('🎠 Banners loaded:', banners);
+            renderBannersTable();
+            updateStatistics();
+        } else {
+            console.error('🎠 API error:', response.message);
+            showAlert('Ошибка загрузки баннеров: ' + response.message, 'error');
+        }
+    } catch (error) {
+        console.error('🎠 Load error:', error);
+        showAlert('Ошибка загрузки баннеров: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+function renderBannersTable() {
+    const tbody = document.getElementById('bannersTableBody');
+    tbody.innerHTML = '';
+    
+    if (banners.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center text-muted py-4">
+                    <i class="bi bi-images fa-3x mb-3"></i>
+                    <p>Баннеры не найдены</p>
+                    <button class="btn btn-primary" onclick="openAddBannerModal()">
+                        <i class="bi bi-plus"></i> Добавить первый баннер
+                    </button>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    banners.forEach(banner => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${banner.id}</td>
+            <td>
+                <div class="banner-image-container">
+                    <img src="/static/assets/${banner.image_path}" alt="${banner.title}" 
+                         class="img-thumbnail" style="max-width: 80px; max-height: 60px;">
+                </div>
+            </td>
+            <td>
+                <strong>${banner.title}</strong>
+            </td>
+            <td>
+                ${banner.description || '<span class="text-muted">-</span>'}
+            </td>
+            <td>
+                <span class="badge badge-${banner.is_active ? 'success' : 'secondary'}">
+                    ${banner.is_active ? 'Активный' : 'Неактивный'}
+                </span>
+            </td>
+            <td>
+                <span class="badge badge-info">${banner.sort_order}</span>
+            </td>
+            <td>
+                ${formatBannerDates(banner)}
+            </td>
+            <td>
+                <div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn btn-outline-primary" onclick="editBanner(${banner.id})" title="Редактировать">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-${banner.is_active ? 'warning' : 'success'}" 
+                            onclick="toggleBannerStatus(${banner.id})" title="${banner.is_active ? 'Деактивировать' : 'Активировать'}">
+                        <i class="bi bi-${banner.is_active ? 'pause' : 'play'}"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-danger" onclick="deleteBanner(${banner.id})" title="Удалить">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function formatBannerDates(banner) {
+    let dates = '';
+    
+    if (banner.start_date) {
+        dates += `<div><small class="text-success">Начало: ${new Date(banner.start_date).toLocaleDateString()}</small></div>`;
+    }
+    
+    if (banner.end_date) {
+        dates += `<div><small class="text-warning">Конец: ${new Date(banner.end_date).toLocaleDateString()}</small></div>`;
+    }
+    
+    if (!banner.start_date && !banner.end_date) {
+        dates = '<small class="text-muted">Без ограничений</small>';
+    }
+    
+    return dates;
+}
+
+function updateStatistics() {
+    const total = banners.length;
+    const active = banners.filter(b => b.is_active).length;
+    const expiring = banners.filter(b => {
+        if (!b.end_date) return false;
+        const endDate = new Date(b.end_date);
+        const now = new Date();
+        const diffDays = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
+        return diffDays <= 7 && diffDays > 0;
+    }).length;
+    
+    document.getElementById('totalBanners').textContent = total;
+    document.getElementById('activeBanners').textContent = active;
+    document.getElementById('expiringBanners').textContent = expiring;
+}
+
+function openAddBannerModal() {
+    editingBannerId = null;
+    document.getElementById('bannerModalLabel').textContent = 'Добавить баннер';
+    document.getElementById('bannerForm').reset();
+    document.getElementById('imagePreview').style.display = 'none';
+    document.getElementById('bannerSubmitBtn').innerHTML = '<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>Создать';
+    
+    // Устанавливаем чекбокс как активный по умолчанию
+    document.getElementById('bannerIsActive').checked = true;
+    updateHiddenField(document.getElementById('bannerIsActive'));
+    
+    // Используем jQuery для модальных окон
+    $('#bannerModal').modal('show');
+}
+
+async function createBanner() {
+    try {
+        const formData = new FormData(document.getElementById('bannerForm'));
+        
+        // Отладочная информация
+        console.log('🎠 Form data contents:');
+        for (let [key, value] of formData.entries()) {
+            console.log(`🎠 ${key}:`, value);
+        }
+        
+        // Проверяем CSRF токен
+        const csrfToken = document.querySelector('meta[name=csrf-token]')?.getAttribute('content');
+        console.log('🎠 CSRF token:', csrfToken);
+        
+        // Показываем спиннер
+        const submitBtn = document.getElementById('bannerSubmitBtn');
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>Создание...';
+        submitBtn.disabled = true;
+        
+        const response = await apiRequest('/admin/api/banners', 'POST', formData);
+        
+        if (response.status === 'success') {
+            closeBannerModal();
+            loadBanners();
+        } else {
+            showAlert('Ошибка создания баннера: ' + response.message, 'error');
+        }
+    } catch (error) {
+        showAlert('Ошибка создания баннера: ' + error.message, 'error');
+    } finally {
+        // Восстанавливаем кнопку
+        const submitBtn = document.getElementById('bannerSubmitBtn');
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>Создать';
+        submitBtn.disabled = false;
+    }
+}
+
+async function editBanner(bannerId) {
+    try {
+        const response = await apiRequest(`/admin/api/banners/${bannerId}`);
+        
+        if (response.status === 'success') {
+            const banner = response.data;
+            editingBannerId = bannerId;
+            
+            // Заполняем форму
+            document.getElementById('bannerModalLabel').textContent = 'Редактировать баннер';
+            document.getElementById('bannerSubmitBtn').innerHTML = '<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>Сохранить';
+            document.getElementById('bannerTitle').value = banner.title;
+            document.getElementById('bannerDescription').value = banner.description || '';
+            document.getElementById('bannerLinkUrl').value = banner.link_url || '';
+            document.getElementById('bannerLinkText').value = banner.link_text || '';
+            document.getElementById('bannerIsActive').checked = banner.is_active;
+            updateHiddenField(document.getElementById('bannerIsActive'));
+            
+            if (banner.start_date) {
+                document.getElementById('bannerStartDate').value = banner.start_date.slice(0, 16);
+            }
+            if (banner.end_date) {
+                document.getElementById('bannerEndDate').value = banner.end_date.slice(0, 16);
+            }
+            
+            // Показываем текущее изображение
+            if (banner.image_path) {
+                document.getElementById('imagePreview').src = `/static/assets/${banner.image_path}`;
+                document.getElementById('imagePreview').style.display = 'block';
+            }
+            
+            // Делаем изображение необязательным при редактировании
+            document.getElementById('bannerImage').required = false;
+            
+            $('#bannerModal').modal('show');
+        } else {
+            showAlert('Ошибка загрузки данных баннера: ' + response.message, 'error');
+        }
+    } catch (error) {
+        showAlert('Ошибка загрузки данных баннера: ' + error.message, 'error');
+    }
+}
+
+async function updateBanner(bannerId) {
+    try {
+        const formData = new FormData(document.getElementById('bannerForm'));
+        
+        // Показываем спиннер
+        const submitBtn = document.getElementById('bannerSubmitBtn');
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>Сохранение...';
+        submitBtn.disabled = true;
+        
+        const response = await apiRequest(`/admin/api/banners/${bannerId}`, 'PUT', formData);
+        
+        if (response.status === 'success') {
+            showAlert('Баннер успешно обновлен!', 'success');
+            closeBannerModal();
+            loadBanners();
+        } else {
+            showAlert('Ошибка обновления баннера: ' + response.message, 'error');
+        }
+    } catch (error) {
+        showAlert('Ошибка обновления баннера: ' + error.message, 'error');
+    } finally {
+        // Восстанавливаем кнопку
+        const submitBtn = document.getElementById('bannerSubmitBtn');
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>Сохранить';
+        submitBtn.disabled = false;
+    }
+}
+
+async function deleteBanner(bannerId) {
+    const banner = banners.find(b => b.id === bannerId);
+    if (!banner) return;
+    
+    document.getElementById('deleteBannerTitle').textContent = banner.title;
+    document.getElementById('confirmDeleteBanner').onclick = async () => {
+        try {
+            const response = await apiRequest(`/admin/api/banners/${bannerId}`, 'DELETE');
+            
+            if (response.status === 'success') {
+                closeDeleteBannerModal();
+                loadBanners();
+            } else {
+                showAlert('Ошибка удаления баннера: ' + response.message, 'error');
+            }
+        } catch (error) {
+            showAlert('Ошибка удаления баннера: ' + error.message, 'error');
+        }
+    };
+    
+    $('#deleteBannerModal').modal('show');
+}
+
+async function toggleBannerStatus(bannerId) {
+    try {
+        const response = await apiRequest(`/admin/api/banners/${bannerId}/toggle`, 'PUT');
+        
+        if (response.status === 'success') {
+            loadBanners();
+        } else {
+            showAlert('Ошибка изменения статуса: ' + response.message, 'error');
+        }
+    } catch (error) {
+        showAlert('Ошибка изменения статуса: ' + error.message, 'error');
+    }
+}
+
+
+
+// Функции для правильного закрытия модальных окон
+function closeBannerModal() {
+    // Убираем фокус с кнопок перед закрытием
+    document.getElementById('bannerSubmitBtn').blur();
+    document.querySelector('#bannerModal .btn-secondary').blur();
+    
+    // Сбрасываем форму
+    document.getElementById('bannerForm').reset();
+    document.getElementById('imagePreview').style.display = 'none';
+    
+    // Закрываем модальное окно
+    $('#bannerModal').modal('hide');
+}
+
+function closeDeleteBannerModal() {
+    // Убираем фокус с кнопок перед закрытием
+    document.getElementById('confirmDeleteBanner').blur();
+    document.querySelector('#deleteBannerModal .btn-secondary').blur();
+    
+    // Закрываем модальное окно
+    $('#deleteBannerModal').modal('hide');
+}
+
+function updateHiddenField(checkbox) {
+    // Обновляем скрытое поле при изменении чекбокса
+    const hiddenField = checkbox.parentElement.parentElement.querySelector('input[type="hidden"]');
+    if (hiddenField) {
+        hiddenField.value = checkbox.checked ? 'true' : 'false';
+    }
+}
+
+// Вспомогательные функции
+function showLoading() {
+    // Можно добавить индикатор загрузки
+}
+
+function hideLoading() {
+    // Скрыть индикатор загрузки
+}
+
+function showAlert(message, type = 'info') {
+    // Используем существующую систему уведомлений
+    if (window.NotificationManager) {
+        window.NotificationManager.showSuccess(message);
+    } else {
+        alert(message);
+    }
+}
+</script>
+
+<style>
+.banner-image-container {
+    text-align: center;
+}
+
+.banner-image-container img {
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+
+
+.image-preview-container {
+    min-height: 200px;
+    border: 2px dashed #d1d3e2;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f8f9fc;
+}
+
+.image-preview-container img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+</style>
+{% endblock %}

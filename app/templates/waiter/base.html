@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Официант - DENIZ Restaurant{% endblock %}</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/waiter/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/waiter/components.css') }}">
+    {% block extra_css %}{% endblock %}
+    
+    <!-- Meta для планшетов -->
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    
+    <!-- CSRF Token -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+</head>
+<body data-waiter-id="{{ current_user.id if current_user.is_authenticated else '' }}">
+    <!-- Header -->
+    <header class="waiter-header">
+        <div class="header-left">
+            <img src="{{ url_for('static', filename='assets/images/logo.svg') }}" alt="DENIZ" class="logo">
+            <h1 class="app-title">Официант</h1>
+        </div>
+        
+
+        
+        <div class="header-right">
+            <div class="user-info">
+                <span class="user-name">{{ current_user.name }}</span>
+                <span class="user-role">Официант</span>
+            </div>
+            <div class="header-actions">
+                <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary">Выйти</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="waiter-nav">
+        <div class="nav-item {% if request.endpoint == 'waiter.dashboard' %}active{% endif %}">
+            <a href="{{ url_for('waiter.dashboard') }}">Главная</a>
+        </div>
+        <div class="nav-item {% if request.endpoint == 'waiter.orders' %}active{% endif %}">
+            <a href="{{ url_for('waiter.orders') }}">Заказы</a>
+        </div>
+        <div class="nav-item {% if request.endpoint == 'waiter.tables' %}active{% endif %}">
+            <a href="{{ url_for('waiter.tables') }}">Столы</a>
+        </div>
+        <div class="nav-item {% if request.endpoint == 'waiter.calls' %}active{% endif %}">
+            <a href="{{ url_for('waiter.calls') }}">Вызовы</a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="waiter-main">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">
+                            {{ message }}
+                            <button class="flash-close">&times;</button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Notifications Panel -->
+    <div class="notifications-panel" id="notificationsPanel">
+        <div class="panel-header">
+            <h3>Уведомления</h3>
+            <button class="btn btn-icon" id="closeNotifications">&times;</button>
+        </div>
+        <div class="panel-content" id="notificationsList">
+            <!-- Уведомления будут загружены динамически -->
+        </div>
+    </div>
+
+    <!-- Modal Overlay -->
+    <div class="modal-overlay" id="modalOverlay"></div>
+
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='js/waiter/api.js') }}?v=2.0.9"></script>
+    
+
+    
+    <script src="{{ url_for('static', filename='js/waiter/utils.js') }}?v=2.0.9"></script>
+    <script src="{{ url_for('static', filename='js/waiter/notifications.js') }}?v=2.0.9"></script>
+    
+    <!-- Подключаем Socket.IO и WebSocket клиент -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <script src="{{ url_for('static', filename='js/waiter/websocket.js') }}"></script>
+    
+    {% block extra_js %}{% endblock %}
+    
+    <!-- Initialize App -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Waiter interface initialized - v2.0.9');
+            
+                         // Проверка новых уведомлений каждые 30 секунд
+             setInterval(function() {
+                 if (window.waiterNotifications) {
+                     waiterNotifications.checkForNewCalls();
+                 }
+             }, 30000);
+        });
+    </script>
+</body>
+</html>

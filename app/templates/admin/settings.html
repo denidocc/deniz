@@ -1,0 +1,930 @@
+{% extends "admin/base.html" %}
+
+{% block page_title %}Настройки системы{% endblock %}
+
+{% block extra_css %}
+<style>
+    .settings-section {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .section-header {
+        background: var(--admin-primary);
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 12px 12px 0 0;
+        margin-bottom: 0;
+    }
+    
+    .section-body {
+        padding: 1.5rem;
+    }
+    
+    .setting-item {
+        border-bottom: 1px solid #eee;
+        padding: 1rem 0;
+    }
+    
+    .setting-item:last-child {
+        border-bottom: none;
+    }
+    
+    .setting-label {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+    
+    .setting-description {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-bottom: 1rem;
+    }
+    
+    .currency-input {
+        position: relative;
+    }
+    
+    .currency-input::after {
+        content: '{{ settings.get("currency", "TMT") }}';
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+    }
+    
+    .backup-status {
+        background: var(--admin-light);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .status-indicator {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 0.5rem;
+    }
+    
+    .status-online {
+        background: var(--admin-success);
+    }
+    
+    .status-offline {
+        background: var(--admin-danger);
+    }
+    
+    .language-selector {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .language-option {
+        padding: 0.5rem 1rem;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .language-option.active {
+        border-color: var(--admin-accent);
+        background: var(--admin-accent);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-gear"></i> Настройки системы</h2>
+    <button class="btn btn-admin" onclick="saveAllSettings()">
+        <i class="bi bi-check"></i> Сохранить все изменения
+    </button>
+</div>
+
+<!-- General Settings -->
+<div class="settings-section">
+    <div class="section-header">
+        <h5 class="mb-0">
+            <i class="bi bi-sliders"></i> Основные настройки
+        </h5>
+    </div>
+    <div class="section-body">
+        <div class="setting-item">
+            <div class="setting-label">Название ресторана</div>
+            <div class="setting-description">Отображается в интерфейсе и документах</div>
+            <input type="text" class="form-control" id="restaurantName" 
+                   value="{{ settings.get('restaurant_name', 'DENIZ Restaurant') }}">
+        </div>
+        
+        <div class="setting-item">
+            <div class="setting-label">Адрес ресторана</div>
+            <div class="setting-description">Используется в чеках и отчетах</div>
+            <textarea class="form-control" id="restaurantAddress" rows="3">{{ settings.get('restaurant_address', '') }}</textarea>
+        </div>
+        
+        <div class="setting-item">
+            <div class="setting-label">Телефон</div>
+            <div class="setting-description">Контактный номер ресторана</div>
+            <input type="tel" class="form-control" id="restaurantPhone" 
+                   value="{{ settings.get('restaurant_phone', '') }}">
+        </div>
+        
+        <div class="setting-item">
+            <div class="setting-label">Email</div>
+            <div class="setting-description">Электронная почта для отчетов</div>
+            <input type="email" class="form-control" id="restaurantEmail" 
+                   value="{{ settings.get('restaurant_email', '') }}">
+        </div>
+    </div>
+</div>
+
+<!-- Financial Settings -->
+<div class="settings-section">
+    <div class="section-header">
+        <h5 class="mb-0">
+            <i class="bi bi-calculator"></i> Финансовые настройки
+        </h5>
+    </div>
+    <div class="section-body">
+        <div class="setting-item">
+            <div class="setting-label">Сервисный сбор (%)</div>
+            <div class="setting-description">Процент сервисного сбора, добавляемый к счету</div>
+            <div class="row">
+                <div class="col-md-6">
+                    <input type="number" class="form-control" id="serviceCharge" 
+                           min="0" max="50" step="0.1" 
+                           value="{{ settings.get('service_charge', '10') }}">
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" id="serviceChargeEnabled" 
+                               {{ 'checked' if settings.get('service_charge_enabled', 'true') == 'true' else '' }}>
+                        <label class="form-check-label" for="serviceChargeEnabled">
+                            Включить сервисный сбор
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="setting-item">
+            <div class="setting-label">Валюта</div>
+            <div class="setting-description">Основная валюта системы</div>
+            <select class="form-select" id="currency">
+                <option value="TMT" {{ 'selected' if settings.get('currency', 'TMT') == 'TMT' else '' }}>Туркменский манат (TMT)</option>
+                <!-- <option value="RUB" {{ 'selected' if settings.get('currency') == 'RUB' else '' }}>Российский рубль (₽)</option> -->
+                <option value="USD" {{ 'selected' if settings.get('currency') == 'USD' else '' }}>Доллар США ($)</option>
+                <option value="EUR" {{ 'selected' if settings.get('currency') == 'EUR' else '' }}>Евро (€)</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<!-- Language Settings -->
+<div class="settings-section">
+    <div class="section-header">
+        <h5 class="mb-0">
+            <i class="bi bi-translate"></i> Языковые настройки
+        </h5>
+    </div>
+    <div class="section-body">
+        <div class="setting-item">
+            <div class="setting-label">Язык по умолчанию</div>
+            <div class="setting-description">Основной язык интерфейса</div>
+            <div class="language-selector">
+                <div class="language-option {{ 'active' if settings.get('default_language', 'ru') == 'ru' else '' }}" 
+                     onclick="selectLanguage('ru')">
+                    🇷🇺 Русский
+                </div>
+                <div class="language-option {{ 'active' if settings.get('default_language') == 'en' else '' }}" 
+                     onclick="selectLanguage('en')">
+                    🇬🇧 English
+                </div>
+                <div class="language-option {{ 'active' if settings.get('default_language') == 'tk' else '' }}" 
+                     onclick="selectLanguage('tk')">
+                    🇹🇲 Türkmençe
+                </div>
+                
+            </div>
+            <input type="hidden" id="defaultLanguage" value="{{ settings.get('default_language', 'ru') }}">
+        </div>
+        
+        <div class="setting-item">
+            <div class="setting-label">Доступные языки</div>
+            <div class="setting-description">Языки, доступные для клиентов</div>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="langRu" checked disabled>
+                        <label class="form-check-label" for="langRu">🇷🇺 Русский</label>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="langEn" 
+                               {{ 'checked' if 'en' in settings.get('available_languages', 'ru,en,tk').split(',') else '' }}>
+                        <label class="form-check-label" for="langEn">🇬🇧 English</label>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="langTk" 
+                               {{ 'checked' if 'tk' in settings.get('available_languages', 'ru,en,tk').split(',') else '' }}>
+                        <label class="form-check-label" for="langTk">🇹🇲 Türkmençe</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<!-- Printer Settings -->
+<div class="settings-section">
+    <div class="section-header">
+        <h5 class="mb-0">
+            <i class="bi bi-printer"></i> Настройки печати
+        </h5>
+    </div>
+    <div class="section-body">
+        <!-- Kitchen Printer -->
+        <div class="setting-item">
+            <div class="setting-label">Кухонный принтер — тип подключения</div>
+            <select id="printer_kitchen_type" class="form-control">
+                <option value="disabled" {{ 'selected' if settings.get('printer_kitchen_type')=='disabled' else '' }}>Отключен</option>
+                <option value="network" {{ 'selected' if settings.get('printer_kitchen_type','network')=='network' else '' }}>Сетевой</option>
+                <option value="usb" {{ 'selected' if settings.get('printer_kitchen_type')=='usb' else '' }}>USB</option>
+                <option value="serial" {{ 'selected' if settings.get('printer_kitchen_type')=='serial' else '' }}>COM (Serial)</option>
+            </select>
+        </div>
+        <div class="setting-item">
+            <div class="setting-label">Сетевой (IP:порт)</div>
+            <div class="row g-2">
+                <div class="col-md-8">
+                    <input type="text" class="form-control" id="printer_kitchen_ip" value="{{ settings.get('printer_kitchen_ip','192.168.1.101') }}" placeholder="192.168.1.101">
+                </div>
+                <div class="col-md-4">
+                    <input type="number" class="form-control" id="printer_kitchen_port" value="{{ settings.get('printer_kitchen_port','9100') }}" placeholder="9100">
+                </div>
+            </div>
+        </div>
+        <div class="setting-item">
+            <div class="setting-label">Кодировка и ширина</div>
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <input type="number" class="form-control" id="printer_kitchen_code_page" value="{{ settings.get('printer_kitchen_code_page','37') }}" placeholder="Code Page">
+                    <small class="text-muted">37 = Windows-1251 (кириллица)</small>
+                </div>
+                <div class="col-md-6">
+                    <input type="number" class="form-control" id="printer_kitchen_cpl" value="{{ settings.get('printer_kitchen_cpl','48') }}" placeholder="Символов в строке (обычно 48)">
+                </div>
+            </div>
+        </div>
+
+        <hr>
+
+        <!-- Bar Printer -->
+        <div class="setting-item">
+            <div class="setting-label">Барный принтер — тип подключения</div>
+            <select id="printer_bar_type" class="form-control">
+                <option value="disabled" {{ 'selected' if settings.get('printer_bar_type')=='disabled' else '' }}>Отключен</option>
+                <option value="serial" {{ 'selected' if settings.get('printer_bar_type','serial')=='serial' else '' }}>COM (Serial)</option>
+                <option value="usb" {{ 'selected' if settings.get('printer_bar_type')=='usb' else '' }}>USB</option>
+                <option value="network" {{ 'selected' if settings.get('printer_bar_type')=='network' else '' }}>Сетевой</option>
+            </select>
+        </div>
+        <div class="setting-item">
+            <div class="setting-label">COM (если Serial)</div>
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <input type="text" class="form-control" id="printer_bar_com" value="{{ settings.get('printer_bar_com','COM3') }}" placeholder="COM3">
+                </div>
+                <div class="col-md-4">
+                    <input type="number" class="form-control" id="printer_bar_baud" value="{{ settings.get('printer_bar_baud','9600') }}" placeholder="9600">
+                </div>
+                <div class="col-md-2">
+                    <input type="number" class="form-control" id="printer_bar_bytesize" value="{{ settings.get('printer_bar_bytesize','8') }}" placeholder="8">
+                </div>
+                <div class="col-md-2">
+                    <input type="text" class="form-control" id="printer_bar_parity" value="{{ settings.get('printer_bar_parity','N') }}" placeholder="N">
+                </div>
+            </div>
+            <div class="row g-2 mt-2">
+                <div class="col-md-4">
+                    <input type="number" class="form-control" id="printer_bar_stopbits" value="{{ settings.get('printer_bar_stopbits','1') }}" placeholder="1">
+                </div>
+            </div>
+        </div>
+        <div class="setting-item">
+            <div class="setting-label">Кодировка и ширина</div>
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <input type="number" class="form-control" id="printer_bar_code_page" value="{{ settings.get('printer_bar_code_page','37') }}" placeholder="Code Page">
+                </div>
+                <div class="col-md-6">
+                    <input type="number" class="form-control" id="printer_bar_cpl" value="{{ settings.get('printer_bar_cpl','32') }}" placeholder="Символов в строке (обычно 32)">
+                </div>
+            </div>
+        </div>
+
+        <hr>
+
+        <!-- Receipt Printer -->
+        <div class="setting-item">
+            <div class="setting-label">Чековый принтер — тип подключения</div>
+            <select id="printer_receipt_type" class="form-control">
+                <option value="disabled" {{ 'selected' if settings.get('printer_receipt_type')=='disabled' else '' }}>Отключен</option>
+                <option value="serial" {{ 'selected' if settings.get('printer_receipt_type')=='serial' else '' }}>COM (Serial)</option>
+                <option value="usb" {{ 'selected' if settings.get('printer_receipt_type')=='usb' else '' }}>USB</option>
+                <option value="network" {{ 'selected' if settings.get('printer_receipt_type')=='network' else '' }}>Сетевой</option>
+            </select>
+        </div>
+        <div class="setting-item">
+            <div class="setting-label">COM (если Serial)</div>
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <input type="text" class="form-control" id="printer_receipt_com" value="{{ settings.get('printer_receipt_com','COM4') }}" placeholder="COM4">
+                </div>
+                <div class="col-md-4">
+                    <input type="number" class="form-control" id="printer_receipt_baud" value="{{ settings.get('printer_receipt_baud','9600') }}" placeholder="9600">
+                </div>
+                <div class="col-md-2">
+                    <input type="number" class="form-control" id="printer_receipt_bytesize" value="{{ settings.get('printer_receipt_bytesize','8') }}" placeholder="8">
+                </div>
+                <div class="col-md-2">
+                    <input type="text" class="form-control" id="printer_receipt_parity" value="{{ settings.get('printer_receipt_parity','N') }}" placeholder="N">
+                </div>
+            </div>
+            <div class="row g-2 mt-2">
+                <div class="col-md-4">
+                    <input type="number" class="form-control" id="printer_receipt_stopbits" value="{{ settings.get('printer_receipt_stopbits','1') }}" placeholder="1">
+                </div>
+            </div>
+        </div>
+        <div class="setting-item">
+            <div class="setting-label">Кодировка и ширина</div>
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <input type="number" class="form-control" id="printer_receipt_code_page" value="{{ settings.get('printer_receipt_code_page','37') }}" placeholder="Code Page">
+                    <small class="text-muted">37 = Windows-1251 (кириллица)</small>
+                </div>
+                <div class="col-md-6">
+                    <input type="number" class="form-control" id="printer_receipt_cpl" value="{{ settings.get('printer_receipt_cpl','32') }}" placeholder="Символов в строке (обычно 32)">
+                </div>
+            </div>
+        </div>
+
+        <hr>
+
+        <div class="setting-item">
+            <div class="setting-label">Автоматическая печать</div>
+            <div class="setting-description">Настройки автоматической печати заказов</div>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="autoPrintReceipt" 
+                               {{ 'checked' if settings.get('auto_print_receipt', 'true') == 'true' else '' }}>
+                        <label class="form-check-label" for="autoPrintReceipt">
+                            Печатать чеки автоматически
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="autoPrintKitchen" 
+                               {{ 'checked' if settings.get('auto_print_kitchen', 'true') == 'true' else '' }}>
+                        <label class="form-check-label" for="autoPrintKitchen">
+                            Печатать заказы на кухне
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="autoPrintBar" 
+                               {{ 'checked' if settings.get('auto_print_bar', 'true') == 'true' else '' }}>
+                        <label class="form-check-label" for="autoPrintBar">
+                            Печатать заказы в баре
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Security Settings -->
+<div class="settings-section">
+    <div class="section-header">
+        <h5 class="mb-0">
+            <i class="bi bi-shield-check"></i> Безопасность
+        </h5>
+    </div>
+    <div class="section-body">
+        <div class="setting-item">
+            <div class="setting-label">Время сессии (минуты)</div>
+            <div class="setting-description">Автоматический выход из системы после неактивности</div>
+            <input type="number" class="form-control" id="sessionTimeout" 
+                   min="5" max="480" 
+                   value="{{ settings.get('session_timeout', '60') }}">
+        </div>
+        
+        <div class="setting-item">
+            <div class="setting-label">PIN для выбора стола (клиент)</div>
+            <div class="setting-description">4-6 цифр. Используется на планшетах гостей для доступа к выбору стола</div>
+            <form id="clientPinForm" class="mt-3">
+                {{ client_pin_form.hidden_tag() }}
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <input type="text" class="form-control" name="pin" 
+                                   placeholder="Введите PIN (4-6 цифр)" 
+                                   pattern="[0-9]{4,6}" maxlength="6"
+                                   value="{{ settings.get('table_access_pin', '2112') }}">
+                            <button class="btn btn-outline-primary" type="submit">
+                                <i class="bi bi-key"></i> Обновить PIN
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="setting-item">
+            <div class="setting-label">Блокировка IP</div>
+            <div class="setting-description">Блокировать IP после неудачных попыток входа</div>
+            <div class="row">
+                <div class="col-md-6">
+                    <input type="number" class="form-control" id="maxLoginAttempts" 
+                           min="3" max="10" 
+                           value="{{ settings.get('max_login_attempts', '5') }}"
+                           placeholder="Количество попыток">
+                </div>
+                <div class="col-md-6">
+                    <input type="number" class="form-control" id="blockDuration" 
+                           min="5" max="1440" 
+                           value="{{ settings.get('block_duration', '30') }}"
+                           placeholder="Время блокировки (мин)">
+                </div>
+            </div>
+        </div>
+        
+        <div class="setting-item">
+            <div class="setting-label">Аудит действий</div>
+            <div class="setting-description">Логирование действий пользователей</div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="auditEnabled" 
+                       {{ 'checked' if settings.get('audit_enabled', 'true') == 'true' else '' }}>
+                <label class="form-check-label" for="auditEnabled">
+                    Включить аудит действий
+                </label>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Backup Settings -->
+<div class="settings-section">
+    <div class="section-header">
+        <h5 class="mb-0">
+            <i class="bi bi-cloud-arrow-up"></i> Резервное копирование
+        </h5>
+    </div>
+    <div class="section-body">
+        <div class="setting-item">
+            <div class="setting-label">Автоматическое резервное копирование</div>
+            <div class="setting-description">Создание резервных копий базы данных</div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="autoBackup" 
+                               {{ 'checked' if settings.get('auto_backup', 'true') == 'true' else '' }}>
+                        <label class="form-check-label" for="autoBackup">
+                            Включить автобэкап
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <select class="form-select" id="backupInterval">
+                        <option value="daily" {{ 'selected' if settings.get('backup_interval', 'daily') == 'daily' else '' }}>Ежедневно</option>
+                        <option value="weekly" {{ 'selected' if settings.get('backup_interval') == 'weekly' else '' }}>Еженедельно</option>
+                        <option value="monthly" {{ 'selected' if settings.get('backup_interval') == 'monthly' else '' }}>Ежемесячно</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <div class="setting-item">
+            <div class="setting-label">Хранение резервных копий</div>
+            <div class="setting-description">Количество копий для хранения</div>
+            <input type="number" class="form-control" id="backupRetention" 
+                   min="1" max="30" 
+                   value="{{ settings.get('backup_retention', '7') }}">
+        </div>
+        
+        <div class="setting-item">
+            <div class="setting-label">Управление резервными копиями</div>
+            <div class="setting-description">Создать резервную копию или восстановить данные</div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary" onclick="createBackup()">
+                    <i class="bi bi-download"></i> Создать резервную копию
+                </button>
+                <button class="btn btn-outline-warning" onclick="showRestoreModal()">
+                    <i class="bi bi-upload"></i> Восстановить из копии
+                </button>
+            </div>
+            
+            <div class="backup-status mt-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="status-indicator status-online"></span>
+                        Последняя резервная копия: <strong>{{ settings.get('last_backup', 'Никогда') }}</strong>
+                    </div>
+                    <div>
+                        <small class="text-muted">Размер: {{ settings.get('backup_size', '—') }}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- System Information -->
+<div class="settings-section">
+    <div class="section-header">
+        <h5 class="mb-0">
+            <i class="bi bi-info-circle"></i> Информация о системе
+        </h5>
+    </div>
+    <div class="section-body">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="setting-item">
+                    <div class="setting-label">Версия системы</div>
+                    <div class="setting-description">DENIZ Restaurant v1.0.0</div>
+                </div>
+                
+                <div class="setting-item">
+                    <div class="setting-label">База данных</div>
+                    <div class="setting-description">
+                        <span class="status-indicator status-online"></span>
+                        PostgreSQL подключена
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="setting-item">
+                    <div class="setting-label">Место на диске</div>
+                    <div class="setting-description">Свободно: {{ settings.get('disk_space', '—') }}</div>
+                </div>
+                
+                <div class="setting-item">
+                    <div class="setting-label">Время работы</div>
+                    <div class="setting-description">{{ settings.get('uptime', '—') }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Restore Modal -->
+<div class="modal fade" id="restoreModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-upload"></i> Восстановление из резервной копии
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>Внимание!</strong> Восстановление из резервной копии удалит все текущие данные.
+                    Эта операция не может быть отменена.
+                </div>
+                
+                <div class="mb-3">
+                    <label for="restoreFile" class="form-label">Выберите файл резервной копии</label>
+                    <input type="file" class="form-control" id="restoreFile" accept=".sql,.backup">
+                </div>
+                
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="confirmRestore">
+                    <label class="form-check-label" for="confirmRestore">
+                        Я понимаю, что все текущие данные будут удалены
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-danger" onclick="performRestore()">
+                    <i class="bi bi-upload"></i> Восстановить
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Language selection
+    function selectLanguage(lang) {
+        // Remove active class from all options
+        document.querySelectorAll('.language-option').forEach(option => {
+            option.classList.remove('active');
+        });
+        
+        // Add active class to selected option
+        event.target.classList.add('active');
+        
+        // Update hidden input
+        const defaultLanguage = document.getElementById('defaultLanguage');
+        if (defaultLanguage) {
+            defaultLanguage.value = lang;
+        }
+    }
+
+    // Save all settings
+    async function saveAllSettings() {
+        const button = event.target;
+        if (!button) return;
+        
+        const originalText = showLoading(button);
+        
+        // Collect all settings
+        const settings = {};
+        
+        // General settings
+        const restaurantName = document.getElementById('restaurantName');
+        if (restaurantName) settings.restaurant_name = restaurantName.value;
+        
+        const restaurantAddress = document.getElementById('restaurantAddress');
+        if (restaurantAddress) settings.restaurant_address = restaurantAddress.value;
+        
+        const restaurantPhone = document.getElementById('restaurantPhone');
+        if (restaurantPhone) settings.restaurant_phone = restaurantPhone.value;
+        
+        const restaurantEmail = document.getElementById('restaurantEmail');
+        if (restaurantEmail) settings.restaurant_email = restaurantEmail.value;
+        
+        // Financial settings
+        const serviceCharge = document.getElementById('serviceCharge');
+        if (serviceCharge) settings.service_charge = serviceCharge.value;
+        
+        const serviceChargeEnabled = document.getElementById('serviceChargeEnabled');
+        if (serviceChargeEnabled) settings.service_charge_enabled = serviceChargeEnabled.checked.toString();
+        
+        const currency = document.getElementById('currency');
+        if (currency) settings.currency = currency.value;
+        
+        // Language settings
+        const defaultLanguage = document.getElementById('defaultLanguage');
+        if (defaultLanguage) settings.default_language = defaultLanguage.value;
+        
+        settings.available_languages = getAvailableLanguages();
+        
+        // Printer settings (kitchen)
+        const printer_kitchen_type = document.getElementById('printer_kitchen_type');
+        if (printer_kitchen_type) settings.printer_kitchen_type = printer_kitchen_type.value;
+        const printer_kitchen_ip = document.getElementById('printer_kitchen_ip');
+        if (printer_kitchen_ip) settings.printer_kitchen_ip = printer_kitchen_ip.value;
+        const printer_kitchen_port = document.getElementById('printer_kitchen_port');
+        if (printer_kitchen_port) settings.printer_kitchen_port = printer_kitchen_port.value;
+        const printer_kitchen_code_page = document.getElementById('printer_kitchen_code_page');
+        if (printer_kitchen_code_page) settings.printer_kitchen_code_page = printer_kitchen_code_page.value;
+        const printer_kitchen_cpl = document.getElementById('printer_kitchen_cpl');
+        if (printer_kitchen_cpl) settings.printer_kitchen_cpl = printer_kitchen_cpl.value;
+
+        // Printer settings (bar)
+        const printer_bar_type = document.getElementById('printer_bar_type');
+        if (printer_bar_type) settings.printer_bar_type = printer_bar_type.value;
+        const printer_bar_com = document.getElementById('printer_bar_com');
+        if (printer_bar_com) settings.printer_bar_com = printer_bar_com.value;
+        const printer_bar_baud = document.getElementById('printer_bar_baud');
+        if (printer_bar_baud) settings.printer_bar_baud = printer_bar_baud.value;
+        const printer_bar_bytesize = document.getElementById('printer_bar_bytesize');
+        if (printer_bar_bytesize) settings.printer_bar_bytesize = printer_bar_bytesize.value;
+        const printer_bar_parity = document.getElementById('printer_bar_parity');
+        if (printer_bar_parity) settings.printer_bar_parity = printer_bar_parity.value;
+        const printer_bar_stopbits = document.getElementById('printer_bar_stopbits');
+        if (printer_bar_stopbits) settings.printer_bar_stopbits = printer_bar_stopbits.value;
+        const printer_bar_code_page = document.getElementById('printer_bar_code_page');
+        if (printer_bar_code_page) settings.printer_bar_code_page = printer_bar_code_page.value;
+        const printer_bar_cpl = document.getElementById('printer_bar_cpl');
+        if (printer_bar_cpl) settings.printer_bar_cpl = printer_bar_cpl.value;
+
+        // Printer settings (receipt)
+        const printer_receipt_type = document.getElementById('printer_receipt_type');
+        if (printer_receipt_type) settings.printer_receipt_type = printer_receipt_type.value;
+        const printer_receipt_com = document.getElementById('printer_receipt_com');
+        if (printer_receipt_com) settings.printer_receipt_com = printer_receipt_com.value;
+        const printer_receipt_baud = document.getElementById('printer_receipt_baud');
+        if (printer_receipt_baud) settings.printer_receipt_baud = printer_receipt_baud.value;
+        const printer_receipt_bytesize = document.getElementById('printer_receipt_bytesize');
+        if (printer_receipt_bytesize) settings.printer_receipt_bytesize = printer_receipt_bytesize.value;
+        const printer_receipt_parity = document.getElementById('printer_receipt_parity');
+        if (printer_receipt_parity) settings.printer_receipt_parity = printer_receipt_parity.value;
+        const printer_receipt_stopbits = document.getElementById('printer_receipt_stopbits');
+        if (printer_receipt_stopbits) settings.printer_receipt_stopbits = printer_receipt_stopbits.value;
+        const printer_receipt_code_page = document.getElementById('printer_receipt_code_page');
+        if (printer_receipt_code_page) settings.printer_receipt_code_page = printer_receipt_code_page.value;
+        const printer_receipt_cpl = document.getElementById('printer_receipt_cpl');
+        if (printer_receipt_cpl) settings.printer_receipt_cpl = printer_receipt_cpl.value;
+        
+        const autoPrintReceipt = document.getElementById('autoPrintReceipt');
+        if (autoPrintReceipt) settings.auto_print_receipt = autoPrintReceipt.checked.toString();
+        
+        const autoPrintKitchen = document.getElementById('autoPrintKitchen');
+        if (autoPrintKitchen) settings.auto_print_kitchen = autoPrintKitchen.checked.toString();
+        
+        const autoPrintBar = document.getElementById('autoPrintBar');
+        if (autoPrintBar) settings.auto_print_bar = autoPrintBar.checked.toString();
+        
+        // Security settings
+        const sessionTimeout = document.getElementById('sessionTimeout');
+        if (sessionTimeout) settings.session_timeout = sessionTimeout.value;
+        
+        const maxLoginAttempts = document.getElementById('maxLoginAttempts');
+        if (maxLoginAttempts) settings.max_login_attempts = maxLoginAttempts.value;
+        
+        const blockDuration = document.getElementById('blockDuration');
+        if (blockDuration) settings.block_duration = blockDuration.value;
+        
+        const auditEnabled = document.getElementById('auditEnabled');
+        if (auditEnabled) settings.audit_enabled = auditEnabled.checked.toString();
+        
+        // Backup settings
+        const autoBackup = document.getElementById('autoBackup');
+        if (autoBackup) settings.auto_backup = autoBackup.checked.toString();
+        
+        const backupInterval = document.getElementById('backupInterval');
+        if (backupInterval) settings.backup_interval = backupInterval.value;
+        
+        const backupRetention = document.getElementById('backupRetention');
+        if (backupRetention) settings.backup_retention = backupRetention.value;
+        
+        try {
+            const response = await apiRequest('{{ url_for("admin.update_settings") }}', 'POST', settings);
+            
+            showAlert('Настройки успешно сохранены', 'success');
+            
+        } catch (error) {
+            showAlert('Ошибка при сохранении настроек: ' + error.message, 'danger');
+        } finally {
+            hideLoading(button, originalText);
+        }
+    }
+
+    // Get available languages
+    function getAvailableLanguages() {
+        const languages = ['ru']; // Russian is always available
+        
+        const langEn = document.getElementById('langEn');
+        if (langEn && langEn.checked) {
+            languages.push('en');
+        }
+        
+        const langTk = document.getElementById('langTk');
+        if (langTk && langTk.checked) {
+            languages.push('tk');
+        }
+        
+        return languages.join(',');
+    }
+
+    // Обработка формы PIN-кода клиента
+    const clientPinForm = document.getElementById('clientPinForm');
+    if (clientPinForm) {
+        clientPinForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const form = e.target;
+            const button = form.querySelector('button[type="submit"]');
+            const originalText = showLoading(button);
+            
+            try {
+                const formData = new FormData(form);
+                const pin = formData.get('pin');
+                
+                if (!pin || pin.length < 4 || pin.length > 6 || !/^\d+$/.test(pin)) {
+                    throw new Error('PIN должен содержать 4-6 цифр');
+                }
+                
+                const response = await apiRequest('/admin/settings/update', 'POST', { table_access_pin: pin });
+                
+                showAlert('PIN-код успешно обновлён', 'success');
+                
+            } catch (error) {
+                showAlert('Ошибка при обновлении PIN: ' + error.message, 'danger');
+            } finally {
+                hideLoading(button, originalText);
+            }
+        });
+    }
+
+    // Create backup
+    async function createBackup() {
+        const button = event.target;
+        if (!button) return;
+        
+        const originalText = showLoading(button);
+        
+        try {
+            const response = await apiRequest('/admin/backup/create', 'POST');
+            
+            showAlert('Резервная копия успешно создана', 'success');
+            
+            // Update backup status
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+            
+        } catch (error) {
+            showAlert('Ошибка при создании резервной копии: ' + error.message, 'danger');
+        } finally {
+            hideLoading(button, originalText);
+        }
+    }
+
+    // Show restore modal
+    function showRestoreModal() {
+        const modalElement = document.getElementById('restoreModal');
+        if (modalElement) {
+            $(modalElement).modal('show');
+        }
+    }
+
+    // Perform restore
+    async function performRestore() {
+        const confirmCheckbox = document.getElementById('confirmRestore');
+        const fileInput = document.getElementById('restoreFile');
+        
+        if (!confirmCheckbox || !confirmCheckbox.checked) {
+            showAlert('Подтвердите, что понимаете последствия операции', 'warning');
+            return;
+        }
+        
+        if (!fileInput || !fileInput.files[0]) {
+            showAlert('Выберите файл резервной копии', 'warning');
+            return;
+        }
+        
+        const button = event.target;
+        if (!button) return;
+        
+        const originalText = showLoading(button);
+        
+        try {
+            const formData = new FormData();
+            formData.append('backup_file', fileInput.files[0]);
+            
+            const response = await fetch('/admin/backup/restore', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (response.ok) {
+                showAlert('Восстановление выполнено успешно. Система будет перезагружена.', 'success');
+                
+                setTimeout(() => {
+                    window.location.href = '{{ url_for("auth.login") }}';
+                }, 3000);
+            } else {
+                throw new Error('Ошибка при восстановлении');
+            }
+            
+        } catch (error) {
+            showAlert('Ошибка при восстановлении: ' + error.message, 'danger');
+        } finally {
+            hideLoading(button, originalText);
+        }
+    }
+
+    // Auto-save on input changes (debounced)
+    let saveTimeout;
+    const formElements = document.querySelectorAll('input, select, textarea');
+    if (formElements.length > 0) {
+        formElements.forEach(element => {
+            element.addEventListener('change', function() {
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(() => {
+                    // Auto-save individual setting
+                    console.log('Auto-saving setting:', this.id);
+                }, 2000);
+            });
+        });
+    }
+
+    
+</script>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "client/base.html" %}
+
+{% block title %}{{ settings.get('restaurant_name', 'DENIZ') }} - Меню стола #{{ table_id }}{% endblock %}
+
+{% block extra_css %}
+<!-- CSS уже включен в base.html -->
+{% endblock %}
+
+{% block content %}
+<!-- Hero Carousel -->
+
+<!-- Main Menu Content -->
+<section class="menu-content">
+    <!-- Loading State -->
+    <div class="loading-state" id="loadingState">
+        <div class="loading-spinner"></div>
+        <p>Загружаем меню...</p>
+    </div>
+    
+    <!-- Error State -->
+    <div class="error-state" id="errorState" style="display: none;">
+        <div class="error-icon">⚠️</div>
+        <h3>Ошибка загрузки меню</h3>
+        <p>Попробуйте обновить страницу</p>
+        <button class="btn btn-primary" onclick="location.reload()">Обновить</button>
+    </div>
+    
+    <!-- Empty State -->
+    <div class="empty-state" id="emptyState" style="display: none;">
+        <div class="empty-icon">🔍</div>
+        <h3>Ничего не найдено</h3>
+        <p>Попробуйте изменить поисковый запрос</p>
+    </div>
+    
+    <!-- Dishes Grid -->
+    <div class="dishes-grid" id="dishesGrid" style="display: none;">
+        <!-- Блюда будут загружены динамически -->
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<!-- JavaScript уже включен в base.html -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Передаем данные в JavaScript
+    window.CLIENT_CONFIG = {
+        tableId: {{ table_id or 'null' }},
+        settings: {{ settings | tojson if settings else '{}' }},
+        apiUrl: '/client/api',
+        currentLanguage: '{{ settings.get("default_language", "ru") if settings else "ru" }}'
+    };
+    
+    console.log('⚙️ Client config loaded:', window.CLIENT_CONFIG);
+});
+</script>
+{% endblock %}

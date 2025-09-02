@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ошибка | DENIZ Restaurant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/errors.css') }}">
+</head>
+<body>
+    <div class="wave"></div>
+    <div class="container">
+        <div class="error-icon">⚠️</div>
+        <h2 class="error-title">Произошла ошибка</h2>
+        <p class="error-message">
+            {% if error %}
+                {{ error }}
+            {% else %}
+                Произошла непредвиденная ошибка.<br>
+                Пожалуйста, попробуйте позже.
+            {% endif %}
+        </p>
+        
+        <div class="buttons">
+            <a href="{{ url_for('main.index') }}" class="btn btn-primary">На главную</a>
+            <a href="javascript:history.back()" class="btn btn-secondary">Назад</a>
+        </div>
+    </div>
+</body>
+</html> 

@@ -1,0 +1,171 @@
+{% extends "waiter/base.html" %}
+
+{% block title %}Столы - Официант - DENIZ Restaurant{% endblock %}
+
+{% block content %}
+<div class="tables-container">
+    <div class="page-header">
+        <h1>Столы</h1>
+        <div class="header-actions">
+            <button class="btn btn-secondary" id="refreshTables">
+                <i class="fas fa-sync-alt"></i> Обновить
+            </button>
+        </div>
+    </div>
+
+    <div class="tables-filters">
+        <div class="filter-group">
+            <label>Статус:</label>
+            <select id="statusFilter" class="form-control">
+                <option value="">Все</option>
+                <option value="free">Свободные</option>
+                <option value="occupied">Занятые</option>
+                <option value="reserved">Забронированные</option>
+                <option value="cleaning">Уборка</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="tables-grid" id="tablesGrid">
+        <div class="loading-placeholder">
+            <div class="spinner"></div>
+            <p>Загрузка столов...</p>
+        </div>
+    </div>
+
+    <!-- Table Detail Modal -->
+    <div class="modal modal-overlay" id="tableDetailModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Информация о столе</h3>
+                <button type="button" class="btn-close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body" id="tableDetailContent">
+                <!-- Содержимое будет загружено динамически -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Закрыть</button>
+                <button type="button" class="btn btn-primary" id="updateTableStatus">Обновить статус</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🪑 Tables page initialized');
+    
+    // Функция загрузки столов
+    async function loadTables() {
+        try {
+            const statusFilter = document.getElementById('statusFilter').value;
+            
+            const tablesGrid = document.getElementById('tablesGrid');
+            tablesGrid.innerHTML = '<div class="loading-placeholder"><div class="spinner"></div><p>Загрузка столов...</p></div>';
+            
+            // Загружаем реальные данные из API
+            const response = await fetch('/waiter/api/tables');
+            const result = await response.json();
+            
+            if (result.status !== 'success') {
+                throw new Error(result.message || 'Ошибка загрузки столов');
+            }
+            
+            let tables = result.data.tables || [];
+            
+            // Применяем фильтры
+            if (statusFilter) {
+                tables = tables.filter(t => mapStatusToFilter(t.status) === statusFilter);
+            }
+            
+            if (tables.length === 0) {
+                tablesGrid.innerHTML = `
+                    <div class="no-data">
+                        <i class="fas fa-chair"></i>
+                        <h3>Столы не найдены</h3>
+                        <p>Нет столов соответствующих выбранным фильтрам</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const tablesHtml = tables.map(table => `
+                <div class="table-card table-${mapStatusToClass(table.status)}" data-table-id="${table.id}">
+                    <div class="table-header">
+                        <div class="table-number">Стол ${table.table_number}</div>
+                        <div class="table-status status-${mapStatusToClass(table.status)}">
+                            ${getStatusText(table.status)}
+                        </div>
+                    </div>
+                    <div class="table-info">
+                        <div class="table-capacity">
+                            <i class="fas fa-users"></i> Мест: <strong>${table.capacity}</strong>
+                        </div>
+                    </div>
+                    <!-- Кнопка "Подробнее" убрана по требованию -->
+                </div>
+            `).join('');
+            
+            tablesGrid.innerHTML = tablesHtml;
+            
+        } catch (error) {
+            console.error('Error loading tables:', error);
+            const tablesGrid = document.getElementById('tablesGrid');
+            tablesGrid.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Ошибка загрузки</h3>
+                    <p>${error.message || 'Не удалось загрузить столы'}</p>
+                </div>
+            `;
+        }
+    }
+    
+    // Функция маппинга статуса БД в класс CSS
+    function mapStatusToClass(status) {
+        const statusMap = {
+            'available': 'free',
+            'occupied': 'occupied',
+            'reserved': 'reserved',
+            'cleaning': 'cleaning'
+        };
+        return statusMap[status] || 'free';
+    }
+    
+    // Функция маппинга статуса БД в фильтр
+    function mapStatusToFilter(status) {
+        const statusMap = {
+            'available': 'free',
+            'occupied': 'occupied',
+            'reserved': 'reserved',
+            'cleaning': 'cleaning'
+        };
+        return statusMap[status] || 'free';
+    }
+    
+    // Вспомогательные функции
+    function getStatusText(status) {
+        const statusTexts = {
+            'available': 'Свободен',
+            'occupied': 'Занят',
+            'reserved': 'Забронирован',
+            'cleaning': 'Уборка'
+        };
+        return statusTexts[status] || status;
+    }
+    
+    // Функция showTableDetails убрана по требованию
+    
+    // Обработчики событий
+    document.getElementById('refreshTables').addEventListener('click', loadTables);
+    document.getElementById('statusFilter').addEventListener('change', loadTables);
+    
+    // Начальная загрузка
+    loadTables();
+});
+</script>
+
+
+{% endblock %}

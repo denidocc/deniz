@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>403 - Доступ запрещен | DENIZ Restaurant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/errors.css') }}">
+</head>
+<body>
+    <div class="wave"></div>
+    <div class="container">
+        <h1 class="error-code">403</h1>
+        <h2 class="error-title">Доступ запрещен</h2>
+        <p class="error-message">
+            У вас нет прав для доступа к этой странице.<br>
+            Обратитесь к администратору для получения доступа.
+        </p>
+        
+        <div class="buttons">
+            <a href="{{ url_for('main.index') }}" class="btn btn-primary">На главную</a>
+            <a href="{{ url_for('auth.login') }}" class="btn btn-secondary">Войти в систему</a>
+        </div>
+    </div>
+</body>
+</html> 

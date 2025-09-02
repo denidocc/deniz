@@ -1,0 +1,86 @@
+{% extends "waiter/base.html" %}
+
+{% block title %}Dashboard - Официант - DENIZ Restaurant{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+
+
+    <!-- Quick Actions -->
+    <div class="dashboard-card actions-card">
+        <div class="card-header">
+            <h2>Быстрые действия</h2>
+        </div>
+        <div class="card-content">
+            <div class="action-buttons">
+                <a href="{{ url_for('waiter.orders') }}" class="action-btn" data-action="orders">
+                    <div class="action-icon">📋</div>
+                    <div class="action-text">
+                        <span class="action-title">Заказы</span>
+                        <span class="action-count" id="pendingOrdersCount">0 новых</span>
+                    </div>
+                </a>
+                
+                <a href="{{ url_for('waiter.calls') }}" class="action-btn" data-action="calls">
+                    <div class="action-icon">🔔</div>
+                    <div class="action-text">
+                        <span class="action-title">Вызовы</span>
+                        <span class="action-count" id="pendingCallsCount">0 активных</span>
+                    </div>
+                </a>
+                
+                <a href="{{ url_for('waiter.tables') }}" class="action-btn" data-action="tables">
+                    <div class="action-icon">🪑</div>
+                    <div class="action-text">
+                        <span class="action-title">Столы</span>
+                        <span class="action-count" id="myTablesCount">0 столов</span>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Orders -->
+    <div class="dashboard-card orders-card">
+        <div class="card-header">
+            <h2>Последние заказы</h2>
+            <a href="{{ url_for('waiter.orders') }}" class="btn btn-outline">Все заказы</a>
+        </div>
+        <div class="card-content">
+            <div class="orders-list" id="recentOrdersList">
+                <!-- Заказы будут загружены динамически -->
+                <div class="loading-state">
+                    <div class="spinner"></div>
+                    <span>Загрузка заказов...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Calls -->
+    <div class="dashboard-card calls-card">
+        <div class="card-header">
+            <h2>Активные вызовы</h2>
+            <a href="{{ url_for('waiter.calls') }}" class="btn btn-outline">Все вызовы</a>
+        </div>
+        <div class="card-content">
+            <div class="calls-list" id="activeCallsList">
+                <!-- Вызовы будут загружены динамически -->
+                <div class="empty-state" style="display: none;">
+                    <div class="empty-icon">📞</div>
+                    <span>Нет активных вызовов</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- УБИРАЕМ utils.js, так как он уже загружен в base.html -->
+<!-- <script src="{{ url_for('static', filename='js/waiter/utils.js') }}?v=2.0.5"></script> -->
+<script src="{{ url_for('static', filename='js/waiter/dashboard.js') }}?v=2.0.5"></script>
+<script src="{{ url_for('static', filename='js/waiter/modals.js') }}?v=2.0.5"></script>
+{% endblock %}

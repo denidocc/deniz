@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="{{ settings.get('default_language', 'ru') if settings else 'ru' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ settings.get('restaurant_name', 'DENIZ Restaurant') }}{% endblock %}</title>
+    
+    <!-- Favicons -->
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='assets/images/logo.svg') }}">
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/client/variables.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/client/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/client/components.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/client/modals.css') }}?v=2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/client/carousel.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/client/menu.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/client/notifications.css') }}">
+    {% block extra_css %}{% endblock %}
+    
+    <!-- Meta для планшетов -->
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <!-- CSRF Token -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+</head>
+<body class="tablet-layout" data-theme="light">
+    
+    <!-- Основной контейнер -->
+    <div class="app-container">
+        
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="logo">
+                    <img src="{{ url_for('static', filename='assets/images/logo.svg') }}" alt="{{ settings.get('restaurant_name', 'DENIZ') }}" class="logo-image">
+                </div>
+            </div>
+            
+            <div class="header-left-actions">
+                <button class="call-waiter-btn" id="callWaiterBtn" title="Позвать официанта">
+                    Позвать официанта
+                </button>
+            </div>
+            
+            <div class="header-center">
+                <div class="search-container">
+                    <input type="text" 
+                           class="search-input" 
+                           placeholder="Введите название блюда"
+                           id="dishSearch">
+                    <button class="search-btn" type="button">
+                        <img src="{{ url_for('static', filename='assets/images/search.svg') }}" alt="Поиск" class="search-icon">
+                    </button>
+                </div>
+            </div>
+            
+            <div class="header-right">
+                <!-- <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему">
+                    <img src="{{ url_for('static', filename='assets/images/moon.svg') }}" alt="Темная тема" class="theme-icon moon">
+                    <img src="{{ url_for('static', filename='assets/images/sun.svg') }}" alt="Светлая тема" class="theme-icon sun" style="display: none;">
+                </button> -->
+                
+                <div class="language-selector" id="languageSelector">
+                    <!-- Языки будут загружены динамически -->
+                </div>
+                
+                <!-- <a href="/admin" class="staff-link" title="Вход для персонала">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 7.5L13.5 7L12 7.5C11.2 7.8 10.7 8.5 10.7 9.3V20C10.7 21.1 11.6 22 12.7 22S14.7 21.1 14.7 20V16L18.2 17L21 15.5V14C21 12.9 20.1 12 19 12H15V11A1 1 0 0 1 16 10H19C20.1 10 21 9.1 21 8V9Z"/>
+                    </svg>
+                </a> -->
+            </div>
+        </header>
+        
+        <!-- Main Content -->
+        <main class="app-main">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <div class="categories-menu" id="categoriesMenu">
+                    <!-- Кнопка "Все меню" -->
+                    <div class="category-item active" data-category="all">
+                        <div class="category-name">Все меню</div>
+                        <div class="category-count" id="allMenuCount">0 блюд</div>
+                    </div>
+                    
+                    <!-- Категории будут загружены динамически -->
+                </div>
+            </aside>
+            
+            <!-- Content Area -->
+            <section class="content-area">
+                <!-- Promo Carousel -->
+                <div class="carousel-container">
+                    <div class="promo-carousel" id="promoCarousel">
+                        <!-- Карусель будет загружена динамически -->
+                    </div>
+                    <div class="carousel-dots" id="carouselDots">
+                        <!-- Точки навигации -->
+                    </div>
+                </div>
+                
+                {% block content %}{% endblock %}
+            </section>
+            
+            <!-- Cart Sidebar -->
+            <aside class="cart-sidebar">
+                <div class="cart-header">
+                    <h3 class="cart-title">Корзина</h3>
+                    <div class="table-selector">
+                        <button class="table-select-btn" id="tableSelectBtn">
+                            <span class="table-text">Стол #<span id="currentTableNumber">1</span></span>
+                            <svg class="dropdown-icon" viewBox="0 0 24 24">
+                                <path d="M7,10L12,15L17,10H7Z"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <button class="clear-cart-btn" id="clearCartBtn">Очистить</button>
+                </div>
+                
+                <div class="cart-content" id="cartContent">
+                    <!-- Содержимое корзины -->
+                    <div class="empty-cart">
+                        <div class="empty-cart-illustration">
+                            <img src="{{ url_for('static', filename='assets/images/fish.png') }}" alt="Рыба" class="fish-image">
+                        </div>
+                        <p class="empty-cart-text">
+                            Корзина пуста, но море полное.<br>
+                            Загляните в меню — там волны вкуса.
+                        </p>
+                    </div>
+                    
+                    <!-- Rudder pattern -->
+                    <div class="rudder-pattern">
+                        <!-- SVG будет загружен из assets/rudder.svg -->
+                    </div>
+                </div>
+                
+                <div class="cart-footer" id="cartFooter" style="display: none;">
+                    <div class="cart-actions">
+                        <button class="btn btn-secondary" id="bonusCardBtn">
+                            🎁 Бонусная карта
+                        </button>
+                        <button class="btn btn-primary" id="placeOrderBtn">
+                            Оформить заказ
+                        </button>
+                    </div>
+                </div>
+            </aside>
+        </main>
+    </div>
+    
+    <!-- Модальные окна -->
+    <div class="modal-overlay" id="modalOverlay"></div>
+    
+    <!-- Global Preloader -->
+    <div class="global-preloader" id="globalPreloader">
+        <div class="preloader-content">
+            <div class="preloader-spinner"></div>
+            <div class="preloader-text">Загружаем меню...</div>
+        </div>
+    </div>
+    
+    <!-- Notifications Container -->
+    <div id="notificationContainer" class="notification-container"></div>
+    
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='js/client/utils.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/client/api.js') }}?v=3" onerror="console.error('❌ Ошибка загрузки api.js')"></script>
+    <script src="{{ url_for('static', filename='js/client/language.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/client/theme.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/client/cart.js') }}?v=3"></script>
+    <script src="{{ url_for('static', filename='js/client/search.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/client/dishes.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/client/menu.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/client/modals.js') }}?v=3"></script>
+    <script src="{{ url_for('static', filename='js/client/carousel.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+    
+    <!-- Initialize App -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Передаем настройки в глобальную конфигурацию
+            // Сохраняем tableId если он уже установлен в menu.html
+            window.CLIENT_CONFIG = window.CLIENT_CONFIG || {
+                settings: {{ settings | tojson if settings else '{}' }},
+                apiUrl: '/client/api',
+                currentLanguage: '{{ settings.get("default_language", "ru") if settings else "ru" }}'
+            };
+            
+            // Логируем конфигурацию для отладки
+            console.log('🔧 Base config loaded:', window.CLIENT_CONFIG);
+            
+            // Небольшая задержка для уверенности, что все скрипты загружены
+            setTimeout(() => {
+                // Инициализация компонентов
+                NotificationManager.init();
+                ModalManager.init();
+                CartManager.init();
+                MenuManager.init();
+                CarouselManager.init();
+                
+                // Инициализируем LanguageManager
+                LanguageManager.init();
+                
+                ThemeManager.init();
+                SearchManager.init();
+                DishManager.init();
+            }, 100);
+            
+            // Обработчики событий
+            const tableSelectBtn = document.getElementById('tableSelectBtn');
+            if (tableSelectBtn) {
+                tableSelectBtn.addEventListener('click', function() {
+                    ModalManager.openTableWithPin(CartManager.getCurrentTableId());
+                });
+            }
+            
+            const bonusCardBtn = document.getElementById('bonusCardBtn');
+            if (bonusCardBtn) {
+                bonusCardBtn.addEventListener('click', function() {
+                    ModalManager.openBonusCard(function(bonusData) {
+                        CartManager.applyBonusCard(bonusData);
+                    });
+                });
+            }
+            
+            const placeOrderBtn = document.getElementById('placeOrderBtn');
+            if (placeOrderBtn) {
+                placeOrderBtn.addEventListener('click', function() {
+                    CartManager.placeOrder();
+                });
+            }
+            
+            // Кнопка "Позвать официанта"
+            document.addEventListener('click', function(e) {
+                if (e.target.matches('.call-waiter-btn')) {
+                    const tableId = CartManager.getCurrentTableId();
+                    console.log('Calling waiter for table ID:', tableId);
+                    
+                    if (tableId) {
+                        if (window.ClientAPI && typeof window.ClientAPI.callWaiter === 'function') {
+                            window.ClientAPI.callWaiter(tableId).then(response => {
+                                console.log('Waiter call response:', response);
+                                if (response.status === 'success') {
+                                    NotificationManager.showSuccess(response.message || 'Официант вызван!');
+                                } else {
+                                    NotificationManager.showError(response.message || 'Ошибка вызова официанта');
+                                }
+                            }).catch(error => {
+                                console.error('Error calling waiter:', error);
+                                const errorMessage = error.message || 'Ошибка вызова официанта';
+                                NotificationManager.showError(errorMessage);
+                            });
+                        } else {
+                            console.error('ClientAPI not ready or callWaiter function not found');
+                            NotificationManager.showError('API не готов');
+                        }
+                    } else {
+                        console.warn('No table ID available');
+                        NotificationManager.showWarning('Сначала выберите стол');
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
