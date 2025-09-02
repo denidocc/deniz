@@ -12,8 +12,6 @@
 }
 
 #selectedItemsSection {
-    position: sticky;
-    bottom: 0;
     background: white;
     border-top: 2px solid #ddd;
     padding: 8px;
@@ -398,21 +396,21 @@ width: 100%;
 <div class="modal modal-overlay hidden" id="addItemsModal">
     <div class="modal-content large-modal">
         <div class="modal-header">
-            <h3>Добавить позиции к заказу #<span id="modalOrderId"></span></h3>
+            <h3>Добавить позиции #<span id="modalOrderId"></span></h3>
             <button type="button" class="order-close-btn" data-dismiss="modal">&times;</button>
         </div>
 
         <div class="modal-body">
             <!-- Поиск -->
-                <div class="search-section">
-                    <div class="search-input-wrapper">
-                        <input type="text" id="menuSearchInput" class="search-input" placeholder="Поиск по названию...">
-                    <i class="fas fa-search search-icon"></i>
-                    </div>
+            <div class="search-section">
+                <div class="search-input-wrapper">
+                    <input type="text" id="menuSearchInput" class="search-input" placeholder="Поиск по названию...">
+                <i class="fas fa-search search-icon"></i>
                 </div>
+            </div>
                 
             <!-- Фильтр по категориям -->
-                <div class="category-filter">
+            <div class="category-filter">
                 <label>Категория:</label>
                     <select id="categoryFilter" class="form-control category-dropdown">
                         <option value="">Все категории</option>
@@ -421,14 +419,15 @@ width: 100%;
             </div>
 
             <!-- Список блюд -->
-                    <div class="menu-items-container">
-                        <div id="menuItemsGrid" class="menu-items-grid">
-                            <div class="loading-placeholder">
-                                <div class="spinner"></div>
-                                <p>Загрузка меню...</p>
-                        </div>
+            <div class="menu-items-container">
+                <div class="menu-items-container">
+                    <div id="menuItemsGrid" class="menu-items-grid">
+                        <div class="loading-placeholder">
+                            <div class="spinner"></div>
+                            <p>Загрузка меню...</p>
                     </div>
                 </div>
+            </div>
 
             <!-- Выбранные позиции -->
             <div id="selectedItemsSection" class="selected-items-section" style="display:none;">
@@ -580,6 +579,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Сначала закрываем все модалки
         closeAllModals();
         
+        // ОЧИЩАЕМ КОРЗИНУ - убираем все выбранные позиции
+        clearSelectedItems();
+        
         const modal = document.getElementById('addItemsModal');
         modal.dataset.orderId = orderId;
         document.getElementById('modalOrderId').textContent = orderId;
@@ -707,6 +709,53 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('categoryFilter').addEventListener('change', filterMenu);
 
 
+    // Очистка выбранных позиций (корзины)
+    function clearSelectedItems() {
+        console.log('🧹 Очищаем корзину выбранных позиций');
+        
+        // Убираем класс selected со всех карточек
+        document.querySelectorAll('.menu-item-card.selected').forEach(card => {
+            card.classList.remove('selected');
+            // Сбрасываем количество на 1
+            const qtyInput = card.querySelector('.qty-input');
+            if (qtyInput) {
+                qtyInput.value = 1;
+            }
+            // Очищаем комментарии
+            const commentInput = card.querySelector('.comment-input');
+            if (commentInput) {
+                commentInput.value = '';
+            }
+        });
+        
+        // Очищаем список выбранных позиций
+        const list = document.getElementById('selectedItemsList');
+        if (list) {
+            list.innerHTML = '';
+        }
+        
+        // Сбрасываем итоговую сумму
+        const totalEl = document.getElementById('selectedItemsTotal');
+        if (totalEl) {
+            const span = totalEl.querySelector('span');
+            if (span) {
+                span.textContent = '0';
+            }
+        }
+        
+        // Скрываем секцию выбранных позиций
+        const section = document.getElementById('selectedItemsSection');
+        if (section) {
+            section.style.display = 'none';
+        }
+        
+        // Отключаем кнопку добавления
+        const confirmBtn = document.getElementById('confirmAddItems');
+        if (confirmBtn) {
+            confirmBtn.disabled = true;
+        }
+    }
+
     // Обновление списка выбранных
     function updateSelectedSection() {
         const selected = document.querySelectorAll('.menu-item-card.selected');
@@ -757,6 +806,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await res.json();
             if (data.status === 'success') {
                 waiterNotifications.showSuccess(data.message);
+                
+                // Очищаем корзину после успешного добавления
+                clearSelectedItems();
                 
                 // ИСПРАВЛЕНО: Правильно закрываем модалку и обновляем данные
                 closeAllModals();
@@ -827,6 +879,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (modal) {
             const orderId = modal.dataset.orderId;
             console.log('🔧 Модалка "Добавить позиции" для заказа #' + (orderId || 'неизвестно') + ' ЗАКРЫТА');
+            
+            // Очищаем корзину при закрытии модального окна
+            clearSelectedItems();
             
             modal.classList.remove('visible');
             modal.classList.add('hidden');
