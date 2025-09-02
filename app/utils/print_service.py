@@ -198,17 +198,23 @@ class PrintService:
         
         # Печатаем позиции кухни
         if kitchen_items:
+            receipt.append("КУХНЯ:")
+            receipt.append("-" * 32)
             for item in kitchen_items:
                 receipt.append(f"{item.quantity}x {item.menu_item.name_ru:<20} {item.unit_price * item.quantity:>8.2f}")
                 if item.comments:
                     receipt.append(f"   - {item.comments}")
+            receipt.append("")  # Пустая строка после кухни
         
         # Печатаем позиции бара
         if bar_items:
+            receipt.append("БАР:")
+            receipt.append("-" * 32)
             for item in bar_items:
                 receipt.append(f"{item.quantity}x {item.menu_item.name_ru:<20} {item.unit_price * item.quantity:>8.2f}")
                 if item.comments:
                     receipt.append(f"   - {item.comments}")
+            receipt.append("")  # Пустая строка после бара
         
         receipt.append("-" * 32)
         receipt.append(f"Подытог:              {order.subtotal:>8.2f}")

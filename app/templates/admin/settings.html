@@ -262,7 +262,6 @@
             <select id="printer_kitchen_type" class="form-control">
                 <option value="disabled" {{ 'selected' if settings.get('printer_kitchen_type')=='disabled' else '' }}>Отключен</option>
                 <option value="network" {{ 'selected' if settings.get('printer_kitchen_type','network')=='network' else '' }}>Сетевой</option>
-                <option value="usb" {{ 'selected' if settings.get('printer_kitchen_type')=='usb' else '' }}>USB</option>
                 <option value="serial" {{ 'selected' if settings.get('printer_kitchen_type')=='serial' else '' }}>COM (Serial)</option>
             </select>
         </div>
@@ -298,7 +297,6 @@
             <select id="printer_bar_type" class="form-control">
                 <option value="disabled" {{ 'selected' if settings.get('printer_bar_type')=='disabled' else '' }}>Отключен</option>
                 <option value="serial" {{ 'selected' if settings.get('printer_bar_type','serial')=='serial' else '' }}>COM (Serial)</option>
-                <option value="usb" {{ 'selected' if settings.get('printer_bar_type')=='usb' else '' }}>USB</option>
                 <option value="network" {{ 'selected' if settings.get('printer_bar_type')=='network' else '' }}>Сетевой</option>
             </select>
         </div>
@@ -344,7 +342,6 @@
             <select id="printer_receipt_type" class="form-control">
                 <option value="disabled" {{ 'selected' if settings.get('printer_receipt_type')=='disabled' else '' }}>Отключен</option>
                 <option value="serial" {{ 'selected' if settings.get('printer_receipt_type')=='serial' else '' }}>COM (Serial)</option>
-                <option value="usb" {{ 'selected' if settings.get('printer_receipt_type')=='usb' else '' }}>USB</option>
                 <option value="network" {{ 'selected' if settings.get('printer_receipt_type')=='network' else '' }}>Сетевой</option>
             </select>
         </div>
