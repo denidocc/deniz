@@ -379,42 +379,6 @@
                 </div>
             </div>
         </div>
-
-        <hr>
-
-        <div class="setting-item">
-            <div class="setting-label">Автоматическая печать</div>
-            <div class="setting-description">Настройки автоматической печати заказов</div>
-            <div class="row">
-                <div class="col-md-4">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="autoPrintReceipt" 
-                               {{ 'checked' if settings.get('auto_print_receipt', 'true') == 'true' else '' }}>
-                        <label class="form-check-label" for="autoPrintReceipt">
-                            Печатать чеки автоматически
-                        </label>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="autoPrintKitchen" 
-                               {{ 'checked' if settings.get('auto_print_kitchen', 'true') == 'true' else '' }}>
-                        <label class="form-check-label" for="autoPrintKitchen">
-                            Печатать заказы на кухне
-                        </label>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="autoPrintBar" 
-                               {{ 'checked' if settings.get('auto_print_bar', 'true') == 'true' else '' }}>
-                        <label class="form-check-label" for="autoPrintBar">
-                            Печатать заказы в баре
-                        </label>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 </div>
 

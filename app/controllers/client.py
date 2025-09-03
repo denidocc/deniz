@@ -518,6 +518,17 @@ def create_order():
                 "message": "Стол не найден"
             }), 404
         
+        # Проверяем, назначен ли официант на этот стол
+        assigned_waiter = table.get_assigned_waiter()
+        if not assigned_waiter:
+            current_app.logger.warning(f"Попытка создать заказ на столе {table.table_number} без назначенного официанта")
+            return jsonify({
+                "status": "error",
+                "message": f"На стол {table.table_number} не назначен официант. Обратитесь к администратору."
+            }), 400
+        
+        current_app.logger.info(f"Стол {table.table_number} обслуживает официант {assigned_waiter.name} (ID: {assigned_waiter.id})")
+        
         # Проверяем, есть ли уже активный заказ для этого стола
         current_app.logger.info(f"Checking for active orders on table {table.table_number} (ID: {table.id})")
         current_order = table.get_current_order()

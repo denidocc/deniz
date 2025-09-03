@@ -3,6 +3,8 @@
  */
 
 class ModalManager {
+    static currentOrderData = null;
+    
     static init() {
 
         
@@ -395,6 +397,9 @@ class ModalManager {
 
     // Подтверждение заказа
     static openOrderConfirmation(orderData) {
+        // Сохраняем данные заказа для использования в confirmOrder()
+        this.currentOrderData = orderData;
+        
         const timeoutSeconds = window.CLIENT_SETTINGS?.order_cancel_timeout || 300;
         let remainingTime = timeoutSeconds;
         let countdownInterval;
@@ -411,11 +416,12 @@ class ModalManager {
                 </div>
                 <div class="countdown-timer" id="countdownTimer">${this.formatTime(remainingTime)}</div>
                 <div class="order-actions">
-                    <button class="btn btn-outline" onclick="ModalManager.closeActive()">Закрыть</button>
-                    <button class="btn" style="background: var(--minus-btn); color: var(--white);" id="cancelOrderBtn">
+                    <button class="btn btn-outline" style="width: 100%;" onclick="ModalManager.closeActive()">Закрыть</button>
+                    <button class="btn" style="background: var(--minus-btn); color: var(--white); width: 100%;" id="cancelOrderBtn">
                         Отменить/убрать
                     </button>
                 </div>
+                <button class="btn" style="width: 100%; margin-top: var(--gap-medium); background: var(--ocean-green); color: var(--white);" onclick="confirmOrder()">Подтвердить</button>
             </div>
         `;
         
@@ -803,6 +809,68 @@ class ModalManager {
         `;
         this.show(alertContent, { className: 'alert-modal' });
     }
+    
+    // Подтверждение заказа клиентом (отправка на печать)
+    static async confirmOrder() {
+        if (!this.currentOrderData || !this.currentOrderData.order_id) {
+            console.error('Нет данных заказа для подтверждения');
+            NotificationManager.showError('Ошибка: данные заказа не найдены');
+            return;
+        }
+        
+        const orderId = this.currentOrderData.order_id;
+        console.log('🔄 Подтверждение заказа #' + orderId);
+        
+        try {
+            // Показываем индикатор загрузки
+            const confirmButton = document.querySelector('button[onclick="confirmOrder()"]');
+            if (confirmButton) {
+                const originalText = confirmButton.innerHTML;
+                confirmButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Подтверждаю...';
+                confirmButton.disabled = true;
+            }
+            
+            // Получаем CSRF токен
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            
+            // Отправляем запрос на печать (используем существующий роут официанта)
+            const response = await fetch(`/waiter/api/orders/${orderId}/print`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                console.log('✅ Заказ успешно подтвержден и отправлен на печать');
+                NotificationManager.showSuccess('Заказ подтвержден и отправлен на кухню!');
+                
+                // Закрываем модалку
+                this.closeActive();
+                
+                // Очищаем данные заказа
+                this.currentOrderData = null;
+                
+            } else {
+                throw new Error(data.message || 'Неизвестная ошибка');
+            }
+            
+        } catch (error) {
+            console.error('❌ Ошибка подтверждения заказа:', error);
+            NotificationManager.showError('Не удалось подтвердить заказ: ' + error.message);
+            
+            // Возвращаем кнопку в исходное состояние
+            const confirmButton = document.querySelector('button[onclick="confirmOrder()"]');
+            if (confirmButton) {
+                confirmButton.innerHTML = 'Подтвердить';
+                confirmButton.disabled = false;
+            }
+        }
+    }
 }
 
 // Экспортируем в глобальную область
@@ -819,4 +887,8 @@ window.showBonusCardInput = function() {
 
 window.verifyBonusCard = function() {
     return ModalManager.verifyBonusCard();
+};
+
+window.confirmOrder = function() {
+    return ModalManager.confirmOrder();
 };

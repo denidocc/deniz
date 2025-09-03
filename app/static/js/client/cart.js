@@ -385,10 +385,6 @@ class CartManager {
                 </div>
             </div>
             
-            <button class="btn bonus-card-btn" onclick="CartManager.openBonusCard()">
-                ${this.bonusCard ? '💳 Бонусная карта применена' : '💳 Бонусная карта'}
-            </button>
-            
             <button class="btn btn-primary continue-order-btn" onclick="CartManager.proceedToOrder()">
                 Продолжить заказ
             </button>
