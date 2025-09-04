@@ -115,7 +115,7 @@
                     <h3 class="cart-title">Корзина</h3>
                     <div class="table-selector">
                         <button class="table-select-btn" id="tableSelectBtn">
-                            <span class="table-text">Стол #<span id="currentTableNumber">1</span></span>
+                            <span class="table-text" id="tableLabel">Стол #<span id="currentTableNumber">1</span></span>
                             <svg class="dropdown-icon" viewBox="0 0 24 24">
                                 <path d="M7,10L12,15L17,10H7Z"/>
                             </svg>
@@ -208,11 +208,11 @@
                 NotificationManager.init();
                 ModalManager.init();
                 CartManager.init();
+                
+                LanguageManager.init();
+                
                 MenuManager.init();
                 CarouselManager.init();
-                
-                // Инициализируем LanguageManager
-                LanguageManager.init();
                 
                 ThemeManager.init();
                 SearchManager.init();

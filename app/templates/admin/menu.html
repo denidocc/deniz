@@ -375,7 +375,7 @@
                     
                     <div class="mb-3">
                         <div class="form-check">
-                            {{ category_form.is_active(class="form-check-input", checked=true) }}
+                            {{ category_form.is_active(class="form-check-input") }}
                             <label class="form-check-label" for="categoryActive">
                                 Активная категория
                             </label>
@@ -559,7 +559,7 @@
                     
                     <div class="mb-3">
                         <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="editCategoryActive" name="is_active" checked>
+                            <input class="form-check-input" type="checkbox" id="editCategoryActive" name="is_active">
                             <label class="form-check-label" for="editCategoryActive">
                                 Активная категория
                             </label>
@@ -788,6 +788,10 @@
         const form = document.getElementById('addItemForm');
         const formData = new FormData(form);
         
+        // Получаем значение checkbox правильно
+        const isActiveCheckbox = form.querySelector('input[name="is_active"]');
+        const isActiveValue = isActiveCheckbox ? isActiveCheckbox.checked : true;
+        
         const data = {
             category_id: parseInt(formData.get('category_id')),
             name_ru: formData.get('name_ru'),
@@ -799,7 +803,7 @@
             preparation_type: formData.get('preparation_type') || 'kitchen',
             image_url: formData.get('image_url') || '',
             sort_order: parseInt(formData.get('sort_order') || '0'),
-            is_active: formData.get('is_active') === 'on' || formData.get('is_active') === 'true'
+            is_active: isActiveValue
         };
         
         try {

@@ -1860,6 +1860,11 @@ def create_menu_item_api():
                 return value.lower() in ('true', '1', 'yes', 'on')
             return bool(value)
         
+        # Отладка значения is_active
+        is_active_raw = data.get('is_active', True)
+        is_active_processed = to_bool(is_active_raw, True)
+        current_app.logger.info(f"🍽️ Creating menu item - is_active raw: {is_active_raw} (type: {type(is_active_raw)}), processed: {is_active_processed}")
+        
         # Получаем следующий порядок сортировки для категории
         max_sort_order = db.session.query(db.func.max(MenuItem.sort_order))\
             .filter_by(category_id=int(data['category_id']))\
@@ -1877,7 +1882,7 @@ def create_menu_item_api():
             estimated_time=int(data.get('estimated_time', 15)),
             preparation_type=data.get('preparation_type', 'kitchen'),  # Значение по умолчанию
             sort_order=next_sort_order,
-            is_active=to_bool(data.get('is_active', True))
+            is_active=is_active_processed  # Используем обработанное значение
         )
         
         # Обрабатываем изображение, если есть
