@@ -395,16 +395,24 @@ def sales_report():
     total_guests = sum(order.guest_count or 0 for order in orders)
     avg_order = total_revenue / total_orders if total_orders else 0
     
-    # Группировка по дням
+    # Группировка по дням - создаем записи для ВСЕХ дней периода
+    from datetime import date, timedelta
+    
     daily_stats = {}
+    
+    # Сначала создаем записи для всех дней периода с нулевыми значениями
+    current_date = start_date
+    while current_date <= end_date:
+        daily_stats[current_date] = {
+            'orders': 0,
+            'revenue': 0,
+            'guests': 0
+        }
+        current_date += timedelta(days=1)
+    
+    # Теперь заполняем реальными данными
     for order in orders:
         date_key = order.created_at.date()
-        if date_key not in daily_stats:
-            daily_stats[date_key] = {
-                'orders': 0,
-                'revenue': 0,
-                'guests': 0
-            }
         daily_stats[date_key]['orders'] += 1
         daily_stats[date_key]['revenue'] += order.total_amount or 0
         daily_stats[date_key]['guests'] += order.guest_count or 0

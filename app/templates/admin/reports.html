@@ -505,9 +505,14 @@
     }
 
     function updateSalesChart(dailyStats) {
+        console.log('📊 Daily stats received:', dailyStats);
+        console.log('📊 Number of days:', dailyStats.length);
+        
         const labels = dailyStats.map(stat => new Date(stat.date).toLocaleDateString('ru-RU'));
         const revenue = dailyStats.map(stat => stat.revenue);
         const orders = dailyStats.map(stat => stat.orders);
+        
+        console.log('📊 Chart labels:', labels);
         
         salesChart.data.labels = labels;
         salesChart.data.datasets[0].data = revenue;
