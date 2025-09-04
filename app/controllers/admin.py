@@ -392,6 +392,7 @@ def sales_report():
     # Агрегация данных
     total_revenue = sum(order.total_amount or 0 for order in orders)
     total_orders = len(orders)
+    total_guests = sum(order.guest_count or 0 for order in orders)
     avg_order = total_revenue / total_orders if total_orders else 0
     
     # Группировка по дням
@@ -401,10 +402,12 @@ def sales_report():
         if date_key not in daily_stats:
             daily_stats[date_key] = {
                 'orders': 0,
-                'revenue': 0
+                'revenue': 0,
+                'guests': 0
             }
         daily_stats[date_key]['orders'] += 1
         daily_stats[date_key]['revenue'] += order.total_amount or 0
+        daily_stats[date_key]['guests'] += order.guest_count or 0
     
     return jsonify({
         'status': 'success',
@@ -416,13 +419,15 @@ def sales_report():
             'summary': {
                 'total_revenue': total_revenue,
                 'total_orders': total_orders,
+                'total_guests': total_guests,
                 'avg_order': avg_order
             },
             'daily_stats': [
                 {
                     'date': date.isoformat(),
                     'orders': stats['orders'],
-                    'revenue': stats['revenue']
+                    'revenue': stats['revenue'],
+                    'guests': stats['guests']
                 }
                 for date, stats in sorted(daily_stats.items())
             ]

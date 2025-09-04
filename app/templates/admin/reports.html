@@ -96,19 +96,25 @@
 
 <!-- Quick Metrics -->
 <div class="row mb-4" id="quickMetrics">
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="metric-box">
             <div class="metric-value" id="totalRevenue">0 {{ settings.get('currency', 'TMT') }}</div>
             <div class="metric-label">Общая выручка</div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="metric-box" style="background: linear-gradient(135deg, var(--admin-success), #58d68d);">
             <div class="metric-value" id="totalOrders">0</div>
             <div class="metric-label">Всего заказов</div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
+        <div class="metric-box" style="background: linear-gradient(135deg, #3498db, #5dade2);">
+            <div class="metric-value" id="totalGuests">0</div>
+            <div class="metric-label">Количество гостей</div>
+        </div>
+    </div>
+    <div class="col-md-3">
         <div class="metric-box" style="background: linear-gradient(135deg, var(--admin-warning), #f7dc6f);">
             <div class="metric-value" id="averageCheck">0 {{ settings.get('currency', 'TMT') }}</div>
             <div class="metric-label">Средний чек</div>
@@ -494,6 +500,7 @@
         const currency = '{{ settings.get("currency", "TMT") }}';
         document.getElementById('totalRevenue').textContent = formatCurrency(summary.total_revenue);
         document.getElementById('totalOrders').textContent = summary.total_orders;
+        document.getElementById('totalGuests').textContent = summary.total_guests || 0;
         document.getElementById('averageCheck').textContent = formatCurrency(summary.avg_order);
     }
 
