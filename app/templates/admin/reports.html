@@ -138,7 +138,8 @@
     <div class="col-lg-4">
         <div class="report-card">
             <div class="report-header">
-                <h5><i class="bi bi-pie-chart"></i> Распределение по категориям</h5>
+                <h5><i class="bi bi-pie-chart"></i> Распределение выручки по категориям</h5>
+                <small class="text-muted">Показывает долю выручки каждой категории меню</small>
             </div>
             <div class="chart-container">
                 <canvas id="categoryChart"></canvas>
@@ -230,9 +231,13 @@
 {% block extra_js %}
 <!-- Подключаем Chart.js -->
 <script src="{{ url_for('static', filename='libs/chart.min.js') }}"></script>
+<script src="{{ url_for('static', filename='libs/chartjs-plugin-datalabels.min.js') }}"></script>
 
 <script>
     let salesChart, categoryChart;
+    
+    // Регистрируем плагин datalabels
+    Chart.register(ChartDataLabels);
     
     document.addEventListener('DOMContentLoaded', function() {
         // Set default dates
@@ -312,6 +317,29 @@
                 plugins: {
                     legend: {
                         position: 'bottom'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${label}: ${value.toLocaleString('ru-RU')} TMT (${percentage}%)`;
+                            }
+                        }
+                    },
+                    datalabels: {
+                        color: '#fff',
+                        font: {
+                            weight: 'bold',
+                            size: 12
+                        },
+                        formatter: function(value, context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return percentage > 5 ? `${percentage}%` : ''; // Показывать только если больше 5%
+                        }
                     }
                 }
             }
@@ -505,14 +533,9 @@
     }
 
     function updateSalesChart(dailyStats) {
-        console.log('📊 Daily stats received:', dailyStats);
-        console.log('📊 Number of days:', dailyStats.length);
-        
         const labels = dailyStats.map(stat => new Date(stat.date).toLocaleDateString('ru-RU'));
         const revenue = dailyStats.map(stat => stat.revenue);
         const orders = dailyStats.map(stat => stat.orders);
-        
-        console.log('📊 Chart labels:', labels);
         
         salesChart.data.labels = labels;
         salesChart.data.datasets[0].data = revenue;
