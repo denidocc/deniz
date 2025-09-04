@@ -1486,7 +1486,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const applyBonusCardButton = document.getElementById('applyBonusCard');
         
         if (order.status === 'pending') {
-            printButton.style.display = 'inline-block';
+            // Для pending заказов официант НЕ может подтвердить - это делает клиент или автоматически через 5 минут
+            printButton.style.display = 'none';
             finalReceiptButton.style.display = 'none';
             applyBonusCardButton.style.display = 'none';
         } else if (order.status === 'confirmed') {

@@ -651,6 +651,9 @@ def generate_z_report():
     total_orders = len(completed_orders)  # Только завершенные!
     total_service_charge = sum(order.service_charge or 0 for order in completed_orders)
     
+    # ✅ ПОДСЧИТЫВАЕМ ОБЩЕЕ КОЛИЧЕСТВО ГОСТЕЙ ЗА ДЕНЬ (ПО ЗАВЕРШЕННЫМ ЗАКАЗАМ)
+    total_guests = sum(order.guest_count or 0 for order in completed_orders)
+    
     # ✅ ПОДСЧИТЫВАЕМ ОТМЕНЕННЫЕ ЗАКАЗЫ
     cancelled_count = len(cancelled_orders)
     
@@ -671,6 +674,7 @@ def generate_z_report():
         total_revenue=total_revenue,
         total_service_charge=total_service_charge,
         cancelled_orders=cancelled_count,
+        total_guests=total_guests,  # Общее количество гостей
         average_order_value=average_order_value,
         report_data=json.dumps({
             'orders_by_hour': {},
@@ -994,31 +998,71 @@ def create_backup():
 @audit_action("restore_backup")
 def restore_backup():
     """Восстановление из резервной копии."""
+    current_app.logger.info(f"Backup restore request received. Files: {list(request.files.keys())}")
+    
     if 'backup_file' not in request.files:
+        current_app.logger.error("No backup_file in request.files")
         return jsonify({
             'status': 'error',
             'message': 'Файл резервной копии не найден'
         }), 400
     
     backup_file = request.files['backup_file']
+    current_app.logger.info(f"Backup file received: {backup_file.filename}")
     
     if backup_file.filename == '':
+        current_app.logger.error("Empty filename")
         return jsonify({
             'status': 'error',
             'message': 'Файл не выбран'
         }), 400
     
+    # Проверяем расширение файла
+    import os
+    allowed_extensions = {'.sql', '.backup', '.gz'}
+    file_extension = os.path.splitext(backup_file.filename)[1].lower()
+    
+    # Для .sql.gz файлов проверяем полное расширение
+    if backup_file.filename.lower().endswith('.sql.gz'):
+        file_extension = '.gz'
+    
+    if file_extension not in allowed_extensions:
+        return jsonify({
+            'status': 'error',
+            'message': f'Неподдерживаемый формат файла. Разрешены: .sql, .backup, .sql.gz'
+        }), 400
+    
     try:
+        import tempfile
+        import os
         from app.utils.backup_manager import BackupManager
         
-        backup_manager = BackupManager()
-        result = backup_manager.restore_backup(backup_file)
+        # Сохраняем загруженный файл в папку backups (у PostgreSQL есть доступ)
+        from pathlib import Path
+        backup_dir = Path('backups')
+        backup_dir.mkdir(exist_ok=True)
         
-        return jsonify({
-            'status': 'success',
-            'message': 'База данных восстановлена успешно',
-            'data': result
-        })
+        # Создаем временный файл в папке backups
+        import uuid
+        temp_filename = f"temp_restore_{uuid.uuid4().hex}{os.path.splitext(backup_file.filename)[1]}"
+        tmp_file_path = backup_dir / temp_filename
+        
+        # Сохраняем загруженный файл
+        backup_file.save(str(tmp_file_path))
+        
+        try:
+            backup_manager = BackupManager()
+            result = backup_manager.restore_backup(str(tmp_file_path))
+            
+            return jsonify({
+                'status': 'success',
+                'message': 'База данных восстановлена успешно',
+                'data': result
+            })
+        finally:
+            # Удаляем временный файл
+            if tmp_file_path.exists():
+                tmp_file_path.unlink()
         
     except Exception as e:
         current_app.logger.error(f"Backup restoration failed: {e}")

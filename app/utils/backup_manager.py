@@ -301,12 +301,24 @@ class BackupManager:
             
             # Распаковываем если сжат
             if backup_file.suffix == '.gz':
-                import tempfile
-                with tempfile.NamedTemporaryFile(mode='w+b', suffix='.sql') as tmp_file:
+                # Создаем временный файл в папке backups для распакованного SQL
+                import uuid
+                temp_sql_path = self.backup_dir / f"temp_unpack_{uuid.uuid4().hex}.sql"
+                
+                try:
+                    logger.info(f"Unpacking .gz file: {backup_file}")
                     with gzip.open(backup_file, 'rb') as gz_file:
-                        tmp_file.write(gz_file.read())
-                    tmp_file.seek(0)
-                    result = self._execute_sql_restore(tmp_file.name)
+                        with open(temp_sql_path, 'wb') as sql_file:
+                            sql_file.write(gz_file.read())
+                    logger.info(f"Unpacked to: {temp_sql_path}")
+                    
+                    logger.info("Starting SQL restore execution...")
+                    result = self._execute_sql_restore(str(temp_sql_path))
+                    logger.info("SQL restore execution completed")
+                finally:
+                    # Удаляем временный распакованный файл
+                    if temp_sql_path.exists():
+                        temp_sql_path.unlink()
             else:
                 result = self._execute_sql_restore(str(backup_file))
             
@@ -324,12 +336,27 @@ class BackupManager:
     def _execute_sql_restore(self, sql_file_path: str) -> None:
         """Выполнение SQL восстановления."""
         try:
-            with psycopg2.connect(**self.db_config) as conn:
+            logger.info(f"Reading SQL file: {sql_file_path}")
+            with open(sql_file_path, 'r', encoding='utf-8') as f:
+                sql_content = f.read()
+            
+            logger.info(f"SQL content length: {len(sql_content)} characters")
+            logger.info("Connecting to database...")
+            
+            # Добавляем таймаут для подключения
+            db_config_with_timeout = self.db_config.copy()
+            db_config_with_timeout['connect_timeout'] = 30
+            
+            with psycopg2.connect(**db_config_with_timeout) as conn:
+                logger.info("Database connected, executing SQL...")
+                
                 with conn.cursor() as cursor:
-                    with open(sql_file_path, 'r', encoding='utf-8') as f:
-                        sql_content = f.read()
-                        cursor.execute(sql_content)
-                        conn.commit()
+                    # Увеличиваем таймаут для выполнения запросов до 30 минут для больших бекапов
+                    cursor.execute("SET statement_timeout = '1800s';")  # 30 минут
+                    logger.info("Executing large SQL backup, this may take several minutes...")
+                    cursor.execute(sql_content)
+                    conn.commit()
+                    logger.info("SQL executed successfully")
         except Exception as e:
             logger.error(f"SQL restore execution failed: {e}")
             raise

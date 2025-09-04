@@ -128,6 +128,7 @@ def generate_z_report_pdf(report) -> bytes:
             ['Vsego zakazov sozdano', str(report.total_orders)],
             ['Zavershennyh zakazov', str(completed_orders_count)],
             ['Otmenennyh zakazov', str(report.cancelled_orders)],
+            ['Obshchee kolichestvo gostey', str(report.total_guests or 0)],
             ['Vyruchka', f"{report.total_revenue:.2f} TMT"],
             ['Servisny sbor', f"{report.total_service_charge:.2f} TMT"]
         ]

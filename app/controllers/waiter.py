@@ -397,6 +397,17 @@ def print_order_receipts(order_id):
     """Печать чеков для заказа (кухня и бар)."""
     order = Order.query.get_or_404(order_id)
     
+    # Проверяем: если заказ pending и есть аутентифицированный официант - запрещаем
+    # Pending заказы может подтверждать только клиент или автоматически по таймеру
+    if (order.status == 'pending' and 
+        hasattr(current_user, 'id') and 
+        current_user.id and 
+        hasattr(current_user, 'role') and 
+        current_user.role == 'waiter'):
+        return jsonify({
+            'status': 'error',
+            'message': 'Заказы со статусом "Новый" подтверждает клиент. Ожидайте подтверждения или автоматического подтверждения через 5 минут.'
+        }), 403
     
     try:
         from app.utils.print_service import PrintService
