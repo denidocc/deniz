@@ -67,7 +67,7 @@ class CarouselManager {
             const settings = config.settings || {};
             
             // Загружаем настройки карусели
-            this.autoplayDelay = (settings.carousel_slide_duration || 5) * 1000; // в миллисекундах
+            this.autoplayDelay = (settings.banner_delay_seconds || 5) * 1000; // в миллисекундах
             this.transitionSpeed = settings.carousel_transition_speed || 0.5;
             this.maxSlides = settings.carousel_slides_count || 3;
             

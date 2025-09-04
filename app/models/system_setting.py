@@ -84,6 +84,7 @@ class SystemSetting(BaseModel):
     def initialize_default_settings(cls) -> None:
         """Инициализация настроек по умолчанию."""
         default_settings = [
+            ('banner_delay_seconds', '5', 'Задержка между баннерами в секундах'),
             ('printer_code', '1234', 'Код доступа к настройкам принтеров'),
             ('printer_kitchen_type', 'network', 'Тип подключения кухонного принтера (network|usb|serial|disabled)'),
             ('printer_bar_type', 'serial', 'Тип подключения барного принтера'),

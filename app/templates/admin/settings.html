@@ -268,6 +268,27 @@
     </div>
 </div>
 
+<!-- Interface Settings -->
+<div class="settings-section">
+    <div class="section-header">
+        <h5 class="mb-0">
+            <i class="bi bi-display"></i> Настройки интерфейса
+        </h5>
+    </div>
+    <div class="section-body">
+        <div class="setting-item">
+            <div class="setting-label">Задержка между баннерами</div>
+            <div class="setting-description">Время показа каждого баннера в карусели (в секундах)</div>
+            <div class="input-group" style="max-width: 200px;">
+                <input type="number" class="form-control" id="bannerDelaySeconds" 
+                       value="{{ settings.get('banner_delay_seconds', '5') }}" 
+                       min="1" max="30" step="1">
+                <span class="input-group-text">сек</span>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Security Settings -->
 <div class="settings-section">
     <div class="section-header">
@@ -541,7 +562,9 @@
         
         settings.available_languages = getAvailableLanguages();
         
-
+        // Interface settings
+        const bannerDelaySeconds = document.getElementById('bannerDelaySeconds');
+        if (bannerDelaySeconds) settings.banner_delay_seconds = bannerDelaySeconds.value;
         
         const autoPrintReceipt = document.getElementById('autoPrintReceipt');
         if (autoPrintReceipt) settings.auto_print_receipt = autoPrintReceipt.checked.toString();
