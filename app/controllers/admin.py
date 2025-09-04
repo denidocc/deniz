@@ -53,16 +53,19 @@ def dashboard():
     
     # Популярные блюда за неделю
     week_ago = today - timedelta(days=7)
-    popular_dishes = db.session.query(
+    popular_dishes_query = db.session.query(
         MenuItem.name_ru,
         func.sum(OrderItem.quantity).label('total_sold')
     ).join(OrderItem).join(Order).filter(
-        func.date(Order.created_at) >= week_ago
+        func.date(Order.created_at) >= week_ago,
+        Order.status.in_(['completed', 'confirmed'])  # Только завершенные заказы
     ).group_by(MenuItem.id, MenuItem.name_ru).order_by(
         desc('total_sold')
     ).limit(5).all()
     
-
+    # Преобразуем результат в формат для JavaScript [название, количество]
+    popular_dishes = [[dish.name_ru, int(dish.total_sold)] for dish in popular_dishes_query]
+    current_app.logger.info(f"Popular dishes data: {popular_dishes}")
     
     # Последние действия в системе (аудит)
     recent_actions = AuditLog.query.order_by(
@@ -72,8 +75,7 @@ def dashboard():
     return render_template('admin/dashboard.html',
                          stats=stats,
                          today_stats=today_stats,
-                         popular_dishes=popular_dishes,
-
+                         popular_dishes=json.dumps(popular_dishes),  # Сериализуем в JSON
                          recent_actions=recent_actions)
 
 # === УПРАВЛЕНИЕ МЕНЮ ===
