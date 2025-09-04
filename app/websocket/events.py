@@ -127,3 +127,61 @@ def notify_waiter_call(call_id: int):
         
     except Exception as e:
         logger.error(f"Ошибка при отправке уведомления о вызове: {e}")
+
+@socketio.on('join_client_room')
+def handle_client_join():
+    """Клиент присоединяется к общей комнате клиентов."""
+    try:
+        # Присоединяемся к общей комнате всех клиентов
+        join_room('all_clients')
+        
+        emit('joined_client_room', {
+            'message': 'Присоединились к клиентской комнате',
+            'room': 'all_clients'
+        })
+        
+        current_app.logger.info("Client joined room: all_clients")
+        
+    except Exception as e:
+        current_app.logger.error(f"Error in handle_client_join: {e}")
+        emit('error', {'message': 'Ошибка присоединения к комнате'})
+
+def broadcast_content_update(content_type: str, action: str, message: str = None):
+    """
+    Универсальная функция для уведомления клиентов об обновлениях контента.
+    
+    Args:
+        content_type: Тип контента ('menu', 'category', 'banner', 'settings')
+        action: Действие ('create', 'update', 'delete')
+        message: Дополнительное сообщение
+    """
+    try:
+        if not message:
+            action_names = {
+                'create': 'создан',
+                'update': 'обновлен', 
+                'delete': 'удален'
+            }
+            type_names = {
+                'menu': 'Элемент меню',
+                'category': 'Категория',
+                'banner': 'Баннер',
+                'settings': 'Настройки'
+            }
+            
+            message = f"{type_names.get(content_type, 'Контент')} {action_names.get(action, 'изменен')}"
+        
+        # Отправляем уведомление всем клиентам
+        socketio.emit('content_updated', {
+            'type': content_type,
+            'action': action,
+            'message': message,
+            'timestamp': current_app.logger.handlers[0].formatter.formatTime(
+                logging.LogRecord('', 0, '', 0, '', (), None)
+            ) if current_app.logger.handlers else None
+        }, room='all_clients')
+        
+        current_app.logger.info(f"Content update broadcasted: {content_type} - {action} - {message}")
+        
+    except Exception as e:
+        current_app.logger.error(f"Error broadcasting content update: {e}")

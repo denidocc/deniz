@@ -236,22 +236,28 @@ def setup_logging(app: Flask) -> None:
         '[in %(pathname)s:%(lineno)d] [request_id: %(request_id)s]'
     )
     
-    # Файловый обработчик
-    file_handler = RotatingFileHandler(
-        'logs/app.log',
-        maxBytes=10485760,  # 10MB
-        backupCount=10
-    )
+    # Файловый обработчик (без ротации для разработки)
+    if app.debug:
+        file_handler = logging.FileHandler('logs/app.log')
+    else:
+        file_handler = RotatingFileHandler(
+            'logs/app.log',
+            maxBytes=10485760,  # 10MB
+            backupCount=10
+        )
     file_handler.setFormatter(formatter)
     file_handler.setLevel(log_level)
     app.logger.addHandler(file_handler)
     
-    # Обработчик ошибок
-    error_handler = RotatingFileHandler(
-        'logs/errors.log',
-        maxBytes=10485760,
-        backupCount=5
-    )
+    # Обработчик ошибок (без ротации для разработки)
+    if app.debug:
+        error_handler = logging.FileHandler('logs/errors.log')
+    else:
+        error_handler = RotatingFileHandler(
+            'logs/errors.log',
+            maxBytes=10485760,
+            backupCount=5
+        )
     error_handler.setFormatter(formatter)
     error_handler.setLevel(logging.ERROR)
     app.logger.addHandler(error_handler)

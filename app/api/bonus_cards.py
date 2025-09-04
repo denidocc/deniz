@@ -133,8 +133,8 @@ def apply_bonus_card(order_id):
         
         card_number = data['card_number'].strip()
         
-        if len(card_number) != 6 or not card_number.isdigit():
-            raise ValidationError("Номер карты должен содержать 6 цифр")
+        if len(card_number) != 5 or not card_number.isdigit():
+            raise ValidationError("Номер карты должен содержать 5 цифр")
         
         # Находим заказ
         order = Order.query.get(order_id)
@@ -145,11 +145,11 @@ def apply_bonus_card(order_id):
                 'data': {}
             }), 404
         
-        # Проверяем, что заказ еще можно редактировать
-        if not order.can_be_edited():
+        # Проверяем, что заказ в подходящем статусе для применения карты
+        if order.status not in ['pending', 'confirmed']:
             return jsonify({
                 'status': 'error',
-                'message': 'Заказ нельзя больше редактировать',
+                'message': 'Бонусную карту можно применить только к новым или подтвержденным заказам',
                 'data': {}
             }), 400
         
@@ -211,11 +211,11 @@ def remove_bonus_card(order_id):
                 'data': {}
             }), 404
         
-        # Проверяем, что заказ еще можно редактировать
-        if not order.can_be_edited():
+        # Проверяем, что заказ в подходящем статусе для удаления карты
+        if order.status not in ['pending', 'confirmed']:
             return jsonify({
                 'status': 'error',
-                'message': 'Заказ нельзя больше редактировать',
+                'message': 'Бонусную карту можно удалить только у новых или подтвержденных заказов',
                 'data': {}
             }), 400
         

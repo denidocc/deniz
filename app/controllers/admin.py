@@ -159,6 +159,13 @@ def create_category():
     
     current_app.logger.info(f"Category saved with ID: {category.id}")
     
+    # Уведомляем клиентов о новой категории
+    try:
+        from app.websocket.events import broadcast_content_update
+        broadcast_content_update('category', 'create', f'Добавлена новая категория: {category.name_ru}')
+    except Exception as e:
+        current_app.logger.error(f"Error broadcasting category create: {e}")
+    
     return jsonify({
         'status': 'success',
         'message': 'Категория успешно создана',
@@ -443,6 +450,42 @@ def settings():
                          client_pin_form=client_pin_form,
                          printer_settings_form=printer_settings_form)
 
+@admin_bp.route('/printers')
+@admin_required
+@audit_action("view_printer_settings")
+def printers():
+    """Настройки принтеров с паролевым доступом."""
+    return render_template('admin/printers.html')
+
+@admin_bp.route('/printers/auth', methods=['POST'])
+@admin_required
+@audit_action("auth_printer_settings")
+def printers_auth():
+    """Авторизация доступа к настройкам принтеров."""
+    data = request.get_json() or {}
+    entered_code = data.get('code', '')
+    
+    # Получаем код из настроек
+    printer_code = SystemSetting.get_setting('printer_code')
+    
+    if entered_code == printer_code:
+        # Получаем настройки принтеров
+        settings = SystemSetting.query.filter(
+            SystemSetting.setting_key.like('printer_%')
+        ).all()
+        settings_dict = {s.setting_key: s.setting_value for s in settings}
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Доступ разрешен',
+            'data': {'settings': settings_dict}
+        })
+    else:
+        return jsonify({
+            'status': 'error',
+            'message': 'Неверный код доступа'
+        }), 403
+
 @admin_bp.route('/settings/update', methods=['POST'])
 @admin_required
 @audit_action("update_system_settings")
@@ -463,6 +506,7 @@ def update_settings():
         if not form.validate():
             return jsonify({'status': 'error', 'message': 'Валидация не пройдена', 'errors': form.errors}), 400
     
+    updated_settings = []
     for key, value in data.items():
         setting = SystemSetting.query.filter_by(setting_key=key).first()
         if setting:
@@ -470,6 +514,15 @@ def update_settings():
         else:
             setting = SystemSetting(setting_key=key, setting_value=str(value))
             db.session.add(setting)
+        updated_settings.append(key)
+    
+    # Уведомляем клиентов об изменении настроек
+    try:
+        from app.websocket.events import broadcast_content_update
+        settings_text = ', '.join(updated_settings)
+        broadcast_content_update('settings', 'update', f'Обновлены настройки: {settings_text}')
+    except Exception as e:
+        current_app.logger.error(f"Error broadcasting settings update: {e}")
     
     return jsonify({
         'status': 'success',
@@ -678,8 +731,16 @@ def update_menu_item(item_id):
         if item.image_url and not item.image_url.startswith('http'):
             ImageUploadManager.delete_image(item.image_url)
         
+        item_name = item.name_ru  # Сохраняем имя перед удалением
         db.session.delete(item)
         db.session.commit()
+        
+        # Уведомляем клиентов об удалении блюда
+        try:
+            from app.websocket.events import broadcast_content_update
+            broadcast_content_update('menu', 'delete', f'Удалено блюдо: {item_name}')
+        except Exception as e:
+            current_app.logger.error(f"Error broadcasting menu delete: {e}")
         
         return jsonify({
             'status': 'success',
@@ -751,6 +812,13 @@ def update_menu_item(item_id):
         
         db.session.commit()
         
+        # Уведомляем клиентов об обновлении блюда
+        try:
+            from app.websocket.events import broadcast_content_update
+            broadcast_content_update('menu', 'update', f'Обновлено блюдо: {item.name_ru}')
+        except Exception as e:
+            current_app.logger.error(f"Error broadcasting menu update: {e}")
+        
         return jsonify({
             'status': 'success',
             'message': 'Блюдо обновлено',
@@ -788,8 +856,16 @@ def update_menu_category(category_id):
         # Удаление категории и всех блюд в ней
         from app.models import MenuItem
         MenuItem.query.filter_by(category_id=category_id).delete()
+        category_name = category.name_ru  # Сохраняем имя перед удалением
         db.session.delete(category)
         db.session.commit()
+        
+        # Уведомляем клиентов об удалении категории
+        try:
+            from app.websocket.events import broadcast_content_update
+            broadcast_content_update('category', 'delete', f'Удалена категория: {category_name}')
+        except Exception as e:
+            current_app.logger.error(f"Error broadcasting category delete: {e}")
         
         return jsonify({
             'status': 'success',
@@ -813,6 +889,13 @@ def update_menu_category(category_id):
     if hasattr(form, 'is_active') and form.is_active.data is not None:
         category.is_active = bool(form.is_active.data)
     
+    # Уведомляем клиентов об обновлении категории
+    try:
+        from app.websocket.events import broadcast_content_update
+        broadcast_content_update('category', 'update', f'Обновлена категория: {category.name_ru}')
+    except Exception as e:
+        current_app.logger.error(f"Error broadcasting category update: {e}")
+    
     return jsonify({
         'status': 'success',
         'message': 'Категория обновлена',
@@ -831,6 +914,14 @@ def toggle_menu_item_availability(item_id):
     if 'is_available' in data:
         item.is_active = data['is_available']
         db.session.commit()
+        
+        # Уведомляем клиентов об изменении доступности
+        try:
+            from app.websocket.events import broadcast_content_update
+            status = "доступно" if item.is_active else "скрыто"
+            broadcast_content_update('menu', 'update', f'Блюдо {item.name_ru} теперь {status}')
+        except Exception as e:
+            current_app.logger.error(f"Error broadcasting menu availability change: {e}")
         
         return jsonify({
             'status': 'success',
@@ -874,6 +965,13 @@ def create_backup():
             db.session.add(backup_size_setting)
         
         db.session.commit()
+        
+        # Уведомляем клиентов об обновлении настроек бэкапа
+        try:
+            from app.websocket.events import broadcast_content_update
+            broadcast_content_update('settings', 'update', 'Обновлена информация о резервных копиях')
+        except Exception as e:
+            current_app.logger.error(f"Error broadcasting backup settings update: {e}")
         
         return jsonify({
             'status': 'success',
@@ -1472,6 +1570,13 @@ def create_banner():
         db.session.add(banner)
         db.session.commit()
         
+        # Уведомляем клиентов о новом баннере
+        try:
+            from app.websocket.events import broadcast_content_update
+            broadcast_content_update('banner', 'create', f'Добавлен новый баннер: {banner.title_ru}')
+        except Exception as e:
+            current_app.logger.error(f"Error broadcasting banner create: {e}")
+        
         return jsonify({
             'status': 'success',
             'message': 'Баннер успешно создан',
@@ -1547,6 +1652,13 @@ def update_banner(banner_id):
         
         db.session.commit()
         
+        # Уведомляем клиентов об обновлении баннера
+        try:
+            from app.websocket.events import broadcast_content_update
+            broadcast_content_update('banner', 'update', f'Обновлен баннер: {banner.title_ru}')
+        except Exception as e:
+            current_app.logger.error(f"Error broadcasting banner update: {e}")
+        
         return jsonify({
             'status': 'success',
             'message': 'Баннер успешно обновлен',
@@ -1577,6 +1689,13 @@ def delete_banner(banner_id):
         banner_title = banner.title
         db.session.delete(banner)
         db.session.commit()
+        
+        # Уведомляем клиентов об удалении баннера
+        try:
+            from app.websocket.events import broadcast_content_update
+            broadcast_content_update('banner', 'delete', f'Удален баннер: {banner_title}')
+        except Exception as e:
+            current_app.logger.error(f"Error broadcasting banner delete: {e}")
         
         return jsonify({
             'status': 'success',
@@ -1711,6 +1830,13 @@ def create_menu_item_api():
         
         db.session.add(menu_item)
         db.session.commit()
+        
+        # Уведомляем клиентов об изменении меню
+        try:
+            from app.websocket.events import broadcast_content_update
+            broadcast_content_update('menu', 'create', f'Добавлено новое блюдо: {menu_item.name_ru}')
+        except Exception as e:
+            current_app.logger.error(f"Error broadcasting menu update: {e}")
         
         return jsonify({
             'status': 'success',

@@ -418,9 +418,6 @@ function createOrderCard(order) {
                 <button class="btn btn-primary" onclick="window.viewOrderDetails(${order.order_id})">
                     <i class="fas fa-eye"></i> Подробности
                 </button>
-                <button class="btn btn-info" onclick="window.printOrderReceiptsFromCard(${order.order_id})">
-                    <i class="fas fa-print"></i> Отправить на печать
-                </button>
                 <button class="btn btn-danger" onclick="window.cancelOrder(${order.order_id})">
                     <i class="fas fa-times"></i> Отменить заказ
                 </button>

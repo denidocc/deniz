@@ -12,8 +12,7 @@
 }
 
 #selectedItemsSection {
-    background: white;
-    border-top: 2px solid #ddd;
+    background: white;    
     padding: 8px;
 }
 
@@ -366,6 +365,7 @@ width: 100%;
             </div>
             <div class="modal-footer waiter-modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Закрыть</button>
+                <button type="button" class="btn btn-info" id="applyBonusCard" style="display: none;">Применить карту</button>
                 <button type="button" class="btn btn-primary" id="printOrderReceipts">Отправить на печать</button>
                 <button type="button" class="btn btn-success" id="printFinalReceipt" style="display: none;">Печать финального чека</button>
             </div>
@@ -399,7 +399,7 @@ width: 100%;
             <button type="button" class="order-close-btn" data-dismiss="modal">&times;</button>
         </div>
 
-        <div class="modal-body">
+        <div class="modal-body large-modal">
             <!-- Поиск -->
             <div class="search-section">
                 <div class="search-input-wrapper">
@@ -425,9 +425,9 @@ width: 100%;
                             <div class="spinner"></div>
                             <p>Загрузка меню...</p>
                     </div>
+                    
                 </div>
             </div>
-
             <!-- Выбранные позиции -->
             <div id="selectedItemsSection" class="selected-items-section" style="display:none;">
                 <h4>Выбранные позиции</h4>
@@ -436,6 +436,7 @@ width: 100%;
                     Итого: <span>0</span> TMT
                 </div>
             </div>
+            
         </div>
 
         <div class="modal-footer">
@@ -1059,9 +1060,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         <button class="btn btn-success" ${order.final_receipt_printed ? '' : 'disabled'} data-action="mark-paid" data-order-id="${order.id}">
                             <i class="fas fa-check"></i> Отметить как оплаченный
                         </button>
-                        <button type="button" class="btn btn-info" id="applyBonusCard">
-                            <i class="fas fa-plus"></i> Применить карту
-                        </button>
                         <button class="btn btn-warning" data-action="add-items" data-order-id="${order.id}">
                             <i class="fas fa-plus"></i> Добавить
                         </button>
@@ -1485,9 +1483,12 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         
         // Показываем/скрываем кнопки в зависимости от статуса
+        const applyBonusCardButton = document.getElementById('applyBonusCard');
+        
         if (order.status === 'pending') {
             printButton.style.display = 'inline-block';
             finalReceiptButton.style.display = 'none';
+            applyBonusCardButton.style.display = 'none';
         } else if (order.status === 'confirmed') {
             // В confirmed показываем отправку на печать ТОЛЬКО если есть доп. позиции
             if (order.has_added_items) {
@@ -1499,9 +1500,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             // Итоговый чек всегда доступен
             finalReceiptButton.style.display = 'inline-block';
+            // Показываем кнопку применения бонусной карты для confirmed заказов
+            applyBonusCardButton.style.display = 'inline-block';
         } else {
             printButton.style.display = 'none';
             finalReceiptButton.style.display = 'none';
+            applyBonusCardButton.style.display = 'none';
         }
         
         // Сохраняем ID заказа и показываем модалку
@@ -1614,8 +1618,8 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        if (cardNumber.length !== 6 || !/^\d+$/.test(cardNumber)) {
-            waiterNotifications.showError('Номер карты должен содержать 6 цифр');
+        if (cardNumber.length !== 5 || !/^\d+$/.test(cardNumber)) {
+            waiterNotifications.showError('Номер карты должен содержать 5 цифр');
             return;
         }
         
@@ -1853,7 +1857,6 @@ document.addEventListener('DOMContentLoaded', function() {
     window.closeOrderModal = closeOrderModal;
     window.closeAddItemsModal = closeAddItemsModal;
     window.printOrderReceipts = printOrderReceipts;
-    window.printOrderReceiptsFromCard = printOrderReceiptsFromCard;
     window.printFinalReceipt = printFinalReceipt;
     window.applyBonusCard = applyBonusCard;
     window.cancelOrder = cancelOrder;
@@ -1867,12 +1870,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Обработчики печати
     document.getElementById('printOrderReceipts').addEventListener('click', printOrderReceipts);
     document.getElementById('printFinalReceipt').addEventListener('click', printFinalReceipt);
-    // Используем делегирование событий для кнопки applyBonusCard
-    document.addEventListener('click', function(e) {
-        if (e.target && e.target.id === 'applyBonusCard') {
-            applyBonusCard(e);
-        }
-    });
+    document.getElementById('applyBonusCard').addEventListener('click', applyBonusCard);
     
     // Обработчики закрытия модальных окон
     document.querySelectorAll('[data-dismiss="modal"]').forEach(button => {
@@ -2005,12 +2003,7 @@ function createPaginationControls(pagination) {
     document.getElementById('statusFilter').addEventListener('change', () => loadOrders());
     document.getElementById('printOrderReceipts').addEventListener('click', printOrderReceipts);
     document.getElementById('printFinalReceipt').addEventListener('click', printFinalReceipt);
-    // Используем делегирование событий для кнопки applyBonusCard
-    document.addEventListener('click', function(e) {
-        if (e.target && e.target.id === 'applyBonusCard') {
-            applyBonusCard(e);
-        }
-    });
+    document.getElementById('applyBonusCard').addEventListener('click', applyBonusCard);
     
     // Начальная загрузка
     setTimeout(() => {

@@ -453,6 +453,22 @@ def print_order_receipts(order_id):
             order.has_added_items = False
         db.session.commit()
         
+        # Отправляем WebSocket уведомление об обновлении заказа только назначенному официанту
+        try:
+            from app.websocket import socketio
+            if order.waiter_id:
+                socketio.emit('order_updated', {
+                    'order_id': order.id,
+                    'status': order.status,
+                    'table_number': order.table.table_number,
+                    'message': 'Заказ подтвержден и отправлен на печать'
+                }, room=f'waiter_{order.waiter_id}')
+                current_app.logger.info(f"WebSocket уведомление отправлено официанту {order.waiter_id} для заказа {order.id}")
+            else:
+                current_app.logger.warning(f"Не удалось отправить WebSocket уведомление для заказа {order.id}: официант не назначен")
+        except Exception as e:
+            current_app.logger.error(f"Ошибка отправки WebSocket уведомления: {e}")
+        
         return jsonify({
             'status': 'success',
             'message': 'Чеки отправлены на печать',

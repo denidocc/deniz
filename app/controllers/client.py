@@ -1125,6 +1125,22 @@ def cancel_order(order_id):
         
         current_app.logger.info(f"Order {order_id} cancelled successfully")
         
+        # Отправляем WebSocket уведомление назначенному официанту об отмене заказа
+        try:
+            from app.websocket import socketio
+            if order.waiter_id:
+                socketio.emit('order_updated', {
+                    'order_id': order.id,
+                    'status': order.status,
+                    'table_number': table.table_number if table else None,
+                    'message': f'Заказ #{order.id} отменен клиентом'
+                }, room=f'waiter_{order.waiter_id}')
+                current_app.logger.info(f"WebSocket уведомление об отмене заказа {order.id} отправлено официанту {order.waiter_id}")
+            else:
+                current_app.logger.warning(f"Не удалось отправить WebSocket уведомление об отмене заказа {order.id}: официант не назначен")
+        except Exception as e:
+            current_app.logger.error(f"Ошибка отправки WebSocket уведомления об отмене заказа: {e}")
+        
         return jsonify({
             "status": "success",
             "message": "Заказ успешно отменен",

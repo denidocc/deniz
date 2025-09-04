@@ -172,7 +172,7 @@ class MenuManager {
         
         const cartQuantity = CartManager.getItemQuantity(dish.id);
         const actionsHTML = cartQuantity > 0 ? `
-            <div class="dish-actions">
+            <div class="dish-actions" style="display: flex; flex-direction: row;">
                 <button class="btn-round btn-minus" onclick="CartManager.removeItem(${dish.id})">−</button>
                 <span class="quantity-display">${cartQuantity}</span>
                 <button class="btn-round btn-plus" onclick="CartManager.addItem(${dish.id})">+</button>

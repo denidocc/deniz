@@ -121,7 +121,7 @@
                             </svg>
                         </button>
                     </div>
-                    <button class="clear-cart-btn" id="clearCartBtn">Очистить</button>
+                    <button class="clear-cart-btn" id="clearCartBtn">❌</button>
                 </div>
                 
                 <div class="cart-content" id="cartContent">
@@ -171,6 +171,11 @@
     <div id="notificationContainer" class="notification-container"></div>
     
     <!-- JavaScript -->
+    <!-- WebSocket Support -->
+    <script src="{{ url_for('static', filename='libs/socket.io.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/client/websocket.js') }}"></script>
+    
+    <!-- Core Scripts -->
     <script src="{{ url_for('static', filename='js/client/utils.js') }}"></script>
     <script src="{{ url_for('static', filename='js/client/api.js') }}?v=3" onerror="console.error('❌ Ошибка загрузки api.js')"></script>
     <script src="{{ url_for('static', filename='js/client/language.js') }}"></script>

@@ -141,6 +141,15 @@
                             </div>
                             
                             <div class="form-group">
+                                <label for="bannerStartDate">Дата начала показа</label>
+                                <input type="datetime-local" class="form-control" id="bannerStartDate" name="start_date">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="bannerEndDate">Дата окончания показа</label>
+                                <input type="datetime-local" class="form-control" id="bannerEndDate" name="end_date">
+                            </div>
+                            <!-- <div class="form-group">
                                 <label for="bannerLinkUrl">Ссылка</label>
                                 <input type="url" class="form-control" id="bannerLinkUrl" name="link_url" placeholder="https://...">
                             </div>
@@ -148,7 +157,7 @@
                             <div class="form-group">
                                 <label for="bannerLinkText">Текст ссылки</label>
                                 <input type="text" class="form-control" id="bannerLinkText" name="link_text" placeholder="Нажмите здесь">
-                            </div>
+                            </div> -->
                         </div>
                         
                         <div class="col-md-6">
@@ -168,16 +177,6 @@
                                 <div class="image-preview-container">
                                     <img id="imagePreview" src="" alt="Предварительный просмотр" class="img-fluid rounded" style="max-height: 200px; display: none;">
                                 </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="bannerStartDate">Дата начала показа</label>
-                                <input type="datetime-local" class="form-control" id="bannerStartDate" name="start_date">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="bannerEndDate">Дата окончания показа</label>
-                                <input type="datetime-local" class="form-control" id="bannerEndDate" name="end_date">
                             </div>
                             
                             <div class="form-group">
@@ -454,8 +453,8 @@ async function editBanner(bannerId) {
             document.getElementById('bannerSubmitBtn').innerHTML = '<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>Сохранить';
             document.getElementById('bannerTitle').value = banner.title;
             document.getElementById('bannerDescription').value = banner.description || '';
-            document.getElementById('bannerLinkUrl').value = banner.link_url || '';
-            document.getElementById('bannerLinkText').value = banner.link_text || '';
+            // document.getElementById('bannerLinkUrl').value = banner.link_url || '';
+            // document.getElementById('bannerLinkText').value = banner.link_text || '';
             document.getElementById('bannerIsActive').checked = banner.is_active;
             updateHiddenField(document.getElementById('bannerIsActive'));
             

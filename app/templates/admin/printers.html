@@ -1,0 +1,395 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Настройки принтеров{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="page-header">
+                <h1 class="page-title">
+                    <i class="bi bi-printer"></i>
+                    Настройки принтеров
+                </h1>
+                <p class="text-muted">Управление настройками принтеров системы</p>
+            </div>
+
+            <!-- Форма ввода кода доступа -->
+            <div id="authForm" class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-lock"></i>
+                        Доступ к настройкам принтеров
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row justify-content-center">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="printerCode" class="form-label">Введите код доступа:</label>
+                                <input type="password" class="form-control" id="printerCode" placeholder="Введите код">
+                            </div>
+                            <div class="d-grid">
+                                <button type="button" class="btn btn-primary" onclick="authenticateAccess()">
+                                    <i class="bi bi-unlock"></i>
+                                    Получить доступ
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Настройки принтеров (скрыты по умолчанию) -->
+            <div id="printerSettings" class="card mb-4" style="display: none;">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-printer"></i>
+                        Настройки принтеров
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Kitchen Printer -->
+                    <div class="settings-section">
+                        <div class="section-header">
+                            <h6 class="mb-3">
+                                <i class="bi bi-printer-fill text-success"></i>
+                                Кухонный принтер
+                            </h6>
+                        </div>
+                        <div class="section-body">
+                            <div class="setting-item">
+                                <div class="setting-label">Тип подключения</div>
+                                <select id="printer_kitchen_type" class="form-control">
+                                    <option value="disabled">Отключен</option>
+                                    <option value="network">Сетевой</option>
+                                    <option value="serial">COM (Serial)</option>
+                                </select>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-label">Сетевой (IP:порт)</div>
+                                <div class="row g-2">
+                                    <div class="col-md-8">
+                                        <input type="text" class="form-control" id="printer_kitchen_ip" placeholder="192.168.1.101">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="number" class="form-control" id="printer_kitchen_port" placeholder="9100">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-label">Кодировка и ширина</div>
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <input type="number" class="form-control" id="printer_kitchen_code_page" placeholder="Code Page">
+                                        <small class="text-muted">37 = Windows-1251 (кириллица)</small>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <input type="number" class="form-control" id="printer_kitchen_cpl" placeholder="Символов в строке (обычно 48)">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Bar Printer -->
+                    <div class="settings-section">
+                        <div class="section-header">
+                            <h6 class="mb-3">
+                                <i class="bi bi-printer-fill text-warning"></i>
+                                Барный принтер
+                            </h6>
+                        </div>
+                        <div class="section-body">
+                            <div class="setting-item">
+                                <div class="setting-label">Тип подключения</div>
+                                <select id="printer_bar_type" class="form-control">
+                                    <option value="disabled">Отключен</option>
+                                    <option value="serial">COM (Serial)</option>
+                                    <option value="network">Сетевой</option>
+                                </select>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-label">COM (если Serial)</div>
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <input type="text" class="form-control" id="printer_bar_com" placeholder="COM3">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="number" class="form-control" id="printer_bar_baud" placeholder="9600">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <input type="number" class="form-control" id="printer_bar_bytesize" placeholder="8">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <input type="text" class="form-control" id="printer_bar_parity" placeholder="N">
+                                    </div>
+                                </div>
+                                <div class="row g-2 mt-2">
+                                    <div class="col-md-4">
+                                        <input type="number" class="form-control" id="printer_bar_stopbits" placeholder="1">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-label">Кодировка и ширина</div>
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <input type="number" class="form-control" id="printer_bar_code_page" placeholder="Code Page">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <input type="number" class="form-control" id="printer_bar_cpl" placeholder="Символов в строке (обычно 32)">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Receipt Printer -->
+                    <div class="settings-section">
+                        <div class="section-header">
+                            <h6 class="mb-3">
+                                <i class="bi bi-printer-fill text-info"></i>
+                                Чековый принтер
+                            </h6>
+                        </div>
+                        <div class="section-body">
+                            <div class="setting-item">
+                                <div class="setting-label">Тип подключения</div>
+                                <select id="printer_receipt_type" class="form-control">
+                                    <option value="disabled">Отключен</option>
+                                    <option value="serial">COM (Serial)</option>
+                                    <option value="network">Сетевой</option>
+                                </select>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-label">COM (если Serial)</div>
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <input type="text" class="form-control" id="printer_receipt_com" placeholder="COM4">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="number" class="form-control" id="printer_receipt_baud" placeholder="9600">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <input type="number" class="form-control" id="printer_receipt_bytesize" placeholder="8">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <input type="text" class="form-control" id="printer_receipt_parity" placeholder="N">
+                                    </div>
+                                </div>
+                                <div class="row g-2 mt-2">
+                                    <div class="col-md-4">
+                                        <input type="number" class="form-control" id="printer_receipt_stopbits" placeholder="1">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <div class="setting-label">Кодировка и ширина</div>
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <input type="number" class="form-control" id="printer_receipt_code_page" placeholder="Code Page">
+                                        <small class="text-muted">37 = Windows-1251 (кириллица)</small>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <input type="number" class="form-control" id="printer_receipt_cpl" placeholder="Символов в строке (обычно 32)">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Кнопки управления -->
+                    <div class="d-flex justify-content-between w-100">
+                        <button type="button" class="btn btn-success" onclick="savePrinterSettings()">
+                            <i class="bi bi-check-lg"></i>
+                            Сохранить настройки
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="testPrinters()">
+                            <i class="bi bi-printer"></i>
+                            Тест печати
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" onclick="lockSettings()">
+                            <i class="bi bi-lock"></i>
+                            Заблокировать доступ
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.settings-section {
+    margin-bottom: 2rem;
+}
+
+.section-header h6 {
+    font-weight: 600;
+    border-bottom: 2px solid #e0e0e0;
+    padding-bottom: 0.5rem;
+}
+
+.setting-item {
+    margin-bottom: 1.5rem;
+}
+
+.setting-label {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: #495057;
+}
+
+.form-control {
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+}
+
+.form-control:focus {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+</style>
+
+<script>
+// Аутентификация доступа
+async function authenticateAccess() {
+    const code = document.getElementById('printerCode').value.trim();
+    
+    if (!code) {
+        alert('Введите код доступа');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/admin/printers/auth', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify({ code: code })
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+            // Скрываем форму авторизации
+            document.getElementById('authForm').style.display = 'none';
+            // Показываем настройки
+            document.getElementById('printerSettings').style.display = 'block';
+            // Загружаем настройки
+            loadPrinterSettings(result.data.settings);
+        } else {
+            alert(result.message || 'Неверный код доступа');
+            document.getElementById('printerCode').value = '';
+            document.getElementById('printerCode').focus();
+        }
+    } catch (error) {
+        console.error('Ошибка авторизации:', error);
+        alert('Ошибка при проверке кода доступа');
+    }
+}
+
+// Загрузка настроек принтеров
+function loadPrinterSettings(settings) {
+    // Kitchen printer
+    if (settings.printer_kitchen_type) document.getElementById('printer_kitchen_type').value = settings.printer_kitchen_type;
+    if (settings.printer_kitchen_ip) document.getElementById('printer_kitchen_ip').value = settings.printer_kitchen_ip;
+    if (settings.printer_kitchen_port) document.getElementById('printer_kitchen_port').value = settings.printer_kitchen_port;
+    if (settings.printer_kitchen_code_page) document.getElementById('printer_kitchen_code_page').value = settings.printer_kitchen_code_page;
+    if (settings.printer_kitchen_cpl) document.getElementById('printer_kitchen_cpl').value = settings.printer_kitchen_cpl;
+    
+    // Bar printer
+    if (settings.printer_bar_type) document.getElementById('printer_bar_type').value = settings.printer_bar_type;
+    if (settings.printer_bar_com) document.getElementById('printer_bar_com').value = settings.printer_bar_com;
+    if (settings.printer_bar_baud) document.getElementById('printer_bar_baud').value = settings.printer_bar_baud;
+    if (settings.printer_bar_bytesize) document.getElementById('printer_bar_bytesize').value = settings.printer_bar_bytesize;
+    if (settings.printer_bar_parity) document.getElementById('printer_bar_parity').value = settings.printer_bar_parity;
+    if (settings.printer_bar_stopbits) document.getElementById('printer_bar_stopbits').value = settings.printer_bar_stopbits;
+    if (settings.printer_bar_code_page) document.getElementById('printer_bar_code_page').value = settings.printer_bar_code_page;
+    if (settings.printer_bar_cpl) document.getElementById('printer_bar_cpl').value = settings.printer_bar_cpl;
+    
+    // Receipt printer
+    if (settings.printer_receipt_type) document.getElementById('printer_receipt_type').value = settings.printer_receipt_type;
+    if (settings.printer_receipt_com) document.getElementById('printer_receipt_com').value = settings.printer_receipt_com;
+    if (settings.printer_receipt_baud) document.getElementById('printer_receipt_baud').value = settings.printer_receipt_baud;
+    if (settings.printer_receipt_bytesize) document.getElementById('printer_receipt_bytesize').value = settings.printer_receipt_bytesize;
+    if (settings.printer_receipt_parity) document.getElementById('printer_receipt_parity').value = settings.printer_receipt_parity;
+    if (settings.printer_receipt_stopbits) document.getElementById('printer_receipt_stopbits').value = settings.printer_receipt_stopbits;
+    if (settings.printer_receipt_code_page) document.getElementById('printer_receipt_code_page').value = settings.printer_receipt_code_page;
+    if (settings.printer_receipt_cpl) document.getElementById('printer_receipt_cpl').value = settings.printer_receipt_cpl;
+}
+
+// Сохранение настроек принтеров
+async function savePrinterSettings() {
+    const settings = {};
+    
+    // Собираем все настройки принтеров
+    const printerFields = [
+        'printer_kitchen_type', 'printer_kitchen_ip', 'printer_kitchen_port', 'printer_kitchen_code_page', 'printer_kitchen_cpl',
+        'printer_bar_type', 'printer_bar_com', 'printer_bar_baud', 'printer_bar_bytesize', 'printer_bar_parity', 'printer_bar_stopbits', 'printer_bar_code_page', 'printer_bar_cpl',
+        'printer_receipt_type', 'printer_receipt_com', 'printer_receipt_baud', 'printer_receipt_bytesize', 'printer_receipt_parity', 'printer_receipt_stopbits', 'printer_receipt_code_page', 'printer_receipt_cpl'
+    ];
+    
+    printerFields.forEach(field => {
+        const element = document.getElementById(field);
+        if (element) {
+            settings[field] = element.value;
+        }
+    });
+    
+    try {
+        const response = await fetch('/admin/settings/update', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify(settings)
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+            alert('Настройки принтеров сохранены');
+        } else {
+            alert(result.message || 'Ошибка сохранения настроек');
+        }
+    } catch (error) {
+        console.error('Ошибка сохранения:', error);
+        alert('Ошибка при сохранении настроек');
+    }
+}
+
+// Тест печати
+function testPrinters() {
+    alert('Функция тестирования принтеров будет реализована позже');
+}
+
+// Блокировка доступа
+function lockSettings() {
+    if (confirm('Вы уверены, что хотите заблокировать доступ к настройкам принтеров?')) {
+        document.getElementById('printerSettings').style.display = 'none';
+        document.getElementById('authForm').style.display = 'block';
+        document.getElementById('printerCode').value = '';
+    }
+}
+
+// Обработка Enter в поле кода
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('printerCode').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            authenticateAccess();
+        }
+    });
+});
+</script>
+{% endblock %}

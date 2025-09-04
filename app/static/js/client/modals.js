@@ -397,7 +397,6 @@ class ModalManager {
 
     // Подтверждение заказа
     static openOrderConfirmation(orderData) {
-        // Сохраняем данные заказа для использования в confirmOrder()
         this.currentOrderData = orderData;
         
         const timeoutSeconds = window.CLIENT_SETTINGS?.order_cancel_timeout || 300;
@@ -453,6 +452,11 @@ class ModalManager {
                 cancelBtn.disabled = true;
                 cancelBtn.textContent = 'Время истекло';
                 timer.textContent = '0:00';
+                
+                // Автоматически подтверждаем заказ
+                setTimeout(() => {
+                    confirmOrder();
+                }, 1000); // Небольшая задержка для показа "Время истекло"
             }
         }, 1000);
         
