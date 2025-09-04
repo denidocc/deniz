@@ -13,6 +13,9 @@ from flask_babel import Babel
 import logging
 from logging.handlers import RotatingFileHandler
 from typing import Optional
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+import atexit
 from sqlalchemy import inspect
 
 # Инициализация расширений
@@ -27,6 +30,8 @@ limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["1000 per hour", "100 per minute"]
 )
+
+scheduler = BackgroundScheduler()
 
 def create_app(config_name: str = 'development') -> Flask:
     """
@@ -68,6 +73,9 @@ def create_app(config_name: str = 'development') -> Flask:
     # Инициализация системных компонентов
     init_system_components(app)
     
+    # Инициализация управления сессиями
+    init_session_management(app)
+    
     # Инициализация системы безопасности
     init_security_components(app)
     
@@ -88,6 +96,9 @@ def init_extensions(app: Flask) -> None:
     cache.init_app(app)
     babel.init_app(app)
     limiter.init_app(app)
+    
+    # Инициализация планировщика автобекапов
+    init_scheduler(app)
     
     # Отключаем CSRF защиту для JSON API эндпоинтов: регистрируем after_request exempt по префиксу
     # Прямое использование lambda в exempt может не работать корректно; явно исключим известные blueprints
@@ -201,6 +212,155 @@ def init_security_components(app: Flask) -> None:
         app.logger.info("Система безопасности инициализирована")
     except Exception as e:
         app.logger.error(f"Ошибка инициализации системы безопасности: {e}")
+
+def init_scheduler(app: Flask) -> None:
+    """Инициализация планировщика автобекапов."""
+    if app.config.get('TESTING'):
+        return  # Не запускаем планировщик в тестах
+    
+    try:
+        # Функция автобекапа
+        def auto_backup_job():
+            with app.app_context():
+                from .models import SystemSetting
+                from .utils.backup_manager import BackupManager
+                
+                # Проверяем включен ли автобекап
+                auto_backup_enabled = SystemSetting.get_setting('auto_backup', 'false')
+                if auto_backup_enabled.lower() != 'true':
+                    app.logger.debug("Auto backup is disabled")
+                    return
+                
+                try:
+                    app.logger.info("Starting automatic backup...")
+                    backup_manager = BackupManager()
+                    backup_path = backup_manager.create_backup()
+                    
+                    # Обновляем настройки с информацией о последнем бэкапе
+                    from datetime import datetime
+                    SystemSetting.set_setting('last_backup', datetime.now().isoformat())
+                    SystemSetting.set_setting('backup_size', backup_manager.get_backup_size(backup_path))
+                    
+                    # Очищаем старые бекапы
+                    backup_retention = int(SystemSetting.get_setting('backup_retention', '7'))
+                    backup_manager.cleanup_old_backups(backup_retention)
+                    
+                    app.logger.info(f"Automatic backup completed: {backup_path}")
+                    
+                except Exception as e:
+                    app.logger.error(f"Automatic backup failed: {e}")
+        
+        # Получаем интервал из настроек (с задержкой для инициализации БД)
+        def get_backup_interval():
+            try:
+                from .models import SystemSetting
+                return SystemSetting.get_setting('backup_interval', 'daily')
+            except:
+                return 'daily'
+        
+        backup_interval = get_backup_interval()
+        
+        # Настраиваем расписание
+        if backup_interval == 'daily':
+            trigger = CronTrigger(hour=2, minute=0)  # Каждый день в 02:00
+        elif backup_interval == 'weekly':
+            trigger = CronTrigger(day_of_week=0, hour=2, minute=0)  # Каждое воскресенье в 02:00
+        elif backup_interval == 'monthly':
+            trigger = CronTrigger(day=1, hour=2, minute=0)  # 1 числа каждого месяца в 02:00
+        else:
+            trigger = CronTrigger(hour=2, minute=0)  # По умолчанию ежедневно
+        
+        # Добавляем задачу в планировщик
+        scheduler.add_job(
+            func=auto_backup_job,
+            trigger=trigger,
+            id='auto_backup',
+            name='Automatic Database Backup',
+            replace_existing=True
+        )
+        
+        # Запускаем планировщик
+        if not scheduler.running:
+            scheduler.start()
+            app.logger.info(f"Backup scheduler started with {backup_interval} interval")
+            
+            # Регистрируем остановку планировщика при завершении приложения
+            atexit.register(lambda: scheduler.shutdown() if scheduler.running else None)
+        
+    except Exception as e:
+        app.logger.error(f"Failed to initialize backup scheduler: {e}")
+
+def init_session_management(app: Flask) -> None:
+    """Инициализация управления сессиями с динамическим таймаутом."""
+    from datetime import timedelta
+    
+    @app.before_request
+    def update_session_timeout():
+        """Обновление времени жизни сессии на основе настроек."""
+        if request.endpoint and not request.endpoint.startswith('static'):
+            try:
+                # Получаем настройку таймаута из базы данных
+                from .models import SystemSetting
+                session_timeout_minutes = int(SystemSetting.get_setting('session_timeout', '120'))
+                
+                # Обновляем конфигурацию приложения
+                current_timeout = app.permanent_session_lifetime
+                new_timeout = timedelta(minutes=session_timeout_minutes)
+                
+                if current_timeout != new_timeout:
+                    app.permanent_session_lifetime = new_timeout
+                    app.logger.debug(f"Session timeout updated: {session_timeout_minutes} minutes")
+                
+                # Делаем сессию постоянной для применения таймаута
+                if hasattr(g, 'current_user') or 'user_id' in session:
+                    session.permanent = True
+                    
+            except Exception as e:
+                app.logger.debug(f"Session timeout update failed: {e}")
+    
+    @app.before_request
+    def check_session_activity():
+        """Проверка активности сессии для автоматического выхода."""
+        from flask_login import current_user, logout_user
+        from datetime import datetime
+        
+        # Пропускаем статические файлы и API endpoints
+        if (request.endpoint and 
+            (request.endpoint.startswith('static') or 
+             request.path.startswith('/api/') or
+             request.endpoint == 'auth.login')):
+            return
+        
+        if current_user.is_authenticated:
+            now = datetime.now()
+            
+            # Проверяем последнюю активность
+            last_activity = session.get('last_activity')
+            if last_activity:
+                try:
+                    from .models import SystemSetting
+                    session_timeout_minutes = int(SystemSetting.get_setting('session_timeout', '120'))
+                    
+                    if isinstance(last_activity, str):
+                        last_activity = datetime.fromisoformat(last_activity)
+                    
+                    time_diff = now - last_activity
+                    if time_diff.total_seconds() > (session_timeout_minutes * 60):
+                        # Сессия истекла - принудительный выход
+                        app.logger.info(f"Session expired for user {current_user.login} after {session_timeout_minutes} minutes of inactivity")
+                        logout_user()
+                        session.clear()
+                        
+                        # Перенаправляем на страницу входа с сообщением
+                        from flask import flash, redirect, url_for
+                        flash('Сессия истекла из-за неактивности. Пожалуйста, войдите снова.', 'warning')
+                        return redirect(url_for('auth.login'))
+                        
+                except Exception as e:
+                    app.logger.error(f"Session activity check failed: {e}")
+            
+            # Обновляем время последней активности
+            session['last_activity'] = now.isoformat()
 
 def setup_logging(app: Flask) -> None:
     """Настройка системы логирования."""

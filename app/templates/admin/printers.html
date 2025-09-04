@@ -60,13 +60,15 @@
                         <div class="section-body">
                             <div class="setting-item">
                                 <div class="setting-label">Тип подключения</div>
-                                <select id="printer_kitchen_type" class="form-control">
+                                <select id="printer_kitchen_type" class="form-control" onchange="togglePrinterSettings('kitchen')">
                                     <option value="disabled">Отключен</option>
                                     <option value="network">Сетевой</option>
                                     <option value="serial">COM (Serial)</option>
                                 </select>
                             </div>
-                            <div class="setting-item">
+                            
+                            <!-- Сетевые настройки -->
+                            <div class="setting-item" id="kitchen_network_settings">
                                 <div class="setting-label">Сетевой (IP:порт)</div>
                                 <div class="row g-2">
                                     <div class="col-md-8">
@@ -74,6 +76,30 @@
                                     </div>
                                     <div class="col-md-4">
                                         <input type="number" class="form-control" id="printer_kitchen_port" placeholder="9100">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- COM настройки -->
+                            <div class="setting-item" id="kitchen_serial_settings" style="display: none;">
+                                <div class="setting-label">COM (если Serial)</div>
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <input type="text" class="form-control" id="printer_kitchen_com" placeholder="COM1">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="number" class="form-control" id="printer_kitchen_baud" placeholder="9600">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <input type="number" class="form-control" id="printer_kitchen_bytesize" placeholder="8">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <input type="text" class="form-control" id="printer_kitchen_parity" placeholder="N">
+                                    </div>
+                                </div>
+                                <div class="row g-2 mt-2">
+                                    <div class="col-md-4">
+                                        <input type="number" class="form-control" id="printer_kitchen_stopbits" placeholder="1">
                                     </div>
                                 </div>
                             </div>
@@ -105,13 +131,15 @@
                         <div class="section-body">
                             <div class="setting-item">
                                 <div class="setting-label">Тип подключения</div>
-                                <select id="printer_bar_type" class="form-control">
+                                <select id="printer_bar_type" class="form-control" onchange="togglePrinterSettings('bar')">
                                     <option value="disabled">Отключен</option>
                                     <option value="serial">COM (Serial)</option>
                                     <option value="network">Сетевой</option>
                                 </select>
                             </div>
-                            <div class="setting-item">
+                            
+                            <!-- COM настройки -->
+                            <div class="setting-item" id="bar_serial_settings">
                                 <div class="setting-label">COM (если Serial)</div>
                                 <div class="row g-2">
                                     <div class="col-md-4">
@@ -130,6 +158,19 @@
                                 <div class="row g-2 mt-2">
                                     <div class="col-md-4">
                                         <input type="number" class="form-control" id="printer_bar_stopbits" placeholder="1">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Сетевые настройки -->
+                            <div class="setting-item" id="bar_network_settings" style="display: none;">
+                                <div class="setting-label">Сетевой (IP:порт)</div>
+                                <div class="row g-2">
+                                    <div class="col-md-8">
+                                        <input type="text" class="form-control" id="printer_bar_ip" placeholder="192.168.1.102">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="number" class="form-control" id="printer_bar_port" placeholder="9100">
                                     </div>
                                 </div>
                             </div>
@@ -160,13 +201,15 @@
                         <div class="section-body">
                             <div class="setting-item">
                                 <div class="setting-label">Тип подключения</div>
-                                <select id="printer_receipt_type" class="form-control">
+                                <select id="printer_receipt_type" class="form-control" onchange="togglePrinterSettings('receipt')">
                                     <option value="disabled">Отключен</option>
                                     <option value="serial">COM (Serial)</option>
                                     <option value="network">Сетевой</option>
                                 </select>
                             </div>
-                            <div class="setting-item">
+                            
+                            <!-- COM настройки -->
+                            <div class="setting-item" id="receipt_serial_settings">
                                 <div class="setting-label">COM (если Serial)</div>
                                 <div class="row g-2">
                                     <div class="col-md-4">
@@ -185,6 +228,19 @@
                                 <div class="row g-2 mt-2">
                                     <div class="col-md-4">
                                         <input type="number" class="form-control" id="printer_receipt_stopbits" placeholder="1">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Сетевые настройки -->
+                            <div class="setting-item" id="receipt_network_settings" style="display: none;">
+                                <div class="setting-label">Сетевой (IP:порт)</div>
+                                <div class="row g-2">
+                                    <div class="col-md-8">
+                                        <input type="text" class="form-control" id="printer_receipt_ip" placeholder="192.168.1.103">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="number" class="form-control" id="printer_receipt_port" placeholder="9100">
                                     </div>
                                 </div>
                             </div>
@@ -298,17 +354,47 @@ async function authenticateAccess() {
     }
 }
 
+// Переключение блоков настроек принтеров
+function togglePrinterSettings(printerType) {
+    const typeSelect = document.getElementById(`printer_${printerType}_type`);
+    const selectedType = typeSelect.value;
+    
+    // Получаем блоки настроек
+    const networkSettings = document.getElementById(`${printerType}_network_settings`);
+    const serialSettings = document.getElementById(`${printerType}_serial_settings`);
+    
+    // Скрываем все блоки
+    if (networkSettings) networkSettings.style.display = 'none';
+    if (serialSettings) serialSettings.style.display = 'none';
+    
+    // Показываем нужный блок
+    if (selectedType === 'network' && networkSettings) {
+        networkSettings.style.display = 'block';
+    } else if (selectedType === 'serial' && serialSettings) {
+        serialSettings.style.display = 'block';
+    }
+    
+    console.log(`Переключение настроек ${printerType} принтера на тип: ${selectedType}`);
+}
+
 // Загрузка настроек принтеров
 function loadPrinterSettings(settings) {
     // Kitchen printer
     if (settings.printer_kitchen_type) document.getElementById('printer_kitchen_type').value = settings.printer_kitchen_type;
     if (settings.printer_kitchen_ip) document.getElementById('printer_kitchen_ip').value = settings.printer_kitchen_ip;
     if (settings.printer_kitchen_port) document.getElementById('printer_kitchen_port').value = settings.printer_kitchen_port;
+    if (settings.printer_kitchen_com) document.getElementById('printer_kitchen_com').value = settings.printer_kitchen_com;
+    if (settings.printer_kitchen_baud) document.getElementById('printer_kitchen_baud').value = settings.printer_kitchen_baud;
+    if (settings.printer_kitchen_bytesize) document.getElementById('printer_kitchen_bytesize').value = settings.printer_kitchen_bytesize;
+    if (settings.printer_kitchen_parity) document.getElementById('printer_kitchen_parity').value = settings.printer_kitchen_parity;
+    if (settings.printer_kitchen_stopbits) document.getElementById('printer_kitchen_stopbits').value = settings.printer_kitchen_stopbits;
     if (settings.printer_kitchen_code_page) document.getElementById('printer_kitchen_code_page').value = settings.printer_kitchen_code_page;
     if (settings.printer_kitchen_cpl) document.getElementById('printer_kitchen_cpl').value = settings.printer_kitchen_cpl;
     
     // Bar printer
     if (settings.printer_bar_type) document.getElementById('printer_bar_type').value = settings.printer_bar_type;
+    if (settings.printer_bar_ip) document.getElementById('printer_bar_ip').value = settings.printer_bar_ip;
+    if (settings.printer_bar_port) document.getElementById('printer_bar_port').value = settings.printer_bar_port;
     if (settings.printer_bar_com) document.getElementById('printer_bar_com').value = settings.printer_bar_com;
     if (settings.printer_bar_baud) document.getElementById('printer_bar_baud').value = settings.printer_bar_baud;
     if (settings.printer_bar_bytesize) document.getElementById('printer_bar_bytesize').value = settings.printer_bar_bytesize;
@@ -319,6 +405,8 @@ function loadPrinterSettings(settings) {
     
     // Receipt printer
     if (settings.printer_receipt_type) document.getElementById('printer_receipt_type').value = settings.printer_receipt_type;
+    if (settings.printer_receipt_ip) document.getElementById('printer_receipt_ip').value = settings.printer_receipt_ip;
+    if (settings.printer_receipt_port) document.getElementById('printer_receipt_port').value = settings.printer_receipt_port;
     if (settings.printer_receipt_com) document.getElementById('printer_receipt_com').value = settings.printer_receipt_com;
     if (settings.printer_receipt_baud) document.getElementById('printer_receipt_baud').value = settings.printer_receipt_baud;
     if (settings.printer_receipt_bytesize) document.getElementById('printer_receipt_bytesize').value = settings.printer_receipt_bytesize;
@@ -326,6 +414,11 @@ function loadPrinterSettings(settings) {
     if (settings.printer_receipt_stopbits) document.getElementById('printer_receipt_stopbits').value = settings.printer_receipt_stopbits;
     if (settings.printer_receipt_code_page) document.getElementById('printer_receipt_code_page').value = settings.printer_receipt_code_page;
     if (settings.printer_receipt_cpl) document.getElementById('printer_receipt_cpl').value = settings.printer_receipt_cpl;
+    
+    // После загрузки настроек переключаем блоки
+    togglePrinterSettings('kitchen');
+    togglePrinterSettings('bar');
+    togglePrinterSettings('receipt');
 }
 
 // Сохранение настроек принтеров
@@ -334,9 +427,20 @@ async function savePrinterSettings() {
     
     // Собираем все настройки принтеров
     const printerFields = [
-        'printer_kitchen_type', 'printer_kitchen_ip', 'printer_kitchen_port', 'printer_kitchen_code_page', 'printer_kitchen_cpl',
-        'printer_bar_type', 'printer_bar_com', 'printer_bar_baud', 'printer_bar_bytesize', 'printer_bar_parity', 'printer_bar_stopbits', 'printer_bar_code_page', 'printer_bar_cpl',
-        'printer_receipt_type', 'printer_receipt_com', 'printer_receipt_baud', 'printer_receipt_bytesize', 'printer_receipt_parity', 'printer_receipt_stopbits', 'printer_receipt_code_page', 'printer_receipt_cpl'
+        // Kitchen printer
+        'printer_kitchen_type', 'printer_kitchen_ip', 'printer_kitchen_port', 
+        'printer_kitchen_com', 'printer_kitchen_baud', 'printer_kitchen_bytesize', 'printer_kitchen_parity', 'printer_kitchen_stopbits',
+        'printer_kitchen_code_page', 'printer_kitchen_cpl',
+        
+        // Bar printer
+        'printer_bar_type', 'printer_bar_ip', 'printer_bar_port',
+        'printer_bar_com', 'printer_bar_baud', 'printer_bar_bytesize', 'printer_bar_parity', 'printer_bar_stopbits', 
+        'printer_bar_code_page', 'printer_bar_cpl',
+        
+        // Receipt printer
+        'printer_receipt_type', 'printer_receipt_ip', 'printer_receipt_port',
+        'printer_receipt_com', 'printer_receipt_baud', 'printer_receipt_bytesize', 'printer_receipt_parity', 'printer_receipt_stopbits', 
+        'printer_receipt_code_page', 'printer_receipt_cpl'
     ];
     
     printerFields.forEach(field => {

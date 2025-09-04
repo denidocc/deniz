@@ -277,6 +277,17 @@
     </div>
     <div class="section-body">
         <div class="setting-item">
+            <div class="setting-label">Максимальное количество баннеров</div>
+            <div class="setting-description">Количество баннеров, отображаемых в карусели клиентской части</div>
+            <div class="input-group" style="max-width: 200px;">
+                <input type="number" class="form-control" id="carouselMaxSlides" 
+                       value="{{ settings.get('carousel_max_slides', '5') }}" 
+                       min="1" max="20" step="1">
+                <span class="input-group-text">шт</span>
+            </div>
+        </div>
+        
+        <div class="setting-item">
             <div class="setting-label">Задержка между баннерами</div>
             <div class="setting-description">Время показа каждого баннера в карусели (в секундах)</div>
             <div class="input-group" style="max-width: 200px;">
@@ -570,6 +581,9 @@
         settings.available_languages = getAvailableLanguages();
         
         // Interface settings
+        const carouselMaxSlides = document.getElementById('carouselMaxSlides');
+        if (carouselMaxSlides) settings.carousel_max_slides = carouselMaxSlides.value;
+        
         const bannerDelaySeconds = document.getElementById('bannerDelaySeconds');
         if (bannerDelaySeconds) settings.banner_delay_seconds = bannerDelaySeconds.value;
         

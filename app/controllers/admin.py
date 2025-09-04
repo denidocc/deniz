@@ -470,6 +470,13 @@ def printers():
     """Настройки принтеров с паролевым доступом."""
     return render_template('admin/printers.html')
 
+@admin_bp.route('/security')
+@admin_required
+@audit_action("view_security_settings")
+def security():
+    """Настройки безопасности."""
+    return render_template('admin/security.html')
+
 @admin_bp.route('/printers/auth', methods=['POST'])
 @admin_required
 @audit_action("auth_printer_settings")

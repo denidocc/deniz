@@ -28,6 +28,9 @@ email-validator
 redis
 celery
 
+# Планировщик задач
+APScheduler
+
 # Логирование и мониторинг
 python-dotenv
 structlog

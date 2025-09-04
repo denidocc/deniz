@@ -85,41 +85,50 @@ class SystemSetting(BaseModel):
         """Инициализация настроек по умолчанию."""
         default_settings = [
             ('banner_delay_seconds', '5', 'Задержка между баннерами в секундах'),
+            ('carousel_max_slides', '5', 'Максимальное количество слайдов в карусели'),
             ('printer_code', '1234', 'Код доступа к настройкам принтеров'),
-            ('printer_kitchen_type', 'network', 'Тип подключения кухонного принтера (network|usb|serial|disabled)'),
+            ('max_login_attempts', '5', 'Максимальное количество попыток входа'),
+            ('block_duration', '30', 'Время блокировки IP в минутах'),
+            ('auto_backup', 'true', 'Включить автоматическое резервное копирование'),
+            ('backup_interval', 'daily', 'Интервал автобекапа (daily/weekly/monthly)'),
+            ('backup_retention', '7', 'Количество резервных копий для хранения'),
+            ('session_timeout', '120', 'Время сессии в минутах'),
+            ('printer_kitchen_type', 'network', 'Тип подключения кухонного принтера (network|serial|disabled)'),
             ('printer_bar_type', 'serial', 'Тип подключения барного принтера'),
             ('printer_receipt_type', 'serial', 'Тип подключения чекового принтера'),
 
-            # CPL и кодировки
-            ('printer_kitchen_cpl', '48', 'Символов в строке (кухня, 80мм)'),
-            ('printer_bar_cpl', '32', 'Символов в строке (бар, 58мм)'),
-            ('printer_receipt_cpl', '32', 'Символов в строке (итоговый, 58мм)'),
+            # Kitchen printer settings
+            ('printer_kitchen_ip', '192.168.1.101', 'IP кухонного принтера'),
+            ('printer_kitchen_port', '9100', 'Порт кухонного принтера'),
+            ('printer_kitchen_com', 'COM1', 'COM кухонного принтера'),
+            ('printer_kitchen_baud', '9600', 'Скорость COM кухни'),
+            ('printer_kitchen_bytesize', '8', 'Биты данных COM кухни'),
+            ('printer_kitchen_parity', 'N', 'Четность COM кухни'),
+            ('printer_kitchen_stopbits', '1', 'Стоп-биты COM кухни'),
             ('printer_kitchen_code_page', '37', 'Кодировка ESC/POS (кириллица) для кухни'),
-            ('printer_bar_code_page', '37', 'Кодировка ESC/POS (кириллица) для бара'),
-            ('printer_receipt_code_page', '37', 'Кодировка ESC/POS (кириллица) для чека'),
+            ('printer_kitchen_cpl', '48', 'Символов в строке (кухня, 80мм)'),
 
-            # network
-            ('printer_kitchen_ip', '192.168.1.101', 'IP кухни'),
-            ('printer_kitchen_port', '9100', 'Порт кухни'),
-
-            # usb (VID/PID/EP) — на будущее
-            ('printer_bar_usb_vid', '0x0483', 'USB Vendor ID'),
-            ('printer_bar_usb_pid', '0x5743', 'USB Product ID'),
-            ('printer_bar_usb_in_ep', '129', 'USB IN endpoint (0x81)'),
-            ('printer_bar_usb_out_ep', '1', 'USB OUT endpoint (0x01)'),
-
-            # serial (COM) — актуально сейчас
+            # Bar printer settings
+            ('printer_bar_ip', '192.168.1.102', 'IP барного принтера'),
+            ('printer_bar_port', '9100', 'Порт барного принтера'),
             ('printer_bar_com', 'COM3', 'COM барного принтера'),
             ('printer_bar_baud', '9600', 'Скорость COM бара'),
             ('printer_bar_bytesize', '8', 'Биты данных COM бара'),
             ('printer_bar_parity', 'N', 'Четность COM бара'),
             ('printer_bar_stopbits', '1', 'Стоп-биты COM бара'),
+            ('printer_bar_code_page', '37', 'Кодировка ESC/POS (кириллица) для бара'),
+            ('printer_bar_cpl', '32', 'Символов в строке (бар, 58мм)'),
 
+            # Receipt printer settings
+            ('printer_receipt_ip', '192.168.1.103', 'IP чекового принтера'),
+            ('printer_receipt_port', '9100', 'Порт чекового принтера'),
             ('printer_receipt_com', 'COM4', 'COM чекового принтера'),
-            ('printer_receipt_baud', '9600', ''),
-            ('printer_receipt_bytesize', '8', ''),
-            ('printer_receipt_parity', 'N', ''),
-            ('printer_receipt_stopbits', '1', ''),
+            ('printer_receipt_baud', '9600', 'Скорость COM чека'),
+            ('printer_receipt_bytesize', '8', 'Биты данных COM чека'),
+            ('printer_receipt_parity', 'N', 'Четность COM чека'),
+            ('printer_receipt_stopbits', '1', 'Стоп-биты COM чека'),
+            ('printer_receipt_code_page', '37', 'Кодировка ESC/POS (кириллица) для чека'),
+            ('printer_receipt_cpl', '32', 'Символов в строке (итоговый, 58мм)'),
         ]
         
         for key, value, description in default_settings:

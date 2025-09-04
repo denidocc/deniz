@@ -378,6 +378,41 @@ class BackupManager:
             logger.error(f"Error getting backup size: {e}")
             return "Error"
     
+    def cleanup_old_backups(self, retention_count: int = 7):
+        """
+        Очистка старых резервных копий.
+        
+        Args:
+            retention_count: Количество резервных копий для хранения
+        """
+        try:
+            # Получаем все файлы бекапов
+            backup_files = []
+            for pattern in ['backup_*.sql', 'backup_*.sql.gz']:
+                backup_files.extend(self.backup_dir.glob(pattern))
+            
+            # Сортируем по времени создания (новые первыми)
+            backup_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+            
+            # Удаляем файлы сверх лимита
+            files_to_delete = backup_files[retention_count:]
+            
+            for backup_file in files_to_delete:
+                try:
+                    backup_file.unlink()
+                    logger.info(f"Deleted old backup: {backup_file.name}")
+                except Exception as e:
+                    logger.error(f"Failed to delete old backup {backup_file.name}: {e}")
+            
+            if files_to_delete:
+                logger.info(f"Cleaned up {len(files_to_delete)} old backup files")
+            else:
+                logger.debug(f"No old backups to clean up (keeping {retention_count} files)")
+                
+        except Exception as e:
+            logger.error(f"Backup cleanup failed: {e}")
+            raise Exception(f"Ошибка очистки старых бекапов: {str(e)}")
+    
     def list_backups(self) -> List[Dict[str, Any]]:
         """Получение списка всех бэкапов."""
         try:

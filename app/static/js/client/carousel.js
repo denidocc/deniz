@@ -69,7 +69,7 @@ class CarouselManager {
             // Загружаем настройки карусели
             this.autoplayDelay = (settings.banner_delay_seconds || 5) * 1000; // в миллисекундах
             this.transitionSpeed = settings.carousel_transition_speed || 0.5;
-            this.maxSlides = settings.carousel_slides_count || 3;
+            this.maxSlides = settings.carousel_max_slides || 5;
             
             // Загружаем баннеры из API
             await this.loadBannersFromAPI();
