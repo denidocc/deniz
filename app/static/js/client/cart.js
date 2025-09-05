@@ -30,6 +30,11 @@ class CartManager {
         // Рендерим корзину
         this.render();
         
+        // Слушаем изменения языка
+        document.addEventListener('languageChanged', () => {
+            this.render();
+        });
+        
         // Логируем для отладки
         console.log('🛒 CartManager initialized with tableId:', this.tableId);
 
@@ -173,7 +178,12 @@ class CartManager {
         }
 
         // Показываем подтверждение
-        ModalManager.showConfirm('Очистить корзину?', 'Все товары будут удалены из корзины', async () => {
+        const t = window.CURRENT_TRANSLATIONS || {
+            'clear-cart-title': 'Очистить корзину?',
+            'clear-cart-message': 'Все товары будут удалены из корзины'
+        };
+        
+        ModalManager.showConfirm(t['clear-cart-title'], t['clear-cart-message'], async () => {
             this.items.clear();
             this.bonusCard = null;
             await this.triggerUpdate();
@@ -272,14 +282,23 @@ class CartManager {
     }
 
     static renderEmpty() {
+        // Получаем переводы
+        const t = window.CURRENT_TRANSLATIONS || {
+            'empty-cart': 'Корзина пуста, но море полное.\nЗагляните в меню — там волны вкуса.'
+        };
+        
+        const parts = t['empty-cart'].split('\n');
+        const emptyCartHTML = parts.length >= 2 
+            ? `<strong>${parts[0]}</strong><br>${parts[1]}`
+            : `<strong>${t['empty-cart']}</strong>`;
+        
         this.cartContent.innerHTML = `
             <div class="empty-cart">
                 <div class="empty-cart-illustration">
                     <img src="/static/assets/images/fish.png" alt="Рыба" class="fish-image">
                 </div>
                 <p class="empty-cart-text">
-                    <strong>Корзина пуста, но море полное.</strong><br>
-                    Загляните в меню — там волны вкуса.
+                    ${emptyCartHTML}
                 </p>
             </div>
             <div class="rudder-pattern"></div>
@@ -363,16 +382,23 @@ class CartManager {
             </div>
         ` : '';
 
+        // Получаем переводы
+        const t = window.CURRENT_TRANSLATIONS || {
+            'subtotal': 'Подытог',
+            'service-charge': 'Сервисный сбор',
+            'total': 'Итого'
+        };
+        
         this.cartFooter.innerHTML = `
             <div class="cart-summary">
                 <div class="summary-line subtotal">
-                    <span class="summary-label">Подытог</span>
+                    <span class="summary-label">${t['subtotal']}</span>
                     <span class="summary-value">${APIUtils.formatPrice(subtotal)}</span>
                 </div>
                 
                 ${this.serviceChargeEnabled ? `
                 <div class="summary-line service-charge">
-                    <span class="summary-label">Сервисный сбор ${this.serviceChargePercent}%</span>
+                    <span class="summary-label">${t['service-charge']} ${this.serviceChargePercent}%</span>
                     <span class="summary-value">${APIUtils.formatPrice(serviceCharge)}</span>
                 </div>
                 ` : ''}
@@ -380,14 +406,10 @@ class CartManager {
                 ${discountHTML}
                 
                 <div class="summary-line total">
-                    <span class="summary-label">Итого</span>
+                    <span class="summary-label">${t['total']}</span>
                     <span class="summary-value">${APIUtils.formatPrice(total)}</span>
                 </div>
             </div>
-            
-            <button class="btn bonus-card-btn" onclick="CartManager.openBonusCard()">
-                ${this.bonusCard ? '💳 Бонусная карта применена' : '💳 Бонусная карта'}
-            </button>
             
             <button class="btn btn-primary continue-order-btn" onclick="CartManager.proceedToOrder()">
                 Продолжить заказ

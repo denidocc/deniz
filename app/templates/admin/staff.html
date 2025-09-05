@@ -165,7 +165,6 @@
                     <th>Роль</th>
                     <th>Логин</th>
                     <th>Статус</th>
-                    <th>Последний вход</th>
                     <th>Действия</th>
                 </tr>
             </thead>
@@ -202,13 +201,6 @@
                         <span class="status-badge {{ 'status-active' if staff_member.is_active else 'status-inactive' }}">
                             {{ 'Активен' if staff_member.is_active else 'Неактивен' }}
                         </span>
-                    </td>
-                    <td>
-                        {% if staff_member.last_login %}
-                            {{ staff_member.last_login.strftime('%d.%m.%Y %H:%M') }}
-                        {% else %}
-                            <span class="text-muted">Никогда</span>
-                        {% endif %}
                     </td>
                     <td>
                         <div class="btn-group" role="group">

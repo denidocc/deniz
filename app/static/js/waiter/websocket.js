@@ -58,6 +58,10 @@ class WaiterWebSocket {
                 this.handleNewOrder(data);
             });
             
+            this.socket.on('order_updated', (data) => {
+                this.handleOrderUpdated(data);
+            });
+            
             this.socket.on('waiter_call', (data) => {
                 this.handleWaiterCall(data);
             });
@@ -110,6 +114,22 @@ class WaiterWebSocket {
         
         // Обновляем счетчик заказов
         this.updateOrderCounter();
+    }
+    
+    handleOrderUpdated(data) {
+        console.log('🔄 Обновление заказа:', data);
+        
+        // Обновляем заказ в списке заказов
+        this.updateOrderInList(data);
+        
+        // Показываем уведомление
+        if (window.waiterNotifications) {
+            window.waiterNotifications.show(
+                data.message || `Заказ №${data.order_id} обновлен`,
+                'info',
+                5000
+            );
+        }
     }
     
     handleWaiterCall(data) {
@@ -336,9 +356,6 @@ class WaiterWebSocket {
                     <button class="btn btn-primary" onclick="window.viewOrderDetails(${order.order_id})">
                         <i class="fas fa-eye"></i> Подробности
                     </button>
-                    <button class="btn btn-info" onclick="window.printOrderReceiptsFromCard(${order.order_id})">
-                        <i class="fas fa-print"></i> Отправить на печать
-                    </button>
                     <button class="btn btn-danger" onclick="window.cancelOrder(${order.order_id})">
                         <i class="fas fa-times"></i> Отменить заказ
                     </button>
@@ -387,6 +404,42 @@ class WaiterWebSocket {
             }, 1000);
         }
     }
+    
+    // ДОБАВЛЯЕМ МЕТОД ОБНОВЛЕНИЯ ЗАКАЗА В СПИСКЕ
+    updateOrderInList(data) {
+        // Проверяем, что мы на странице заказов
+        if (!window.location.pathname.includes('/waiter/orders')) {
+            console.log('Не на странице заказов, пропускаем обновление');
+            return;
+        }
+        
+        console.log(`🔄 Обновляем заказ ${data.order_id} со статусом ${data.status}`);
+        
+        // Простое решение: перезагружаем список заказов
+        if (typeof window.loadOrders === 'function') {
+            console.log('♻️ Перезагружаем список заказов');
+            window.loadOrders();
+        } else {
+            console.log('⚠️ Функция loadOrders не найдена, пробуем обновить карточку');
+            
+            // Fallback: обновляем только статус карточки
+            const orderCard = document.querySelector(`[data-order-id="${data.order_id}"]`);
+            if (orderCard) {
+                const statusElement = orderCard.querySelector('.order-status');
+                if (statusElement && data.status) {
+                    const statusColor = this.getStatusColor(data.status);
+                    const statusIcon = this.getStatusIcon(data.status);
+                    
+                    statusElement.textContent = `${statusIcon} ${data.status.toUpperCase()}`;
+                    statusElement.style.background = statusColor;
+                    statusElement.className = `order-status ${data.status}`;
+                }
+            }
+        }
+        
+        console.log(`✅ Заказ ${data.order_id} обновлен в списке`);
+    }
+
 
     // ДОБАВЛЯЕМ МЕТОД ДЛЯ ВЫЗОВОВ
     addNewCallToList(callData) {

@@ -292,7 +292,7 @@ body {
 }
 
 .cart-title {
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   color: var(--dark-text);
 }
@@ -467,8 +467,8 @@ body {
   
   :root {
     --header-height: 90px;
-    --sidebar-width: 320px;
-    --cart-width: 420px;
+    --sidebar-width: 160px;
+    --cart-width: 210px;
   }
 }
 

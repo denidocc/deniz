@@ -14,7 +14,12 @@ class StaffCreateForm(BaseJsonForm):
     """Форма создания сотрудника."""
     name = StringField(validators=[DataRequired(), Length(min=1, max=100)])
     role = SelectField(
-        choices=[('admin', 'admin'), ('waiter', 'waiter'), ('kitchen', 'kitchen'), ('bar', 'bar')],
+        choices=[
+            ('admin', 'Администратор'), 
+            ('waiter', 'Официант'), 
+            ('kitchen', 'Кухня'), 
+            ('bar', 'Бар')
+        ],
         validators=[DataRequired()]
     )
     login = StringField(validators=[DataRequired(), Length(min=3, max=50)])
@@ -29,7 +34,12 @@ class StaffUpdateForm(BaseJsonForm):
     """Форма обновления сотрудника."""
     name = StringField(validators=[Optional(), Length(min=1, max=100)])
     role = SelectField(
-        choices=[('admin', 'admin'), ('waiter', 'waiter'), ('kitchen', 'kitchen'), ('bar', 'bar')],
+        choices=[
+            ('admin', 'Администратор'), 
+            ('waiter', 'Официант'), 
+            ('kitchen', 'Кухня'), 
+            ('bar', 'Бар')
+        ],
         validators=[Optional()]
     )
     login = StringField(validators=[Optional(), Length(min=3, max=50)])

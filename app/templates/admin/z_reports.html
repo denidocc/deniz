@@ -176,36 +176,48 @@
 </div>
 
 <!-- Statistics Overview -->
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="stat-card">
-            <div class="stat-value">{{ reports|length }}</div>
-            <div class="stat-label">
-                <i class="bi bi-file-text"></i> Всего отчетов
+<div class="col-md-12 mb-4">
+    <div class="row col-md-12">
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="stat-value">{{ reports|length }}</div>
+                <div class="stat-label">
+                    <i class="bi bi-file-text"></i> Всего отчетов
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card success">
+                <div class="stat-value">{{ reports|sum(attribute='total_orders') }}</div>
+                <div class="stat-label">
+                    <i class="bi bi-calendar-day"></i> Всего заказов
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card info">
+                <div class="stat-value">{{ reports|sum(attribute='total_revenue')|round(2) }} {{ settings.get('currency', 'TMT') }}</div>
+                <div class="stat-label">
+                    <i class="bi bi-cash"></i> Общая выручка
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="stat-card success">
-            <div class="stat-value">{{ reports|sum(attribute='total_orders') }}</div>
-            <div class="stat-label">
-                <i class="bi bi-calendar-day"></i> Всего заказов
+    <div class="row col-md-12">
+        <div class="col-md-6">
+            <div class="stat-card warning">
+                <div class="stat-value">{{ reports|sum(attribute='cancelled_orders') }}</div>
+                <div class="stat-label">
+                    <i class="bi bi-x-circle"></i> Отмененных заказов
+                </div>
             </div>
         </div>
-    </div>
-    <div class="col-md-3">
-        <div class="stat-card info">
-            <div class="stat-value">{{ reports|sum(attribute='total_revenue')|round(2) }} {{ settings.get('currency', 'TMT') }}</div>
-            <div class="stat-label">
-                <i class="bi bi-cash"></i> Общая выручка
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="stat-card warning">
-            <div class="stat-value">{{ reports|sum(attribute='cancelled_orders') }}</div>
-            <div class="stat-label">
-                <i class="bi bi-x-circle"></i> Отмененных заказов
+        <div class="col-md-6">
+            <div class="stat-card primary">
+                <div class="stat-value">{{ reports|sum(attribute='total_guests') }}</div>
+                <div class="stat-label">
+                    <i class="bi bi-people"></i> Всего гостей
+                </div>
             </div>
         </div>
     </div>
@@ -261,6 +273,10 @@
                         <div class="summary-item">
                             <div class="summary-value">{{ "%.2f"|format(report.total_revenue / report.total_orders if report.total_orders > 0 else 0) }} TMT</div>
                             <div class="summary-label">Средний чек</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="summary-value">{{ report.total_guests or 0 }}</div>
+                            <div class="summary-label">Гостей</div>
                         </div>
                     </div>
                     
@@ -516,6 +532,10 @@
                         <tr>
                             <td><strong>Средний чек</strong></td>
                             <td class="text-end">${formatCurrency(report.average_order_value || 0)}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Общее количество гостей</strong></td>
+                            <td class="text-end">${report.total_guests || 0}</td>
                         </tr>
                     </tbody>
                 </table>

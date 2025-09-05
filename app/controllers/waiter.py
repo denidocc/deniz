@@ -392,17 +392,21 @@ def update_order_status(order_id):
         }), 500 
 
 @waiter_bp.route('/api/orders/<int:order_id>/print', methods=['POST'])
-@waiter_required
 @audit_action("print_order_receipts")
 def print_order_receipts(order_id):
     """Печать чеков для заказа (кухня и бар)."""
     order = Order.query.get_or_404(order_id)
     
-    # Проверяем, что заказ принадлежит текущему официанту
-    if order.waiter_id != current_user.id:
+    # Проверяем: если заказ pending и есть аутентифицированный официант - запрещаем
+    # Pending заказы может подтверждать только клиент или автоматически по таймеру
+    if (order.status == 'pending' and 
+        hasattr(current_user, 'id') and 
+        current_user.id and 
+        hasattr(current_user, 'role') and 
+        current_user.role == 'waiter'):
         return jsonify({
             'status': 'error',
-            'message': 'У вас нет прав для печати этого заказа'
+            'message': 'Заказы со статусом "Новый" подтверждает клиент. Ожидайте подтверждения или автоматического подтверждения через 5 минут.'
         }), 403
     
     try:
@@ -443,12 +447,38 @@ def print_order_receipts(order_id):
                 return jsonify({'status': 'error', 'message': 'Невозможно изменить статус заказа'}), 500
             order.status = 'confirmed'
             order.confirmed_at = datetime.now()
+            
+            # Назначаем официанта по столу, если заказ еще не назначен
+            if not order.waiter_id:
+                assigned_waiter = order.table.get_assigned_waiter()
+                if assigned_waiter:
+                    order.waiter_id = assigned_waiter.id
+                    current_app.logger.info(f"Заказ #{order.id} назначен официанту {assigned_waiter.name} (ID: {assigned_waiter.id}) по столу {order.table.table_number}")
+                else:
+                    # Этого случая теперь не должно быть, так как проверяем при создании заказа
+                    current_app.logger.warning(f"Неожиданная ситуация: для стола {order.table.table_number} не назначен официант при подтверждении заказа #{order.id}")
 
         # Если печатали доп. позиции — считаем их подтвержденными
         if getattr(order, 'has_added_items', False) and (kitchen_items or bar_items):
             order.added_items_confirmed = True
             order.has_added_items = False
         db.session.commit()
+        
+        # Отправляем WebSocket уведомление об обновлении заказа только назначенному официанту
+        try:
+            from app.websocket import socketio
+            if order.waiter_id:
+                socketio.emit('order_updated', {
+                    'order_id': order.id,
+                    'status': order.status,
+                    'table_number': order.table.table_number,
+                    'message': 'Заказ подтвержден и отправлен на печать'
+                }, room=f'waiter_{order.waiter_id}')
+                current_app.logger.info(f"WebSocket уведомление отправлено официанту {order.waiter_id} для заказа {order.id}")
+            else:
+                current_app.logger.warning(f"Не удалось отправить WebSocket уведомление для заказа {order.id}: официант не назначен")
+        except Exception as e:
+            current_app.logger.error(f"Ошибка отправки WebSocket уведомления: {e}")
         
         return jsonify({
             'status': 'success',

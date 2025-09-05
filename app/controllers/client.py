@@ -518,6 +518,17 @@ def create_order():
                 "message": "Стол не найден"
             }), 404
         
+        # Проверяем, назначен ли официант на этот стол
+        assigned_waiter = table.get_assigned_waiter()
+        if not assigned_waiter:
+            current_app.logger.warning(f"Попытка создать заказ на столе {table.table_number} без назначенного официанта")
+            return jsonify({
+                "status": "error",
+                "message": f"На стол {table.table_number} не назначен официант. Обратитесь к администратору."
+            }), 400
+        
+        current_app.logger.info(f"Стол {table.table_number} обслуживает официант {assigned_waiter.name} (ID: {assigned_waiter.id})")
+        
         # Проверяем, есть ли уже активный заказ для этого стола
         current_app.logger.info(f"Checking for active orders on table {table.table_number} (ID: {table.id})")
         current_order = table.get_current_order()
@@ -1113,6 +1124,22 @@ def cancel_order(order_id):
             # Не прерываем выполнение из-за ошибки аудита
         
         current_app.logger.info(f"Order {order_id} cancelled successfully")
+        
+        # Отправляем WebSocket уведомление назначенному официанту об отмене заказа
+        try:
+            from app.websocket import socketio
+            if order.waiter_id:
+                socketio.emit('order_updated', {
+                    'order_id': order.id,
+                    'status': order.status,
+                    'table_number': table.table_number if table else None,
+                    'message': f'Заказ #{order.id} отменен клиентом'
+                }, room=f'waiter_{order.waiter_id}')
+                current_app.logger.info(f"WebSocket уведомление об отмене заказа {order.id} отправлено официанту {order.waiter_id}")
+            else:
+                current_app.logger.warning(f"Не удалось отправить WebSocket уведомление об отмене заказа {order.id}: официант не назначен")
+        except Exception as e:
+            current_app.logger.error(f"Ошибка отправки WebSocket уведомления об отмене заказа: {e}")
         
         return jsonify({
             "status": "success",

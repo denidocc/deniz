@@ -125,7 +125,6 @@ class PrintService:
         receipt.append("КУХНЯ - DENIZ")
         receipt.append("=" * 32)
         receipt.append(f"Стол: {order.table.table_number} Время: {order.created_at.strftime('%H:%M')}")
-        receipt.append(f"Гостей: {order.guest_count}")
         receipt.append(f"Заказ #{order.id:04d} - КУХНЯ")
         receipt.append("-" * 32)
         
@@ -150,7 +149,6 @@ class PrintService:
         receipt.append("БАР - DENIZ")
         receipt.append("=" * 32)
         receipt.append(f"Стол: {order.table.table_number} Время: {order.created_at.strftime('%H:%M')}")
-        receipt.append(f"Гостей: {order.guest_count}")
         receipt.append(f"Заказ #{order.id:04d} - БАР")
         receipt.append("-" * 32)
         
@@ -183,7 +181,7 @@ class PrintService:
         receipt.append(restaurant_phone)
         receipt.append(f"Стол: {order.table.table_number}      Заказ: #{order.id}")
         receipt.append(f"Дата: {order.created_at.strftime('%d.%m.%Y')}")
-        receipt.append(f"Время: {order.created_at.strftime('%H:%M')}  Гостей: {order.guest_count}")
+        receipt.append(f"Время: {order.created_at.strftime('%H:%M')}")
         receipt.append(f"Официант: {waiter.name if waiter else 'Неизвестно'}")
         
         # Группируем позиции по типам

@@ -80,7 +80,7 @@
 <!-- Today's Statistics -->
 <div class="row mb-4">
     <div class="col-12">
-        <div class="admin-card">
+        <div class="admin-card mb-4">
             <div class="card-header bg-primary text-white">
                 <h5 class="mb-0">
                     <i class="bi bi-calendar-day"></i> Статистика за сегодня
@@ -114,7 +114,7 @@
 
 <!-- Charts and Analytics -->
 <div class="row mb-4">
-    <div class="col-lg-8 mb-4">
+    <div class="col-lg-12 mb-4">
         <div class="chart-container">
             <h5><i class="bi bi-bar-chart"></i> Популярные блюда (неделя)</h5>
             <canvas id="popularDishesChart" width="400" height="200"></canvas>
@@ -170,7 +170,7 @@
 </div>
 
 <!-- Quick Actions -->
-<div class="row mt-4">
+<div class="row mb-4 mt-4">
     <div class="col-12">
         <div class="admin-card">
             <div class="card-header bg-primary text-white">
@@ -213,7 +213,7 @@
     document.addEventListener('DOMContentLoaded', function() {
         const ctx = document.getElementById('popularDishesChart').getContext('2d');
         
-        const popularDishes = {{ popular_dishes|safe }};
+        const popularDishes = JSON.parse('{{ popular_dishes|safe }}');
         
         const dishNames = popularDishes.map(dish => dish[0]);
         const dishSales = popularDishes.map(dish => dish[1]);
@@ -240,9 +240,23 @@
                 plugins: {
                     legend: {
                         display: false
+                    },
+                    datalabels: {
+                        display: true,
+                        color: '#2c3e50',
+                        font: {
+                            weight: 'bold',
+                            size: 12
+                        },
+                        anchor: 'end',
+                        align: 'top',
+                        formatter: function(value) {
+                            return value + ' шт.';
+                        }
                     }
                 }
-            }
+            },
+            plugins: [ChartDataLabels] // Подключаем плагин для отображения значений
         });
     });
 

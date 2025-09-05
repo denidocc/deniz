@@ -9,7 +9,7 @@
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='assets/images/logo.svg') }}">
     
     <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="{{ url_for('static', filename='libs/roboto-fonts.css') }}" rel="stylesheet">
     
     <!-- CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/client/variables.css') }}">
@@ -115,13 +115,13 @@
                     <h3 class="cart-title">Корзина</h3>
                     <div class="table-selector">
                         <button class="table-select-btn" id="tableSelectBtn">
-                            <span class="table-text">Стол #<span id="currentTableNumber">1</span></span>
+                            <span class="table-text" id="tableLabel">Стол #<span id="currentTableNumber">1</span></span>
                             <svg class="dropdown-icon" viewBox="0 0 24 24">
                                 <path d="M7,10L12,15L17,10H7Z"/>
                             </svg>
                         </button>
                     </div>
-                    <button class="clear-cart-btn" id="clearCartBtn">Очистить</button>
+                    <button class="clear-cart-btn" id="clearCartBtn">❌</button>
                 </div>
                 
                 <div class="cart-content" id="cartContent">
@@ -171,6 +171,11 @@
     <div id="notificationContainer" class="notification-container"></div>
     
     <!-- JavaScript -->
+    <!-- WebSocket Support -->
+    <script src="{{ url_for('static', filename='libs/socket.io.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/client/websocket.js') }}"></script>
+    
+    <!-- Core Scripts -->
     <script src="{{ url_for('static', filename='js/client/utils.js') }}"></script>
     <script src="{{ url_for('static', filename='js/client/api.js') }}?v=3" onerror="console.error('❌ Ошибка загрузки api.js')"></script>
     <script src="{{ url_for('static', filename='js/client/language.js') }}"></script>
@@ -203,11 +208,11 @@
                 NotificationManager.init();
                 ModalManager.init();
                 CartManager.init();
+                
+                LanguageManager.init();
+                
                 MenuManager.init();
                 CarouselManager.init();
-                
-                // Инициализируем LanguageManager
-                LanguageManager.init();
                 
                 ThemeManager.init();
                 SearchManager.init();

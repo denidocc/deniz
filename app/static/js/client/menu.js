@@ -4,9 +4,11 @@
 
 class MenuManager {
     static async init() {
-
+        // Получаем язык из LanguageManager, если он доступен, или из localStorage
+        this.currentLanguage = (window.LanguageManager?.getCurrentLanguage && window.LanguageManager.getCurrentLanguage()) || 
+                              localStorage.getItem('language') ||
+                              window.CLIENT_CONFIG?.currentLanguage || 'ru';
         
-        this.currentLanguage = window.CLIENT_CONFIG?.currentLanguage || 'ru';
         this.currentCategory = null;
         this.searchTerm = '';
         this.menuData = null;
@@ -18,7 +20,8 @@ class MenuManager {
         // Загружаем меню
         await this.loadMenu();
         
-
+        // Применяем переводы интерфейса при инициализации
+        this.updateInterfaceTexts(this.currentLanguage);
     }
 
     static initializeElements() {
@@ -172,7 +175,7 @@ class MenuManager {
         
         const cartQuantity = CartManager.getItemQuantity(dish.id);
         const actionsHTML = cartQuantity > 0 ? `
-            <div class="dish-actions">
+            <div class="dish-actions" style="display: flex; flex-direction: row;">
                 <button class="btn-round btn-minus" onclick="CartManager.removeItem(${dish.id})">−</button>
                 <span class="quantity-display">${cartQuantity}</span>
                 <button class="btn-round btn-plus" onclick="CartManager.addItem(${dish.id})">+</button>
@@ -264,18 +267,52 @@ class MenuManager {
                 'error-title': 'Ошибка загрузки меню',
                 'error-button': 'Обновить',
                 'empty-title': 'Ничего не найдено',
-                'empty-subtitle': 'Попробуйте изменить поисковый запрос'
+                'empty-subtitle': 'Попробуйте изменить поисковый запрос',
+                'call-waiter': 'Позвать официанта',
+                'table-label': 'Стол #',
+                'enter-pin': 'Введите PIN-код для доступа к столам',
+                'confirm': 'Подтвердить',
+                'subtotal': 'Подытог',
+                'service-charge': 'Сервисный сбор',
+                'total': 'Итого',
+                'order-accepted': 'Ваш заказ принят в обработку!',
+                'order-number': 'Заказ №',
+                'order-cancel-time': 'Вы можете отменить или убрать пункты из вашего заказа в течении:',
+                'close': 'Закрыть',
+                'cancel-remove': 'Отменить/убрать',
+                'cancel-order-title': 'Отменить заказ?',
+                'cancel-order-message': 'Заказ будет полностью отменен',
+                'cancel': 'Отмена',
+                'clear-cart-title': 'Очистить корзину?',
+                'clear-cart-message': 'Все товары будут удалены из корзины'
             },
             'tk': {
-                'search-placeholder': 'Nahar adyny giriziň',
-                'cart-title': 'Sebetim',
+                'search-placeholder': 'Naharyň adyny giriziň',
+                'cart-title': 'Sebedim',
                 'clear-cart': 'Arassala',
-                'empty-cart': 'Sebet boş, ýöne deňiz doly.\nMenýuny göriň — ol ýerde tagam tolkunlary bar.',
+                'empty-cart': 'Sebet boş, ýöne deňiz doly.\nMenýuny görüň — ol ýerde tagam tolkunlary bardyr.',
                 'loading': 'Menýu ýüklenýär...',
                 'error-title': 'Menýu ýüklenmedi',
-                'error-button': 'Täzelä',
+                'error-button': 'Täzele',
                 'empty-title': 'Hiç zat tapylmady',
-                'empty-subtitle': 'Gözleg sözlerini üýtgediň'
+                'empty-subtitle': 'Gözleg sözlerini üýtgediň',
+                'call-waiter': 'Ofisianta çagyr',
+                'table-label': 'Stol #',
+                'enter-pin': 'Stollara girmek üçin PIN kody giriziň',
+                'confirm': 'Tassykla',
+                'subtotal': 'Jemi',
+                'service-charge': 'Hyzmat tölegi',
+                'total': 'Umumy jemi',
+                'order-accepted': 'Siziň sargydyňyz kabul edildi!',
+                'order-number': 'Sargyt №',
+                'order-cancel-time': 'Siz sargydyňyzy ýa-da zatlary aşakdaky wagtyň içinde ýatyryp bilersiňiz:',
+                'close': 'Ýap',
+                'cancel-remove': 'Ýatyr/aýyr',
+                'cancel-order-title': 'Sargydyny ýatyrmak?',
+                'cancel-order-message': 'Sargyt doly ýatyrylar',
+                'cancel': 'Ýatyr',
+                'clear-cart-title': 'Sebedi arassalamak?',
+                'clear-cart-message': 'Ähli harytlar sebetden aýrylar'
             },
             'en': {
                 'search-placeholder': 'Enter dish name',
@@ -286,7 +323,24 @@ class MenuManager {
                 'error-title': 'Menu loading error',
                 'error-button': 'Refresh',
                 'empty-title': 'Nothing found',
-                'empty-subtitle': 'Try changing your search query'
+                'empty-subtitle': 'Try changing your search query',
+                'call-waiter': 'Call waiter',
+                'table-label': 'Table #',
+                'enter-pin': 'Enter PIN code to access tables',
+                'confirm': 'Confirm',
+                'subtotal': 'Subtotal',
+                'service-charge': 'Service charge',
+                'total': 'Total',
+                'order-accepted': 'Your order has been accepted!',
+                'order-number': 'Order №',
+                'order-cancel-time': 'You can cancel or remove items from your order within:',
+                'close': 'Close',
+                'cancel-remove': 'Cancel/remove',
+                'cancel-order-title': 'Cancel order?',
+                'cancel-order-message': 'Order will be completely cancelled',
+                'cancel': 'Cancel',
+                'clear-cart-title': 'Clear cart?',
+                'clear-cart-message': 'All items will be removed from cart'
             }
         };
         
@@ -299,11 +353,47 @@ class MenuManager {
         const cartTitle = document.querySelector('.cart-title');
         if (cartTitle) cartTitle.textContent = texts['cart-title'];
         
-        const clearBtn = document.getElementById('clearCartBtn');
-        if (clearBtn) clearBtn.textContent = texts['clear-cart'];
+        // Кнопка очистки корзины остается с иконкой ❌ без перевода
+        // const clearBtn = document.getElementById('clearCartBtn');
+        // if (clearBtn) clearBtn.textContent = texts['clear-cart'];
         
         const emptyCartText = document.querySelector('.empty-cart-text');
-        if (emptyCartText) emptyCartText.textContent = texts['empty-cart'];
+        if (emptyCartText) {
+            const parts = texts['empty-cart'].split('\n');
+            if (parts.length >= 2) {
+                emptyCartText.innerHTML = `<strong>${parts[0]}</strong><br>${parts[1]}`;
+            } else {
+                emptyCartText.innerHTML = `<strong>${texts['empty-cart']}</strong>`;
+            }
+        }
+        
+        // Кнопка вызова официанта
+        const callWaiterBtn = document.getElementById('callWaiterBtn');
+        if (callWaiterBtn) callWaiterBtn.textContent = texts['call-waiter'];
+        
+        // Обновляем текст "Стол #" в кнопке выбора стола
+        const tableLabel = document.getElementById('tableLabel');
+        const currentTableNumber = document.getElementById('currentTableNumber');
+        if (tableLabel && currentTableNumber) {
+            const tableNumber = currentTableNumber.textContent;
+            tableLabel.innerHTML = `${texts['table-label']}<span id="currentTableNumber">${tableNumber}</span>`;
+        }
+        
+        // Обновляем переводы через data-атрибуты для динамических элементов
+        this.updateTranslationData(texts);
+    }
+    
+    static updateTranslationData(texts) {
+        // Сохраняем переводы в глобальной переменной для использования другими модулями
+        window.CURRENT_TRANSLATIONS = texts;
+        
+        // Уведомляем другие модули об изменении языка
+        document.dispatchEvent(new CustomEvent('languageChanged', { 
+            detail: { 
+                language: this.currentLanguage, 
+                translations: texts 
+            } 
+        }));
     }
 
     static showLoadingState() {
@@ -367,6 +457,11 @@ class MenuManager {
             preloader.style.display = 'none';
     
         }
+    }
+    
+    // Метод для внешнего вызова смены языка (для LanguageManager)
+    static changeLanguage(language) {
+        this.switchLanguage(language);
     }
 }
 

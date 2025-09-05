@@ -33,6 +33,9 @@ class DailyReport(BaseModel):
     cancelled_orders: so.Mapped[int] = so.mapped_column(
         sa.Integer, default=0, nullable=False
     )
+    total_guests: so.Mapped[int] = so.mapped_column(
+        sa.Integer, default=0, nullable=False
+    )
     average_order_value: so.Mapped[Decimal] = so.mapped_column(
         sa.Numeric(10, 2), default=0.00, nullable=False
     )
@@ -79,6 +82,7 @@ class DailyReport(BaseModel):
             'total_revenue': float(self.total_revenue) if self.total_revenue else 0.0,
             'total_service_charge': float(self.total_service_charge) if self.total_service_charge else 0.0,
             'cancelled_orders': self.cancelled_orders,
+            'total_guests': self.total_guests,
             'average_order_value': float(self.average_order_value) if self.average_order_value else 0.0,
             'peak_hour': self.peak_hour,
             'report_data': self.get_report_data(),

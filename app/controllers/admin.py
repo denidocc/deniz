@@ -53,16 +53,19 @@ def dashboard():
     
     # Популярные блюда за неделю
     week_ago = today - timedelta(days=7)
-    popular_dishes = db.session.query(
+    popular_dishes_query = db.session.query(
         MenuItem.name_ru,
         func.sum(OrderItem.quantity).label('total_sold')
     ).join(OrderItem).join(Order).filter(
-        func.date(Order.created_at) >= week_ago
+        func.date(Order.created_at) >= week_ago,
+        Order.status.in_(['completed', 'confirmed'])  # Только завершенные заказы
     ).group_by(MenuItem.id, MenuItem.name_ru).order_by(
         desc('total_sold')
     ).limit(5).all()
     
-
+    # Преобразуем результат в формат для JavaScript [название, количество]
+    popular_dishes = [[dish.name_ru, int(dish.total_sold)] for dish in popular_dishes_query]
+    current_app.logger.info(f"Popular dishes data: {popular_dishes}")
     
     # Последние действия в системе (аудит)
     recent_actions = AuditLog.query.order_by(
@@ -72,8 +75,7 @@ def dashboard():
     return render_template('admin/dashboard.html',
                          stats=stats,
                          today_stats=today_stats,
-                         popular_dishes=popular_dishes,
-
+                         popular_dishes=json.dumps(popular_dishes),  # Сериализуем в JSON
                          recent_actions=recent_actions)
 
 # === УПРАВЛЕНИЕ МЕНЮ ===
@@ -158,6 +160,13 @@ def create_category():
     db.session.flush()
     
     current_app.logger.info(f"Category saved with ID: {category.id}")
+    
+    # Уведомляем клиентов о новой категории
+    try:
+        from app.websocket.events import broadcast_content_update
+        broadcast_content_update('category', 'create', f'Добавлена новая категория: {category.name_ru}')
+    except Exception as e:
+        current_app.logger.error(f"Error broadcasting category create: {e}")
     
     return jsonify({
         'status': 'success',
@@ -385,19 +394,30 @@ def sales_report():
     # Агрегация данных
     total_revenue = sum(order.total_amount or 0 for order in orders)
     total_orders = len(orders)
+    total_guests = sum(order.guest_count or 0 for order in orders)
     avg_order = total_revenue / total_orders if total_orders else 0
     
-    # Группировка по дням
+    # Группировка по дням - создаем записи для ВСЕХ дней периода
+    from datetime import date, timedelta
+    
     daily_stats = {}
+    
+    # Сначала создаем записи для всех дней периода с нулевыми значениями
+    current_date = start_date
+    while current_date <= end_date:
+        daily_stats[current_date] = {
+            'orders': 0,
+            'revenue': 0,
+            'guests': 0
+        }
+        current_date += timedelta(days=1)
+    
+    # Теперь заполняем реальными данными
     for order in orders:
         date_key = order.created_at.date()
-        if date_key not in daily_stats:
-            daily_stats[date_key] = {
-                'orders': 0,
-                'revenue': 0
-            }
         daily_stats[date_key]['orders'] += 1
         daily_stats[date_key]['revenue'] += order.total_amount or 0
+        daily_stats[date_key]['guests'] += order.guest_count or 0
     
     return jsonify({
         'status': 'success',
@@ -409,13 +429,15 @@ def sales_report():
             'summary': {
                 'total_revenue': total_revenue,
                 'total_orders': total_orders,
+                'total_guests': total_guests,
                 'avg_order': avg_order
             },
             'daily_stats': [
                 {
                     'date': date.isoformat(),
                     'orders': stats['orders'],
-                    'revenue': stats['revenue']
+                    'revenue': stats['revenue'],
+                    'guests': stats['guests']
                 }
                 for date, stats in sorted(daily_stats.items())
             ]
@@ -443,6 +465,49 @@ def settings():
                          client_pin_form=client_pin_form,
                          printer_settings_form=printer_settings_form)
 
+@admin_bp.route('/printers')
+@admin_required
+@audit_action("view_printer_settings")
+def printers():
+    """Настройки принтеров с паролевым доступом."""
+    return render_template('admin/printers.html')
+
+@admin_bp.route('/security')
+@admin_required
+@audit_action("view_security_settings")
+def security():
+    """Настройки безопасности."""
+    return render_template('admin/security.html')
+
+@admin_bp.route('/printers/auth', methods=['POST'])
+@admin_required
+@audit_action("auth_printer_settings")
+def printers_auth():
+    """Авторизация доступа к настройкам принтеров."""
+    data = request.get_json() or {}
+    entered_code = data.get('code', '')
+    
+    # Получаем код из настроек
+    printer_code = SystemSetting.get_setting('printer_code')
+    
+    if entered_code == printer_code:
+        # Получаем настройки принтеров
+        settings = SystemSetting.query.filter(
+            SystemSetting.setting_key.like('printer_%')
+        ).all()
+        settings_dict = {s.setting_key: s.setting_value for s in settings}
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Доступ разрешен',
+            'data': {'settings': settings_dict}
+        })
+    else:
+        return jsonify({
+            'status': 'error',
+            'message': 'Неверный код доступа'
+        }), 403
+
 @admin_bp.route('/settings/update', methods=['POST'])
 @admin_required
 @audit_action("update_system_settings")
@@ -463,6 +528,7 @@ def update_settings():
         if not form.validate():
             return jsonify({'status': 'error', 'message': 'Валидация не пройдена', 'errors': form.errors}), 400
     
+    updated_settings = []
     for key, value in data.items():
         setting = SystemSetting.query.filter_by(setting_key=key).first()
         if setting:
@@ -470,6 +536,15 @@ def update_settings():
         else:
             setting = SystemSetting(setting_key=key, setting_value=str(value))
             db.session.add(setting)
+        updated_settings.append(key)
+    
+    # Уведомляем клиентов об изменении настроек
+    try:
+        from app.websocket.events import broadcast_content_update
+        settings_text = ', '.join(updated_settings)
+        broadcast_content_update('settings', 'update', f'Обновлены настройки: {settings_text}')
+    except Exception as e:
+        current_app.logger.error(f"Error broadcasting settings update: {e}")
     
     return jsonify({
         'status': 'success',
@@ -598,6 +673,9 @@ def generate_z_report():
     total_orders = len(completed_orders)  # Только завершенные!
     total_service_charge = sum(order.service_charge or 0 for order in completed_orders)
     
+    # ✅ ПОДСЧИТЫВАЕМ ОБЩЕЕ КОЛИЧЕСТВО ГОСТЕЙ ЗА ДЕНЬ (ПО ЗАВЕРШЕННЫМ ЗАКАЗАМ)
+    total_guests = sum(order.guest_count or 0 for order in completed_orders)
+    
     # ✅ ПОДСЧИТЫВАЕМ ОТМЕНЕННЫЕ ЗАКАЗЫ
     cancelled_count = len(cancelled_orders)
     
@@ -618,6 +696,7 @@ def generate_z_report():
         total_revenue=total_revenue,
         total_service_charge=total_service_charge,
         cancelled_orders=cancelled_count,
+        total_guests=total_guests,  # Общее количество гостей
         average_order_value=average_order_value,
         report_data=json.dumps({
             'orders_by_hour': {},
@@ -678,8 +757,16 @@ def update_menu_item(item_id):
         if item.image_url and not item.image_url.startswith('http'):
             ImageUploadManager.delete_image(item.image_url)
         
+        item_name = item.name_ru  # Сохраняем имя перед удалением
         db.session.delete(item)
         db.session.commit()
+        
+        # Уведомляем клиентов об удалении блюда
+        try:
+            from app.websocket.events import broadcast_content_update
+            broadcast_content_update('menu', 'delete', f'Удалено блюдо: {item_name}')
+        except Exception as e:
+            current_app.logger.error(f"Error broadcasting menu delete: {e}")
         
         return jsonify({
             'status': 'success',
@@ -751,6 +838,13 @@ def update_menu_item(item_id):
         
         db.session.commit()
         
+        # Уведомляем клиентов об обновлении блюда
+        try:
+            from app.websocket.events import broadcast_content_update
+            broadcast_content_update('menu', 'update', f'Обновлено блюдо: {item.name_ru}')
+        except Exception as e:
+            current_app.logger.error(f"Error broadcasting menu update: {e}")
+        
         return jsonify({
             'status': 'success',
             'message': 'Блюдо обновлено',
@@ -788,8 +882,16 @@ def update_menu_category(category_id):
         # Удаление категории и всех блюд в ней
         from app.models import MenuItem
         MenuItem.query.filter_by(category_id=category_id).delete()
+        category_name = category.name_ru  # Сохраняем имя перед удалением
         db.session.delete(category)
         db.session.commit()
+        
+        # Уведомляем клиентов об удалении категории
+        try:
+            from app.websocket.events import broadcast_content_update
+            broadcast_content_update('category', 'delete', f'Удалена категория: {category_name}')
+        except Exception as e:
+            current_app.logger.error(f"Error broadcasting category delete: {e}")
         
         return jsonify({
             'status': 'success',
@@ -813,6 +915,13 @@ def update_menu_category(category_id):
     if hasattr(form, 'is_active') and form.is_active.data is not None:
         category.is_active = bool(form.is_active.data)
     
+    # Уведомляем клиентов об обновлении категории
+    try:
+        from app.websocket.events import broadcast_content_update
+        broadcast_content_update('category', 'update', f'Обновлена категория: {category.name_ru}')
+    except Exception as e:
+        current_app.logger.error(f"Error broadcasting category update: {e}")
+    
     return jsonify({
         'status': 'success',
         'message': 'Категория обновлена',
@@ -831,6 +940,14 @@ def toggle_menu_item_availability(item_id):
     if 'is_available' in data:
         item.is_active = data['is_available']
         db.session.commit()
+        
+        # Уведомляем клиентов об изменении доступности
+        try:
+            from app.websocket.events import broadcast_content_update
+            status = "доступно" if item.is_active else "скрыто"
+            broadcast_content_update('menu', 'update', f'Блюдо {item.name_ru} теперь {status}')
+        except Exception as e:
+            current_app.logger.error(f"Error broadcasting menu availability change: {e}")
         
         return jsonify({
             'status': 'success',
@@ -875,6 +992,13 @@ def create_backup():
         
         db.session.commit()
         
+        # Уведомляем клиентов об обновлении настроек бэкапа
+        try:
+            from app.websocket.events import broadcast_content_update
+            broadcast_content_update('settings', 'update', 'Обновлена информация о резервных копиях')
+        except Exception as e:
+            current_app.logger.error(f"Error broadcasting backup settings update: {e}")
+        
         return jsonify({
             'status': 'success',
             'message': 'Резервная копия создана успешно',
@@ -896,31 +1020,71 @@ def create_backup():
 @audit_action("restore_backup")
 def restore_backup():
     """Восстановление из резервной копии."""
+    current_app.logger.info(f"Backup restore request received. Files: {list(request.files.keys())}")
+    
     if 'backup_file' not in request.files:
+        current_app.logger.error("No backup_file in request.files")
         return jsonify({
             'status': 'error',
             'message': 'Файл резервной копии не найден'
         }), 400
     
     backup_file = request.files['backup_file']
+    current_app.logger.info(f"Backup file received: {backup_file.filename}")
     
     if backup_file.filename == '':
+        current_app.logger.error("Empty filename")
         return jsonify({
             'status': 'error',
             'message': 'Файл не выбран'
         }), 400
     
+    # Проверяем расширение файла
+    import os
+    allowed_extensions = {'.sql', '.backup', '.gz'}
+    file_extension = os.path.splitext(backup_file.filename)[1].lower()
+    
+    # Для .sql.gz файлов проверяем полное расширение
+    if backup_file.filename.lower().endswith('.sql.gz'):
+        file_extension = '.gz'
+    
+    if file_extension not in allowed_extensions:
+        return jsonify({
+            'status': 'error',
+            'message': f'Неподдерживаемый формат файла. Разрешены: .sql, .backup, .sql.gz'
+        }), 400
+    
     try:
+        import tempfile
+        import os
         from app.utils.backup_manager import BackupManager
         
-        backup_manager = BackupManager()
-        result = backup_manager.restore_backup(backup_file)
+        # Сохраняем загруженный файл в папку backups (у PostgreSQL есть доступ)
+        from pathlib import Path
+        backup_dir = Path('backups')
+        backup_dir.mkdir(exist_ok=True)
         
-        return jsonify({
-            'status': 'success',
-            'message': 'База данных восстановлена успешно',
-            'data': result
-        })
+        # Создаем временный файл в папке backups
+        import uuid
+        temp_filename = f"temp_restore_{uuid.uuid4().hex}{os.path.splitext(backup_file.filename)[1]}"
+        tmp_file_path = backup_dir / temp_filename
+        
+        # Сохраняем загруженный файл
+        backup_file.save(str(tmp_file_path))
+        
+        try:
+            backup_manager = BackupManager()
+            result = backup_manager.restore_backup(str(tmp_file_path))
+            
+            return jsonify({
+                'status': 'success',
+                'message': 'База данных восстановлена успешно',
+                'data': result
+            })
+        finally:
+            # Удаляем временный файл
+            if tmp_file_path.exists():
+                tmp_file_path.unlink()
         
     except Exception as e:
         current_app.logger.error(f"Backup restoration failed: {e}")
@@ -1472,6 +1636,13 @@ def create_banner():
         db.session.add(banner)
         db.session.commit()
         
+        # Уведомляем клиентов о новом баннере
+        try:
+            from app.websocket.events import broadcast_content_update
+            broadcast_content_update('banner', 'create', f'Добавлен новый баннер: {banner.title_ru}')
+        except Exception as e:
+            current_app.logger.error(f"Error broadcasting banner create: {e}")
+        
         return jsonify({
             'status': 'success',
             'message': 'Баннер успешно создан',
@@ -1547,6 +1718,13 @@ def update_banner(banner_id):
         
         db.session.commit()
         
+        # Уведомляем клиентов об обновлении баннера
+        try:
+            from app.websocket.events import broadcast_content_update
+            broadcast_content_update('banner', 'update', f'Обновлен баннер: {banner.title_ru}')
+        except Exception as e:
+            current_app.logger.error(f"Error broadcasting banner update: {e}")
+        
         return jsonify({
             'status': 'success',
             'message': 'Баннер успешно обновлен',
@@ -1577,6 +1755,13 @@ def delete_banner(banner_id):
         banner_title = banner.title
         db.session.delete(banner)
         db.session.commit()
+        
+        # Уведомляем клиентов об удалении баннера
+        try:
+            from app.websocket.events import broadcast_content_update
+            broadcast_content_update('banner', 'delete', f'Удален баннер: {banner_title}')
+        except Exception as e:
+            current_app.logger.error(f"Error broadcasting banner delete: {e}")
         
         return jsonify({
             'status': 'success',
@@ -1675,6 +1860,11 @@ def create_menu_item_api():
                 return value.lower() in ('true', '1', 'yes', 'on')
             return bool(value)
         
+        # Отладка значения is_active
+        is_active_raw = data.get('is_active', True)
+        is_active_processed = to_bool(is_active_raw, True)
+        current_app.logger.info(f"🍽️ Creating menu item - is_active raw: {is_active_raw} (type: {type(is_active_raw)}), processed: {is_active_processed}")
+        
         # Получаем следующий порядок сортировки для категории
         max_sort_order = db.session.query(db.func.max(MenuItem.sort_order))\
             .filter_by(category_id=int(data['category_id']))\
@@ -1692,7 +1882,7 @@ def create_menu_item_api():
             estimated_time=int(data.get('estimated_time', 15)),
             preparation_type=data.get('preparation_type', 'kitchen'),  # Значение по умолчанию
             sort_order=next_sort_order,
-            is_active=to_bool(data.get('is_active', True))
+            is_active=is_active_processed  # Используем обработанное значение
         )
         
         # Обрабатываем изображение, если есть
@@ -1711,6 +1901,13 @@ def create_menu_item_api():
         
         db.session.add(menu_item)
         db.session.commit()
+        
+        # Уведомляем клиентов об изменении меню
+        try:
+            from app.websocket.events import broadcast_content_update
+            broadcast_content_update('menu', 'create', f'Добавлено новое блюдо: {menu_item.name_ru}')
+        except Exception as e:
+            current_app.logger.error(f"Error broadcasting menu update: {e}")
         
         return jsonify({
             'status': 'success',

@@ -69,6 +69,7 @@ class BaseConfig:
     SESSION_COOKIE_SECURE: bool = True
     SESSION_COOKIE_HTTPONLY: bool = True
     SESSION_COOKIE_SAMESITE: str = 'Lax'
+    PERMANENT_SESSION_LIFETIME: int = 7200  # 2 часа - базовое значение (перезаписывается из БД динамически)
     
     # Файлы
     UPLOAD_FOLDER: str = 'uploads'

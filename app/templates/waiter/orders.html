@@ -12,8 +12,7 @@
 }
 
 #selectedItemsSection {
-    background: white;
-    border-top: 2px solid #ddd;
+    background: white;    
     padding: 8px;
 }
 
@@ -400,7 +399,7 @@ width: 100%;
             <button type="button" class="order-close-btn" data-dismiss="modal">&times;</button>
         </div>
 
-        <div class="modal-body">
+        <div class="modal-body large-modal">
             <!-- Поиск -->
             <div class="search-section">
                 <div class="search-input-wrapper">
@@ -426,9 +425,9 @@ width: 100%;
                             <div class="spinner"></div>
                             <p>Загрузка меню...</p>
                     </div>
+                    
                 </div>
             </div>
-
             <!-- Выбранные позиции -->
             <div id="selectedItemsSection" class="selected-items-section" style="display:none;">
                 <h4>Выбранные позиции</h4>
@@ -437,6 +436,7 @@ width: 100%;
                     Итого: <span>0</span> TMT
                 </div>
             </div>
+            
         </div>
 
         <div class="modal-footer">
@@ -1053,9 +1053,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         <i class="fas fa-eye"></i> Подробности
                     </button>
                     ${order.status === 'pending' ? `
-                        <button class="btn btn-info" data-action="print-receipts" data-order-id="${order.id}">
-                            <i class="fas fa-print"></i> Отправить на печать
-                        </button>
                         <button class="btn btn-danger" data-action="cancel-order" data-order-id="${order.id}">
                             <i class="fas fa-times"></i> Отменить заказ
                         </button>
@@ -1489,9 +1486,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const applyBonusCardButton = document.getElementById('applyBonusCard');
         
         if (order.status === 'pending') {
-            printButton.style.display = 'inline-block';
+            // Для pending заказов официант НЕ может подтвердить - это делает клиент или автоматически через 5 минут
+            printButton.style.display = 'none';
             finalReceiptButton.style.display = 'none';
-            applyBonusCardButton.style.display = 'inline-block';
+            applyBonusCardButton.style.display = 'none';
         } else if (order.status === 'confirmed') {
             // В confirmed показываем отправку на печать ТОЛЬКО если есть доп. позиции
             if (order.has_added_items) {
@@ -1503,7 +1501,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             // Итоговый чек всегда доступен
             finalReceiptButton.style.display = 'inline-block';
-            applyBonusCardButton.style.display = 'none';
+            // Показываем кнопку применения бонусной карты для confirmed заказов
+            applyBonusCardButton.style.display = 'inline-block';
         } else {
             printButton.style.display = 'none';
             finalReceiptButton.style.display = 'none';
@@ -1620,8 +1619,8 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        if (cardNumber.length !== 6 || !/^\d+$/.test(cardNumber)) {
-            waiterNotifications.showError('Номер карты должен содержать 6 цифр');
+        if (cardNumber.length !== 5 || !/^\d+$/.test(cardNumber)) {
+            waiterNotifications.showError('Номер карты должен содержать 5 цифр');
             return;
         }
         
@@ -1859,7 +1858,6 @@ document.addEventListener('DOMContentLoaded', function() {
     window.closeOrderModal = closeOrderModal;
     window.closeAddItemsModal = closeAddItemsModal;
     window.printOrderReceipts = printOrderReceipts;
-    window.printOrderReceiptsFromCard = printOrderReceiptsFromCard;
     window.printFinalReceipt = printFinalReceipt;
     window.applyBonusCard = applyBonusCard;
     window.cancelOrder = cancelOrder;

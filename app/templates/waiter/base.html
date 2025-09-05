@@ -105,6 +105,49 @@
     
     {% block extra_js %}{% endblock %}
     
+    <!-- Session Management -->
+    <script>
+        // Управление сессией для официантов
+        let sessionWarningShown = false;
+        let sessionTimeoutMinutes = {{ settings.get('session_timeout', '120') }};
+        let lastActivityTime = Date.now();
+        
+        // Обновляем время последней активности
+        ['click', 'keypress', 'scroll', 'mousemove', 'touchstart'].forEach(event => {
+            document.addEventListener(event, function() {
+                lastActivityTime = Date.now();
+                sessionWarningShown = false;
+            }, true);
+        });
+        
+        // Проверяем сессию каждую минуту
+        setInterval(function() {
+            const now = Date.now();
+            const inactiveMinutes = Math.floor((now - lastActivityTime) / (1000 * 60));
+            const warningThreshold = sessionTimeoutMinutes - 5;
+            
+            if (inactiveMinutes >= sessionTimeoutMinutes) {
+                alert('Сессия истекла из-за неактивности. Вы будете перенаправлены на страницу входа.');
+                window.location.href = '{{ url_for("auth.login") }}';
+            } else if (inactiveMinutes >= warningThreshold && !sessionWarningShown) {
+                const remainingMinutes = sessionTimeoutMinutes - inactiveMinutes;
+                sessionWarningShown = true;
+                
+                if (confirm(`Ваша сессия истечет через ${remainingMinutes} минут из-за неактивности. Хотите продлить сессию?`)) {
+                    fetch('{{ url_for("waiter.dashboard") }}', { 
+                        method: 'HEAD',
+                        credentials: 'same-origin'
+                    }).then(() => {
+                        lastActivityTime = Date.now();
+                        sessionWarningShown = false;
+                    }).catch(console.error);
+                }
+            }
+        }, 60000);
+        
+        console.log(`Waiter session timeout: ${sessionTimeoutMinutes} minutes`);
+    </script>
+
     <!-- Initialize App -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {

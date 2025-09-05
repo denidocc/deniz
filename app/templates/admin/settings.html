@@ -248,7 +248,7 @@
 
 
 
-<!-- Printer Settings -->
+<!-- Ссылка на настройки принтеров -->
 <div class="settings-section">
     <div class="section-header">
         <h5 class="mb-0">
@@ -256,163 +256,45 @@
         </h5>
     </div>
     <div class="section-body">
-        <!-- Kitchen Printer -->
-        <div class="setting-item">
-            <div class="setting-label">Кухонный принтер — тип подключения</div>
-            <select id="printer_kitchen_type" class="form-control">
-                <option value="disabled" {{ 'selected' if settings.get('printer_kitchen_type')=='disabled' else '' }}>Отключен</option>
-                <option value="network" {{ 'selected' if settings.get('printer_kitchen_type','network')=='network' else '' }}>Сетевой</option>
-                <option value="serial" {{ 'selected' if settings.get('printer_kitchen_type')=='serial' else '' }}>COM (Serial)</option>
-            </select>
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i>
+            <strong>Настройки принтеров перенесены в отдельный раздел.</strong>
+            <br>
+            Для настройки принтеров перейдите в раздел 
+            <a href="{{ url_for('admin.printers') }}" class="alert-link">
+                <i class="bi bi-printer"></i> Принтеры
+            </a>
         </div>
-        <div class="setting-item">
-            <div class="setting-label">Сетевой (IP:порт)</div>
-            <div class="row g-2">
-                <div class="col-md-8">
-                    <input type="text" class="form-control" id="printer_kitchen_ip" value="{{ settings.get('printer_kitchen_ip','192.168.1.101') }}" placeholder="192.168.1.101">
-                </div>
-                <div class="col-md-4">
-                    <input type="number" class="form-control" id="printer_kitchen_port" value="{{ settings.get('printer_kitchen_port','9100') }}" placeholder="9100">
-                </div>
-            </div>
-        </div>
-        <div class="setting-item">
-            <div class="setting-label">Кодировка и ширина</div>
-            <div class="row g-2">
-                <div class="col-md-6">
-                    <input type="number" class="form-control" id="printer_kitchen_code_page" value="{{ settings.get('printer_kitchen_code_page','37') }}" placeholder="Code Page">
-                    <small class="text-muted">37 = Windows-1251 (кириллица)</small>
-                </div>
-                <div class="col-md-6">
-                    <input type="number" class="form-control" id="printer_kitchen_cpl" value="{{ settings.get('printer_kitchen_cpl','48') }}" placeholder="Символов в строке (обычно 48)">
-                </div>
-            </div>
-        </div>
+    </div>
+</div>
 
-        <hr>
-
-        <!-- Bar Printer -->
+<!-- Interface Settings -->
+<div class="settings-section">
+    <div class="section-header">
+        <h5 class="mb-0">
+            <i class="bi bi-display"></i> Настройки интерфейса
+        </h5>
+    </div>
+    <div class="section-body">
         <div class="setting-item">
-            <div class="setting-label">Барный принтер — тип подключения</div>
-            <select id="printer_bar_type" class="form-control">
-                <option value="disabled" {{ 'selected' if settings.get('printer_bar_type')=='disabled' else '' }}>Отключен</option>
-                <option value="serial" {{ 'selected' if settings.get('printer_bar_type','serial')=='serial' else '' }}>COM (Serial)</option>
-                <option value="network" {{ 'selected' if settings.get('printer_bar_type')=='network' else '' }}>Сетевой</option>
-            </select>
-        </div>
-        <div class="setting-item">
-            <div class="setting-label">COM (если Serial)</div>
-            <div class="row g-2">
-                <div class="col-md-4">
-                    <input type="text" class="form-control" id="printer_bar_com" value="{{ settings.get('printer_bar_com','COM3') }}" placeholder="COM3">
-                </div>
-                <div class="col-md-4">
-                    <input type="number" class="form-control" id="printer_bar_baud" value="{{ settings.get('printer_bar_baud','9600') }}" placeholder="9600">
-                </div>
-                <div class="col-md-2">
-                    <input type="number" class="form-control" id="printer_bar_bytesize" value="{{ settings.get('printer_bar_bytesize','8') }}" placeholder="8">
-                </div>
-                <div class="col-md-2">
-                    <input type="text" class="form-control" id="printer_bar_parity" value="{{ settings.get('printer_bar_parity','N') }}" placeholder="N">
-                </div>
-            </div>
-            <div class="row g-2 mt-2">
-                <div class="col-md-4">
-                    <input type="number" class="form-control" id="printer_bar_stopbits" value="{{ settings.get('printer_bar_stopbits','1') }}" placeholder="1">
-                </div>
+            <div class="setting-label">Максимальное количество баннеров</div>
+            <div class="setting-description">Количество баннеров, отображаемых в карусели клиентской части</div>
+            <div class="input-group" style="max-width: 200px;">
+                <input type="number" class="form-control" id="carouselMaxSlides" 
+                       value="{{ settings.get('carousel_max_slides', '5') }}" 
+                       min="1" max="20" step="1">
+                <span class="input-group-text">шт</span>
             </div>
         </div>
+        
         <div class="setting-item">
-            <div class="setting-label">Кодировка и ширина</div>
-            <div class="row g-2">
-                <div class="col-md-6">
-                    <input type="number" class="form-control" id="printer_bar_code_page" value="{{ settings.get('printer_bar_code_page','37') }}" placeholder="Code Page">
-                </div>
-                <div class="col-md-6">
-                    <input type="number" class="form-control" id="printer_bar_cpl" value="{{ settings.get('printer_bar_cpl','32') }}" placeholder="Символов в строке (обычно 32)">
-                </div>
-            </div>
-        </div>
-
-        <hr>
-
-        <!-- Receipt Printer -->
-        <div class="setting-item">
-            <div class="setting-label">Чековый принтер — тип подключения</div>
-            <select id="printer_receipt_type" class="form-control">
-                <option value="disabled" {{ 'selected' if settings.get('printer_receipt_type')=='disabled' else '' }}>Отключен</option>
-                <option value="serial" {{ 'selected' if settings.get('printer_receipt_type')=='serial' else '' }}>COM (Serial)</option>
-                <option value="network" {{ 'selected' if settings.get('printer_receipt_type')=='network' else '' }}>Сетевой</option>
-            </select>
-        </div>
-        <div class="setting-item">
-            <div class="setting-label">COM (если Serial)</div>
-            <div class="row g-2">
-                <div class="col-md-4">
-                    <input type="text" class="form-control" id="printer_receipt_com" value="{{ settings.get('printer_receipt_com','COM4') }}" placeholder="COM4">
-                </div>
-                <div class="col-md-4">
-                    <input type="number" class="form-control" id="printer_receipt_baud" value="{{ settings.get('printer_receipt_baud','9600') }}" placeholder="9600">
-                </div>
-                <div class="col-md-2">
-                    <input type="number" class="form-control" id="printer_receipt_bytesize" value="{{ settings.get('printer_receipt_bytesize','8') }}" placeholder="8">
-                </div>
-                <div class="col-md-2">
-                    <input type="text" class="form-control" id="printer_receipt_parity" value="{{ settings.get('printer_receipt_parity','N') }}" placeholder="N">
-                </div>
-            </div>
-            <div class="row g-2 mt-2">
-                <div class="col-md-4">
-                    <input type="number" class="form-control" id="printer_receipt_stopbits" value="{{ settings.get('printer_receipt_stopbits','1') }}" placeholder="1">
-                </div>
-            </div>
-        </div>
-        <div class="setting-item">
-            <div class="setting-label">Кодировка и ширина</div>
-            <div class="row g-2">
-                <div class="col-md-6">
-                    <input type="number" class="form-control" id="printer_receipt_code_page" value="{{ settings.get('printer_receipt_code_page','37') }}" placeholder="Code Page">
-                    <small class="text-muted">37 = Windows-1251 (кириллица)</small>
-                </div>
-                <div class="col-md-6">
-                    <input type="number" class="form-control" id="printer_receipt_cpl" value="{{ settings.get('printer_receipt_cpl','32') }}" placeholder="Символов в строке (обычно 32)">
-                </div>
-            </div>
-        </div>
-
-        <hr>
-
-        <div class="setting-item">
-            <div class="setting-label">Автоматическая печать</div>
-            <div class="setting-description">Настройки автоматической печати заказов</div>
-            <div class="row">
-                <div class="col-md-4">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="autoPrintReceipt" 
-                               {{ 'checked' if settings.get('auto_print_receipt', 'true') == 'true' else '' }}>
-                        <label class="form-check-label" for="autoPrintReceipt">
-                            Печатать чеки автоматически
-                        </label>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="autoPrintKitchen" 
-                               {{ 'checked' if settings.get('auto_print_kitchen', 'true') == 'true' else '' }}>
-                        <label class="form-check-label" for="autoPrintKitchen">
-                            Печатать заказы на кухне
-                        </label>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="autoPrintBar" 
-                               {{ 'checked' if settings.get('auto_print_bar', 'true') == 'true' else '' }}>
-                        <label class="form-check-label" for="autoPrintBar">
-                            Печатать заказы в баре
-                        </label>
-                    </div>
-                </div>
+            <div class="setting-label">Задержка между баннерами</div>
+            <div class="setting-description">Время показа каждого баннера в карусели (в секундах)</div>
+            <div class="input-group" style="max-width: 200px;">
+                <input type="number" class="form-control" id="bannerDelaySeconds" 
+                       value="{{ settings.get('banner_delay_seconds', '5') }}" 
+                       min="1" max="30" step="1">
+                <span class="input-group-text">сек</span>
             </div>
         </div>
     </div>
@@ -531,10 +413,10 @@
             <div class="setting-label">Управление резервными копиями</div>
             <div class="setting-description">Создать резервную копию или восстановить данные</div>
             <div class="d-flex gap-2">
-                <button class="btn btn-outline-primary" onclick="createBackup()">
+                <button class="btn btn-outline-primary m-3" onclick="createBackup()">
                     <i class="bi bi-download"></i> Создать резервную копию
                 </button>
-                <button class="btn btn-outline-warning" onclick="showRestoreModal()">
+                <button class="btn btn-outline-warning m-3" onclick="showRestoreModal()">
                     <i class="bi bi-upload"></i> Восстановить из копии
                 </button>
             </div>
@@ -610,9 +492,16 @@
                     Эта операция не может быть отменена.
                 </div>
                 
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>Важно:</strong> Восстановление больших бекапов может занять до 30 минут. 
+                    Пожалуйста, не закрывайте страницу и дождитесь завершения операции.
+                </div>
+                
                 <div class="mb-3">
                     <label for="restoreFile" class="form-label">Выберите файл резервной копии</label>
-                    <input type="file" class="form-control" id="restoreFile" accept=".sql,.backup">
+                    <input type="file" class="form-control" id="restoreFile" accept=".sql,.backup,.gz">
+                    <div class="form-text">Поддерживаемые форматы: .sql, .backup, .sql.gz</div>
                 </div>
                 
                 <div class="form-check">
@@ -691,53 +580,12 @@
         
         settings.available_languages = getAvailableLanguages();
         
-        // Printer settings (kitchen)
-        const printer_kitchen_type = document.getElementById('printer_kitchen_type');
-        if (printer_kitchen_type) settings.printer_kitchen_type = printer_kitchen_type.value;
-        const printer_kitchen_ip = document.getElementById('printer_kitchen_ip');
-        if (printer_kitchen_ip) settings.printer_kitchen_ip = printer_kitchen_ip.value;
-        const printer_kitchen_port = document.getElementById('printer_kitchen_port');
-        if (printer_kitchen_port) settings.printer_kitchen_port = printer_kitchen_port.value;
-        const printer_kitchen_code_page = document.getElementById('printer_kitchen_code_page');
-        if (printer_kitchen_code_page) settings.printer_kitchen_code_page = printer_kitchen_code_page.value;
-        const printer_kitchen_cpl = document.getElementById('printer_kitchen_cpl');
-        if (printer_kitchen_cpl) settings.printer_kitchen_cpl = printer_kitchen_cpl.value;
-
-        // Printer settings (bar)
-        const printer_bar_type = document.getElementById('printer_bar_type');
-        if (printer_bar_type) settings.printer_bar_type = printer_bar_type.value;
-        const printer_bar_com = document.getElementById('printer_bar_com');
-        if (printer_bar_com) settings.printer_bar_com = printer_bar_com.value;
-        const printer_bar_baud = document.getElementById('printer_bar_baud');
-        if (printer_bar_baud) settings.printer_bar_baud = printer_bar_baud.value;
-        const printer_bar_bytesize = document.getElementById('printer_bar_bytesize');
-        if (printer_bar_bytesize) settings.printer_bar_bytesize = printer_bar_bytesize.value;
-        const printer_bar_parity = document.getElementById('printer_bar_parity');
-        if (printer_bar_parity) settings.printer_bar_parity = printer_bar_parity.value;
-        const printer_bar_stopbits = document.getElementById('printer_bar_stopbits');
-        if (printer_bar_stopbits) settings.printer_bar_stopbits = printer_bar_stopbits.value;
-        const printer_bar_code_page = document.getElementById('printer_bar_code_page');
-        if (printer_bar_code_page) settings.printer_bar_code_page = printer_bar_code_page.value;
-        const printer_bar_cpl = document.getElementById('printer_bar_cpl');
-        if (printer_bar_cpl) settings.printer_bar_cpl = printer_bar_cpl.value;
-
-        // Printer settings (receipt)
-        const printer_receipt_type = document.getElementById('printer_receipt_type');
-        if (printer_receipt_type) settings.printer_receipt_type = printer_receipt_type.value;
-        const printer_receipt_com = document.getElementById('printer_receipt_com');
-        if (printer_receipt_com) settings.printer_receipt_com = printer_receipt_com.value;
-        const printer_receipt_baud = document.getElementById('printer_receipt_baud');
-        if (printer_receipt_baud) settings.printer_receipt_baud = printer_receipt_baud.value;
-        const printer_receipt_bytesize = document.getElementById('printer_receipt_bytesize');
-        if (printer_receipt_bytesize) settings.printer_receipt_bytesize = printer_receipt_bytesize.value;
-        const printer_receipt_parity = document.getElementById('printer_receipt_parity');
-        if (printer_receipt_parity) settings.printer_receipt_parity = printer_receipt_parity.value;
-        const printer_receipt_stopbits = document.getElementById('printer_receipt_stopbits');
-        if (printer_receipt_stopbits) settings.printer_receipt_stopbits = printer_receipt_stopbits.value;
-        const printer_receipt_code_page = document.getElementById('printer_receipt_code_page');
-        if (printer_receipt_code_page) settings.printer_receipt_code_page = printer_receipt_code_page.value;
-        const printer_receipt_cpl = document.getElementById('printer_receipt_cpl');
-        if (printer_receipt_cpl) settings.printer_receipt_cpl = printer_receipt_cpl.value;
+        // Interface settings
+        const carouselMaxSlides = document.getElementById('carouselMaxSlides');
+        if (carouselMaxSlides) settings.carousel_max_slides = carouselMaxSlides.value;
+        
+        const bannerDelaySeconds = document.getElementById('bannerDelaySeconds');
+        if (bannerDelaySeconds) settings.banner_delay_seconds = bannerDelaySeconds.value;
         
         const autoPrintReceipt = document.getElementById('autoPrintReceipt');
         if (autoPrintReceipt) settings.auto_print_receipt = autoPrintReceipt.checked.toString();
@@ -885,9 +733,21 @@
             const formData = new FormData();
             formData.append('backup_file', fileInput.files[0]);
             
+            // Получаем CSRF токен
+            const csrfToken = document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || 
+                             document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+            
+            // Показываем дополнительное предупреждение о времени
+            showAlert('Началось восстановление бекапа. Это может занять до 30 минут. Пожалуйста, не закрывайте страницу.', 'info');
+            
             const response = await fetch('/admin/backup/restore', {
                 method: 'POST',
-                body: formData
+                headers: {
+                    'X-CSRFToken': csrfToken
+                },
+                body: formData,
+                // Увеличиваем таймаут до 35 минут (больше чем на сервере)
+                signal: AbortSignal.timeout(35 * 60 * 1000)
             });
             
             if (response.ok) {
@@ -897,7 +757,11 @@
                     window.location.href = '{{ url_for("auth.login") }}';
                 }, 3000);
             } else {
-                throw new Error('Ошибка при восстановлении');
+                // Получаем детали ошибки от сервера
+                const errorData = await response.json();
+                const errorMessage = errorData.message || 'Неизвестная ошибка';
+                console.error('Server error:', errorData);
+                throw new Error(errorMessage);
             }
             
         } catch (error) {
@@ -909,7 +773,7 @@
 
     // Auto-save on input changes (debounced)
     let saveTimeout;
-    const formElements = document.querySelectorAll('input, select, textarea');
+    const formElements = document.querySelectorAll('input:not(#restoreFile):not(#confirmRestore), select, textarea');
     if (formElements.length > 0) {
         formElements.forEach(element => {
             element.addEventListener('change', function() {

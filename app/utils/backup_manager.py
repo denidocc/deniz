@@ -301,12 +301,24 @@ class BackupManager:
             
             # Распаковываем если сжат
             if backup_file.suffix == '.gz':
-                import tempfile
-                with tempfile.NamedTemporaryFile(mode='w+b', suffix='.sql') as tmp_file:
+                # Создаем временный файл в папке backups для распакованного SQL
+                import uuid
+                temp_sql_path = self.backup_dir / f"temp_unpack_{uuid.uuid4().hex}.sql"
+                
+                try:
+                    logger.info(f"Unpacking .gz file: {backup_file}")
                     with gzip.open(backup_file, 'rb') as gz_file:
-                        tmp_file.write(gz_file.read())
-                    tmp_file.seek(0)
-                    result = self._execute_sql_restore(tmp_file.name)
+                        with open(temp_sql_path, 'wb') as sql_file:
+                            sql_file.write(gz_file.read())
+                    logger.info(f"Unpacked to: {temp_sql_path}")
+                    
+                    logger.info("Starting SQL restore execution...")
+                    result = self._execute_sql_restore(str(temp_sql_path))
+                    logger.info("SQL restore execution completed")
+                finally:
+                    # Удаляем временный распакованный файл
+                    if temp_sql_path.exists():
+                        temp_sql_path.unlink()
             else:
                 result = self._execute_sql_restore(str(backup_file))
             
@@ -324,12 +336,27 @@ class BackupManager:
     def _execute_sql_restore(self, sql_file_path: str) -> None:
         """Выполнение SQL восстановления."""
         try:
-            with psycopg2.connect(**self.db_config) as conn:
+            logger.info(f"Reading SQL file: {sql_file_path}")
+            with open(sql_file_path, 'r', encoding='utf-8') as f:
+                sql_content = f.read()
+            
+            logger.info(f"SQL content length: {len(sql_content)} characters")
+            logger.info("Connecting to database...")
+            
+            # Добавляем таймаут для подключения
+            db_config_with_timeout = self.db_config.copy()
+            db_config_with_timeout['connect_timeout'] = 30
+            
+            with psycopg2.connect(**db_config_with_timeout) as conn:
+                logger.info("Database connected, executing SQL...")
+                
                 with conn.cursor() as cursor:
-                    with open(sql_file_path, 'r', encoding='utf-8') as f:
-                        sql_content = f.read()
-                        cursor.execute(sql_content)
-                        conn.commit()
+                    # Увеличиваем таймаут для выполнения запросов до 30 минут для больших бекапов
+                    cursor.execute("SET statement_timeout = '1800s';")  # 30 минут
+                    logger.info("Executing large SQL backup, this may take several minutes...")
+                    cursor.execute(sql_content)
+                    conn.commit()
+                    logger.info("SQL executed successfully")
         except Exception as e:
             logger.error(f"SQL restore execution failed: {e}")
             raise
@@ -350,6 +377,41 @@ class BackupManager:
         except Exception as e:
             logger.error(f"Error getting backup size: {e}")
             return "Error"
+    
+    def cleanup_old_backups(self, retention_count: int = 7):
+        """
+        Очистка старых резервных копий.
+        
+        Args:
+            retention_count: Количество резервных копий для хранения
+        """
+        try:
+            # Получаем все файлы бекапов
+            backup_files = []
+            for pattern in ['backup_*.sql', 'backup_*.sql.gz']:
+                backup_files.extend(self.backup_dir.glob(pattern))
+            
+            # Сортируем по времени создания (новые первыми)
+            backup_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+            
+            # Удаляем файлы сверх лимита
+            files_to_delete = backup_files[retention_count:]
+            
+            for backup_file in files_to_delete:
+                try:
+                    backup_file.unlink()
+                    logger.info(f"Deleted old backup: {backup_file.name}")
+                except Exception as e:
+                    logger.error(f"Failed to delete old backup {backup_file.name}: {e}")
+            
+            if files_to_delete:
+                logger.info(f"Cleaned up {len(files_to_delete)} old backup files")
+            else:
+                logger.debug(f"No old backups to clean up (keeping {retention_count} files)")
+                
+        except Exception as e:
+            logger.error(f"Backup cleanup failed: {e}")
+            raise Exception(f"Ошибка очистки старых бекапов: {str(e)}")
     
     def list_backups(self) -> List[Dict[str, Any]]:
         """Получение списка всех бэкапов."""

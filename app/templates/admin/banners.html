@@ -88,6 +88,17 @@
         </div>
     </div>
 
+    <!-- Информация о лимите баннеров -->
+    <div class="alert alert-info d-flex align-items-center mb-4" role="alert" id="bannerLimitInfo">
+        <i class="bi bi-info-circle-fill me-2"></i>
+        <div>
+            <strong>Лимит отображения:</strong> 
+            В клиентской части показывается максимум <span id="maxSlidesDisplay">{{ settings.get('carousel_max_slides', '5') }}</span> баннеров. 
+            <span id="limitMessage"></span>
+            <a href="{{ url_for('admin.settings') }}" class="alert-link">Изменить лимит в настройках</a>
+        </div>
+    </div>
+
     <!-- Список баннеров -->
     <div class="card shadow mb-4">
         <div class="card-header py-3">
@@ -141,6 +152,15 @@
                             </div>
                             
                             <div class="form-group">
+                                <label for="bannerStartDate">Дата начала показа</label>
+                                <input type="datetime-local" class="form-control" id="bannerStartDate" name="start_date">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="bannerEndDate">Дата окончания показа</label>
+                                <input type="datetime-local" class="form-control" id="bannerEndDate" name="end_date">
+                            </div>
+                            <!-- <div class="form-group">
                                 <label for="bannerLinkUrl">Ссылка</label>
                                 <input type="url" class="form-control" id="bannerLinkUrl" name="link_url" placeholder="https://...">
                             </div>
@@ -148,7 +168,7 @@
                             <div class="form-group">
                                 <label for="bannerLinkText">Текст ссылки</label>
                                 <input type="text" class="form-control" id="bannerLinkText" name="link_text" placeholder="Нажмите здесь">
-                            </div>
+                            </div> -->
                         </div>
                         
                         <div class="col-md-6">
@@ -168,16 +188,6 @@
                                 <div class="image-preview-container">
                                     <img id="imagePreview" src="" alt="Предварительный просмотр" class="img-fluid rounded" style="max-height: 200px; display: none;">
                                 </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="bannerStartDate">Дата начала показа</label>
-                                <input type="datetime-local" class="form-control" id="bannerStartDate" name="start_date">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="bannerEndDate">Дата окончания показа</label>
-                                <input type="datetime-local" class="form-control" id="bannerEndDate" name="end_date">
                             </div>
                             
                             <div class="form-group">
@@ -387,9 +397,48 @@ function updateStatistics() {
     document.getElementById('totalBanners').textContent = total;
     document.getElementById('activeBanners').textContent = active;
     document.getElementById('expiringBanners').textContent = expiring;
+    
+    // Обновляем информацию о лимите баннеров
+    updateBannerLimitInfo(active, total);
+}
+
+function updateBannerLimitInfo(activeBanners, totalBanners) {
+    const maxSlides = parseInt(document.getElementById('maxSlidesDisplay').textContent) || 5;
+    const limitMessage = document.getElementById('limitMessage');
+    const bannerLimitInfo = document.getElementById('bannerLimitInfo');
+    
+    if (activeBanners > maxSlides) {
+        // Превышен лимит активных баннеров
+        limitMessage.innerHTML = `<br><span class="text-warning"><i class="bi bi-exclamation-triangle"></i> 
+            Активных баннеров (${activeBanners}) больше лимита! Будут показаны только первые ${maxSlides}.</span>`;
+        bannerLimitInfo.className = 'alert alert-warning d-flex align-items-center mb-4';
+    } else if (activeBanners === maxSlides) {
+        // Достигнут лимит
+        limitMessage.innerHTML = `<br><span class="text-success"><i class="bi bi-check-circle"></i> 
+            Все ${activeBanners} активных баннера будут показаны.</span>`;
+        bannerLimitInfo.className = 'alert alert-success d-flex align-items-center mb-4';
+    } else {
+        // В пределах лимита
+        limitMessage.innerHTML = `<br><span class="text-info"><i class="bi bi-info-circle"></i> 
+            Активных баннеров: ${activeBanners} из ${maxSlides} возможных.</span>`;
+        bannerLimitInfo.className = 'alert alert-info d-flex align-items-center mb-4';
+    }
 }
 
 function openAddBannerModal() {
+    // Проверяем лимит активных баннеров
+    const activeBanners = banners.filter(b => b.is_active).length;
+    const maxSlides = parseInt(document.getElementById('maxSlidesDisplay').textContent) || 5;
+    
+    if (activeBanners >= maxSlides) {
+        // Показываем предупреждение о лимите
+        if (confirm(`⚠️ Внимание!\n\nУ вас уже ${activeBanners} активных баннеров, что достигло или превысило лимит в ${maxSlides} баннеров.\n\nВ клиентской части будут показаны только первые ${maxSlides} баннеров.\n\nВы можете:\n1. Деактивировать один из существующих баннеров\n2. Увеличить лимит в настройках\n3. Создать баннер (он может не отображаться)\n\nПродолжить создание баннера?`)) {
+            // Пользователь согласился продолжить
+        } else {
+            return; // Отменяем создание
+        }
+    }
+    
     editingBannerId = null;
     document.getElementById('bannerModalLabel').textContent = 'Добавить баннер';
     document.getElementById('bannerForm').reset();
@@ -454,8 +503,8 @@ async function editBanner(bannerId) {
             document.getElementById('bannerSubmitBtn').innerHTML = '<span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>Сохранить';
             document.getElementById('bannerTitle').value = banner.title;
             document.getElementById('bannerDescription').value = banner.description || '';
-            document.getElementById('bannerLinkUrl').value = banner.link_url || '';
-            document.getElementById('bannerLinkText').value = banner.link_text || '';
+            // document.getElementById('bannerLinkUrl').value = banner.link_url || '';
+            // document.getElementById('bannerLinkText').value = banner.link_text || '';
             document.getElementById('bannerIsActive').checked = banner.is_active;
             updateHiddenField(document.getElementById('bannerIsActive'));
             
@@ -537,6 +586,17 @@ async function deleteBanner(bannerId) {
 
 async function toggleBannerStatus(bannerId) {
     try {
+        const banner = banners.find(b => b.id === bannerId);
+        const activeBanners = banners.filter(b => b.is_active).length;
+        const maxSlides = parseInt(document.getElementById('maxSlidesDisplay').textContent) || 5;
+        
+        // Если баннер неактивен и мы пытаемся его активировать
+        if (!banner.is_active && activeBanners >= maxSlides) {
+            if (!confirm(`⚠️ Внимание!\n\nУ вас уже ${activeBanners} активных баннеров, что достигло лимит в ${maxSlides} баннеров.\n\nПри активации этого баннера в клиентской части будут показаны только первые ${maxSlides} баннеров.\n\nВы можете увеличить лимит в настройках системы.\n\nПродолжить активацию?`)) {
+                return; // Отменяем активацию
+            }
+        }
+        
         const response = await apiRequest(`/admin/api/banners/${bannerId}/toggle`, 'PUT');
         
         if (response.status === 'success') {
