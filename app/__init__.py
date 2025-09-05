@@ -84,6 +84,13 @@ def create_app(config_name: str = 'development') -> Flask:
     def favicon():
         return app.send_static_file('favicon.ico')
     
+    # Сохраняем время запуска приложения
+    import time
+    import os
+    start_time_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.start_time')
+    with open(start_time_file, 'w') as f:
+        f.write(str(time.time()))
+    
     return app
 
 def init_extensions(app: Flask) -> None:
