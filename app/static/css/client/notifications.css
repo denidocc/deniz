@@ -27,7 +27,7 @@
 }
 
 .notification-container .notification.hide {
-    transform: translateX(100%) !important;
+    transform: translateX(-100%) !important;
 }
 
 .notification-container .notification-success {
@@ -59,9 +59,9 @@
 
 .notification-container .notification-message {
     font-size: 14px;
-    line-height: 1.4;
     color: #333;
     margin: 0;
+    line-height: 1.4;
 }
 
 .notification-container .notification-close {
