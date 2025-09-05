@@ -253,7 +253,8 @@ class MenuManager {
         // Обновляем переводы интерфейса
         this.updateInterfaceTexts(language);
         
-        NotificationManager.showSuccess('Язык изменен');
+        const t = window.CURRENT_TRANSLATIONS || { 'language-changed': 'Язык изменен' };
+        NotificationManager.showSuccess(t['language-changed']);
     }
 
     static updateInterfaceTexts(language) {
@@ -284,7 +285,30 @@ class MenuManager {
                 'cancel-order-message': 'Заказ будет полностью отменен',
                 'cancel': 'Отмена',
                 'clear-cart-title': 'Очистить корзину?',
-                'clear-cart-message': 'Все товары будут удалены из корзины'
+                'clear-cart-message': 'Все товары будут удалены из корзины',
+                'continue-order': 'Продолжить заказ',
+                'bonus-card-removed': 'Бонусная карта удалена',
+                'select-table': 'Выберите стол',
+                // Уведомления
+                'language-changed': 'Язык изменен',
+                'dish-not-found': 'Блюдо не найдено',
+                'dish-added': 'добавлено в корзину',
+                'error-adding-dish': 'Ошибка добавления блюда',
+                'cart-already-empty': 'Корзина уже пуста',
+                'cart-cleared': 'Корзина очищена',
+                'table-selected': 'Выбран стол #',
+                'bonus-card-applied': 'Бонусная карта применена!',
+                'discount-applied': 'Применена скидка',
+                'cart-empty': 'Корзина пуста',
+                'select-table-first': 'Пожалуйста, выберите стол перед оформлением заказа',
+                'order-sent': 'Заказ отправлен!',
+                'app-error': 'Произошла ошибка приложения',
+                'wrong-pin': 'Неверный PIN-код',
+                'table-select-error': 'Не удалось выбрать стол',
+                'order-cancelled': 'Заказ отменен',
+                'order-confirmed': 'Заказ подтвержден и отправлен на кухню!',
+                'order-confirm-error': 'Не удалось подтвердить заказ',
+                'order-data-error': 'Ошибка: данные заказа не найдены',
             },
             'tk': {
                 'search-placeholder': 'Naharyň adyny giriziň',
@@ -312,7 +336,30 @@ class MenuManager {
                 'cancel-order-message': 'Sargyt doly ýatyrylar',
                 'cancel': 'Ýatyr',
                 'clear-cart-title': 'Sebedi arassalamak?',
-                'clear-cart-message': 'Ähli harytlar sebetden aýrylar'
+                'clear-cart-message': 'Ähli harytlar sebetden aýrylar',
+                'continue-order': 'Sargydyny dowam et',
+                'select-table': 'Stol saýlaň',
+                // Уведомления
+                'language-changed': 'Dil üýtgedildi',
+                'dish-not-found': 'Nahar tapylmady',
+                'dish-added': 'Sebede goşuldy',
+                'error-adding-dish': 'Nahar goşmakda ýalňyşlyk',
+                'cart-already-empty': 'Sebet eýýäm boş',
+                'cart-cleared': 'Sebet arassalandy',
+                'table-selected': 'Saýlanan stol #',
+                'bonus-card-applied': 'Bonus karta ulanylyp başlandy!',
+                'discount-applied': 'Arzanlyk ulanyldy',
+                'bonus-card-removed': 'Bonus karta aýryldy',
+                'cart-empty': 'Sebet boş',
+                'select-table-first': 'Sargyt bermezden ozal stol saýlaň',
+                'order-sent': 'Sargyt iberildi!',
+                'app-error': 'Programma ýalňyşlygy ýüze çykdy',
+                'wrong-pin': 'Nädogry PIN kod',
+                'table-select-error': 'Stol saýlap bolmady',
+                'order-cancelled': 'Sargyt ýatyryldy',
+                'order-confirmed': 'Sargyt tassyklandy we aşhana iberildi!',
+                'order-confirm-error': 'Sargyt tassyklap bolmady',
+                'order-data-error': 'Ýalňyşlyk: sargyt maglumatlary tapylmady',
             },
             'en': {
                 'search-placeholder': 'Enter dish name',
@@ -340,7 +387,30 @@ class MenuManager {
                 'cancel-order-message': 'Order will be completely cancelled',
                 'cancel': 'Cancel',
                 'clear-cart-title': 'Clear cart?',
-                'clear-cart-message': 'All items will be removed from cart'
+                'clear-cart-message': 'All items will be removed from cart',
+                'continue-order': 'Continue order',
+                'select-table': 'Select table',
+                // Notifications
+                'language-changed': 'Language changed',
+                'dish-not-found': 'Dish not found',
+                'dish-added': 'added to cart',
+                'error-adding-dish': 'Error adding dish',
+                'cart-already-empty': 'Cart is already empty',
+                'cart-cleared': 'Cart cleared',
+                'table-selected': 'Selected table #',
+                'bonus-card-applied': 'Bonus card applied!',
+                'discount-applied': 'Discount applied',
+                'bonus-card-removed': 'Bonus card removed',
+                'cart-empty': 'Cart is empty',
+                'select-table-first': 'Please select a table before ordering',
+                'order-sent': 'Order sent!',
+                'app-error': 'Application error occurred',
+                'wrong-pin': 'Wrong PIN code',
+                'table-select-error': 'Failed to select table',
+                'order-cancelled': 'Order cancelled',
+                'order-confirmed': 'Order confirmed and sent to kitchen!',
+                'order-confirm-error': 'Failed to confirm order',
+                'order-data-error': 'Error: order data not found',
             }
         };
         

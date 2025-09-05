@@ -36,7 +36,8 @@ class ClientApp {
         // Обработчик ошибок JavaScript
         window.addEventListener('error', (event) => {
             console.error('JavaScript Error:', event.error);
-            NotificationManager.showError('Произошла ошибка приложения');
+            const t = window.CURRENT_TRANSLATIONS || { 'app-error': 'Произошла ошибка приложения' };
+            NotificationManager.showError(t['app-error']);
         });
 
         // Обработчик нажатий клавиш
