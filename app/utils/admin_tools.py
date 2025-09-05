@@ -5,6 +5,7 @@ from app import db
 from app.models import Staff, SystemSetting
 from typing import Dict, Any, List
 import click
+import os
 
 class DatabaseManager:
     """Менеджер для работы с базой данных."""
@@ -110,8 +111,10 @@ class SystemInfo:
             from sqlalchemy import text
             db.session.execute(text('SELECT 1')).scalar()
             db_status = "connected"
+            db_type = "PostgreSQL"
         except Exception:
             db_status = "disconnected"
+            db_type = "Unknown"
         
         # Подсчет пользователей
         try:
@@ -124,12 +127,74 @@ class SystemInfo:
         return {
             "database": {
                 "status": db_status,
+                "type": db_type,
                 "users_count": user_count,
                 "active_users_count": active_user_count,
             },
             "environment": current_app.config.get('ENV', 'unknown'),
             "debug": current_app.debug
         }
+    
+    @staticmethod
+    def get_disk_space() -> str:
+        """Получение информации о месте на диске."""
+        try:
+            import shutil
+            import os
+            
+            # Получаем путь к корневой папке проекта
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+            
+            # Получаем информацию о диске
+            total, used, free = shutil.disk_usage(project_root)
+            
+            # Конвертируем в ГБ
+            free_gb = free // (1024**3)
+            total_gb = total // (1024**3)
+            
+            return f"{free_gb} ГБ из {total_gb} ГБ"
+        except Exception as e:
+            current_app.logger.error(f"Error getting disk space: {e}")
+            return "—"
+    
+    @staticmethod
+    def get_uptime() -> str:
+        """Получение времени работы сервера."""
+        try:
+            import time
+            from datetime import datetime, timedelta
+            
+            # Время старта из переменной окружения или файла
+            start_time_file = os.path.join(os.path.dirname(__file__), '..', '..', '.start_time')
+            
+            if os.path.exists(start_time_file):
+                with open(start_time_file, 'r') as f:
+                    start_time = float(f.read().strip())
+            else:
+                # Если файла нет, используем текущее время (приложение только запустилось)
+                start_time = time.time()
+                with open(start_time_file, 'w') as f:
+                    f.write(str(start_time))
+            
+            # Вычисляем время работы
+            uptime_seconds = time.time() - start_time
+            uptime_delta = timedelta(seconds=int(uptime_seconds))
+            
+            # Форматируем время
+            days = uptime_delta.days
+            hours, remainder = divmod(uptime_delta.seconds, 3600)
+            minutes, _ = divmod(remainder, 60)
+            
+            if days > 0:
+                return f"{days}д {hours}ч {minutes}м"
+            elif hours > 0:
+                return f"{hours}ч {minutes}м"
+            else:
+                return f"{minutes}м"
+                
+        except Exception as e:
+            current_app.logger.error(f"Error getting uptime: {e}")
+            return "—"
 
 # CLI команды
 @click.group()

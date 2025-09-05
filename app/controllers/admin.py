@@ -454,6 +454,16 @@ def settings():
     settings = SystemSetting.query.all()
     settings_dict = {s.setting_key: s.setting_value for s in settings}
     
+    # Получаем системную информацию
+    from app.utils.admin_tools import SystemInfo
+    system_status = SystemInfo.get_system_status()
+    
+    # Добавляем динамические данные
+    settings_dict['disk_space'] = SystemInfo.get_disk_space()
+    settings_dict['uptime'] = SystemInfo.get_uptime()
+    settings_dict['db_status'] = system_status['database']['status']
+    settings_dict['db_type'] = system_status['database']['type']
+    
     # Создаем формы для валидации
     service_charge_form = ServiceChargeForm()
     client_pin_form = ClientPinForm()

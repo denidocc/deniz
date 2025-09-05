@@ -454,8 +454,13 @@
                 <div class="setting-item">
                     <div class="setting-label">База данных</div>
                     <div class="setting-description">
-                        <span class="status-indicator status-online"></span>
-                        PostgreSQL подключена
+                        {% if settings.get('db_status') == 'connected' %}
+                            <span class="status-indicator status-online"></span>
+                            {{ settings.get('db_type', 'PostgreSQL') }} подключена
+                        {% else %}
+                            <span class="status-indicator status-offline"></span>
+                            {{ settings.get('db_type', 'PostgreSQL') }} не подключена
+                        {% endif %}
                     </div>
                 </div>
             </div>
