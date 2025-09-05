@@ -106,7 +106,8 @@ class CartManager {
             // Получаем данные блюда из меню
             const dish = await this.getDishById(dishId);
             if (!dish) {
-                NotificationManager.showError('Блюдо не найдено');
+                const t = window.CURRENT_TRANSLATIONS || { 'dish-not-found': 'Блюдо не найдено' };
+                NotificationManager.showError(t['dish-not-found']);
                 return;
             }
 
@@ -128,7 +129,8 @@ class CartManager {
             await this.triggerUpdate();
             
             // Показываем уведомление
-            NotificationManager.showSuccess(`${dish.name} добавлено в корзину`);
+            const t = window.CURRENT_TRANSLATIONS || { 'dish-added': 'добавлено в корзину' };
+            NotificationManager.showSuccess(`${dish.name} ${t['dish-added']}`);
             
                     // Обновляем кнопки в карточках блюд
         await this.updateDishButtons();
@@ -137,7 +139,8 @@ class CartManager {
         this.saveToStorage();
         } catch (error) {
             console.error('🛒 Error adding item:', error);
-            NotificationManager.showError('Ошибка добавления блюда');
+            const t = window.CURRENT_TRANSLATIONS || { 'error-adding-dish': 'Ошибка добавления блюда' };
+            NotificationManager.showError(t['error-adding-dish']);
         }
     }
 
@@ -173,7 +176,8 @@ class CartManager {
 
         static clear() {
         if (this.items.size === 0) {
-            NotificationManager.showInfo('Корзина уже пуста');
+            const t = window.CURRENT_TRANSLATIONS || { 'cart-already-empty': 'Корзина уже пуста' };
+            NotificationManager.showInfo(t['cart-already-empty']);
             return;
         }
 
@@ -188,7 +192,8 @@ class CartManager {
             this.bonusCard = null;
             await this.triggerUpdate();
             await this.updateDishButtons();
-            NotificationManager.showSuccess('Корзина очищена');
+            const t = window.CURRENT_TRANSLATIONS || { 'cart-cleared': 'Корзина очищена' };
+            NotificationManager.showSuccess(t['cart-cleared']);
         });
     }
 
@@ -412,7 +417,7 @@ class CartManager {
             </div>
             
             <button class="btn btn-primary continue-order-btn" onclick="CartManager.proceedToOrder()">
-                Продолжить заказ
+                ${t['continue-order'] || 'Продолжить заказ'}
             </button>
         `;
 
@@ -463,7 +468,8 @@ class CartManager {
         StorageManager.set('tableId', this.tableId);
         StorageManager.set('tableNumber', this.tableNumber);
         
-        NotificationManager.showSuccess(`Выбран стол #${this.tableNumber}`);
+        const t = window.CURRENT_TRANSLATIONS || { 'table-selected': 'Выбран стол #' };
+        NotificationManager.showSuccess(`${t['table-selected']}${this.tableNumber}`);
     }
 
     static getCurrentTableId() {
@@ -475,19 +481,22 @@ class CartManager {
         ModalManager.openBonusCard((cardData) => {
             this.bonusCard = cardData;
             this.render();
-            NotificationManager.showSuccess(`Бонусная карта применена! Скидка ${cardData.discount_percent}%`);
+            const t = window.CURRENT_TRANSLATIONS || { 'bonus-card-applied': 'Бонусная карта применена!', 'discount-applied': 'Применена скидка' };
+            NotificationManager.showSuccess(`${t['bonus-card-applied']} ${t['discount-applied']} ${cardData.discount_percent}%`);
         });
     }
 
     static async proceedToOrder() {
         if (this.items.size === 0) {
-            NotificationManager.showWarning('Корзина пуста');
+            const t = window.CURRENT_TRANSLATIONS || { 'cart-empty': 'Корзина пуста' };
+            NotificationManager.showWarning(t['cart-empty']);
             return;
         }
 
         // Проверяем, выбран ли стол
         if (!this.tableId) {
-            NotificationManager.showError('Пожалуйста, выберите стол перед оформлением заказа');
+            const t = window.CURRENT_TRANSLATIONS || { 'select-table-first': 'Пожалуйста, выберите стол перед оформлением заказа' };
+            NotificationManager.showError(t['select-table-first']);
             return;
         }
 
@@ -545,7 +554,8 @@ class CartManager {
                 if (window.ModalManager && typeof window.ModalManager.openOrderConfirmation === 'function') {
                     window.ModalManager.openOrderConfirmation(orderInfo);
                 } else {
-                    NotificationManager.showSuccess('Заказ отправлен!');
+                    const t = window.CURRENT_TRANSLATIONS || { 'order-sent': 'Заказ отправлен!' };
+                    NotificationManager.showSuccess(t['order-sent']);
                 }
             } else {
                 throw new Error(response.message || 'Ошибка создания заказа');
@@ -674,7 +684,8 @@ class CartManager {
                         this.tableNumber = t.table_number;
                         StorageManager.set('tableNumber', this.tableNumber);
                         if (this.currentTableNumber) this.currentTableNumber.textContent = this.tableNumber;
-                        NotificationManager.showInfo(`Выбран стол #${this.tableNumber}`);
+                        const t = window.CURRENT_TRANSLATIONS || { 'table-selected': 'Выбран стол #' };
+                        NotificationManager.showInfo(`${t['table-selected']}${this.tableNumber}`);
                     }
                 }
             }
@@ -709,14 +720,16 @@ class CartManager {
         this.bonusCard = bonusData;
         this.saveToStorage();
         this.render();
-        NotificationManager.showSuccess(`Применена скидка ${bonusData.discount_percent}%!`);
+        const t = window.CURRENT_TRANSLATIONS || { 'discount-applied': 'Применена скидка' };
+        NotificationManager.showSuccess(`${t['discount-applied']} ${bonusData.discount_percent}%!`);
     }
 
     static removeBonusCard() {
         this.bonusCard = null;
         this.saveToStorage();
         this.render();
-        NotificationManager.showInfo('Бонусная карта удалена');
+        const t = window.CURRENT_TRANSLATIONS || { 'bonus-card-removed': 'Бонусная карта удалена' };
+        NotificationManager.showInfo(t['bonus-card-removed']);
     }
 
     // Методы ниже переопределены выше: setTable, getCurrentTableId, placeOrder

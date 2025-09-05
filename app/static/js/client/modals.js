@@ -144,6 +144,12 @@ class ModalManager {
     static openPinEntry(callback, title = "Введите пин код") {
         let pinValue = '';
         
+        // Получаем переводы
+        const t = window.CURRENT_TRANSLATIONS || {
+            'enter-pin': 'Введите PIN-код для доступа к столам',
+            'confirm': 'Подтвердить'
+        };
+        
         const content = `
             <div class="modal-header">
                 <h2 class="modal-title">${title}</h2>
@@ -160,7 +166,7 @@ class ModalManager {
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-primary" id="pinConfirm" disabled>Подтвердить</button>
+                <button class="btn btn-primary" id="pinConfirm" disabled>${t['confirm']}</button>
             </div>
         `;
         
@@ -206,9 +212,14 @@ class ModalManager {
 
     // Выбор стола
     static openTableSelection(currentTableId, callback) {
+        // Получаем переводы
+        const t = window.CURRENT_TRANSLATIONS || {
+            'select-table': 'Выберите стол'
+        };
+        
         const content = `
             <div class="modal-header">
-                <h2 class="modal-title">Выберите стол</h2>
+                <h2 class="modal-title">${t['select-table']}</h2>
             </div>
             <div class="modal-content">
                 <div class="tables-grid" id="tablesGrid">
@@ -372,7 +383,8 @@ class ModalManager {
                     
                     callback(response.data);
                     this.closeActive();
-                    NotificationManager.showSuccess('Бонусная карта применена!');
+                    const t = window.CURRENT_TRANSLATIONS || { 'bonus-card-applied': 'Бонусная карта применена!' };
+                    NotificationManager.showSuccess(t['bonus-card-applied']);
                 } else {
                     // Показываем конкретную причину ошибки
                     const errorMessage = response.data.reason || response.message || 'Неизвестная ошибка';
@@ -425,12 +437,11 @@ class ModalManager {
                 </div>
                 <div class="countdown-timer" id="countdownTimer">${this.formatTime(remainingTime)}</div>
                 <div class="order-actions">
-                    <button class="btn btn-outline" style="width: 100%;" onclick="ModalManager.closeActive()">${t['close']}</button>
+                    <button class="btn" style="width: 100%; background: var(--ocean-green); color: var(--white);" onclick="confirmOrder()">${t['confirm']}</button>
                     <button class="btn" style="background: var(--minus-btn); color: var(--white); width: 100%;" id="cancelOrderBtn">
                         ${t['cancel-remove']}
                     </button>
                 </div>
-                <button class="btn" style="width: 100%; margin-top: var(--gap-medium); background: var(--ocean-green); color: var(--white);" onclick="confirmOrder()">${t['confirm']}</button>
             </div>
         `;
         
@@ -499,7 +510,8 @@ class ModalManager {
                             this.closeActive();
                         }, 100);
                         
-                        NotificationManager.showSuccess('Заказ отменен');
+                        const t = window.CURRENT_TRANSLATIONS || { 'order-cancelled': 'Заказ отменен' };
+                        NotificationManager.showSuccess(t['order-cancelled']);
                     } catch (error) {
                         APIUtils.handleError(error, 'Не удалось отменить заказ');
                     }
@@ -520,6 +532,12 @@ class ModalManager {
 
     // Подтверждение действия
     static showConfirm(title, message, onConfirm, onCancel = null) {
+        // Получаем переводы
+        const t = window.CURRENT_TRANSLATIONS || {
+            'cancel': 'Отмена',
+            'confirm': 'Подтвердить'
+        };
+        
         const content = `
             <div class="modal-header">
                 <h2 class="modal-title">${title}</h2>
@@ -529,8 +547,8 @@ class ModalManager {
                 <div class="confirm-message">${message}</div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-outline" id="confirmCancel">Отмена</button>
-                <button class="btn btn-primary" id="confirmOk">Подтвердить</button>
+                <button class="btn btn-outline" id="confirmCancel">${t['cancel']}</button>
+                <button class="btn btn-primary" id="confirmOk">${t['confirm']}</button>
             </div>
         `;
         
@@ -580,17 +598,19 @@ class ModalManager {
                             try {
                                 CartManager.setTable(tableId, tableNumber);
                             } catch (e) {
-                                NotificationManager.showError('Не удалось выбрать стол');
+                                const t = window.CURRENT_TRANSLATIONS || { 'table-select-error': 'Не удалось выбрать стол' };
+                                NotificationManager.showError(t['table-select-error']);
                             }
                         });
                     }, 300);
                 } else {
-                    NotificationManager.showError('Неверный PIN-код');
+                    const t = window.CURRENT_TRANSLATIONS || { 'wrong-pin': 'Неверный PIN-код' };
+                    NotificationManager.showError(t['wrong-pin']);
                 }
             }).catch(error => {
                 APIUtils.handleError(error, 'Ошибка проверки PIN-кода');
             });
-        }, "Введите PIN-код для доступа к столам");
+        }, window.CURRENT_TRANSLATIONS?.['enter-pin'] || "Введите PIN-код для доступа к столам");
     }
 
     // Показ модалки с информацией о существующем заказе
@@ -805,7 +825,8 @@ class ModalManager {
                     const response = await window.ClientAPI.applyBonusCard(cardNumber);
                     
                     if (response.status === 'success') {
-                        NotificationManager.showSuccess('Бонусная карта применена!');
+                        const t = window.CURRENT_TRANSLATIONS || { 'bonus-card-applied': 'Бонусная карта применена!' };
+                        NotificationManager.showSuccess(t['bonus-card-applied']);
                         this.closeActive();
                     } else {
                         throw new Error(response.message || 'Не удалось применить карту');
@@ -833,7 +854,8 @@ class ModalManager {
     static async confirmOrder() {
         if (!this.currentOrderData || !this.currentOrderData.order_id) {
             console.error('Нет данных заказа для подтверждения');
-            NotificationManager.showError('Ошибка: данные заказа не найдены');
+            const t = window.CURRENT_TRANSLATIONS || { 'order-data-error': 'Ошибка: данные заказа не найдены' };
+            NotificationManager.showError(t['order-data-error']);
             return;
         }
         
@@ -866,7 +888,8 @@ class ModalManager {
             
             if (data.status === 'success') {
                 console.log('✅ Заказ успешно подтвержден и отправлен на печать');
-                NotificationManager.showSuccess('Заказ подтвержден и отправлен на кухню!');
+                const t = window.CURRENT_TRANSLATIONS || { 'order-confirmed': 'Заказ подтвержден и отправлен на кухню!' };
+                NotificationManager.showSuccess(t['order-confirmed']);
                 
                 // Закрываем модалку
                 this.closeActive();
@@ -880,7 +903,8 @@ class ModalManager {
             
         } catch (error) {
             console.error('❌ Ошибка подтверждения заказа:', error);
-            NotificationManager.showError('Не удалось подтвердить заказ: ' + error.message);
+            const t = window.CURRENT_TRANSLATIONS || { 'order-confirm-error': 'Не удалось подтвердить заказ' };
+            NotificationManager.showError(`${t['order-confirm-error']}: ${error.message}`);
             
             // Возвращаем кнопку в исходное состояние
             const confirmButton = document.querySelector('button[onclick="confirmOrder()"]');
