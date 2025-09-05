@@ -282,14 +282,23 @@ class CartManager {
     }
 
     static renderEmpty() {
+        // Получаем переводы
+        const t = window.CURRENT_TRANSLATIONS || {
+            'empty-cart': 'Корзина пуста, но море полное.\nЗагляните в меню — там волны вкуса.'
+        };
+        
+        const parts = t['empty-cart'].split('\n');
+        const emptyCartHTML = parts.length >= 2 
+            ? `<strong>${parts[0]}</strong><br>${parts[1]}`
+            : `<strong>${t['empty-cart']}</strong>`;
+        
         this.cartContent.innerHTML = `
             <div class="empty-cart">
                 <div class="empty-cart-illustration">
                     <img src="/static/assets/images/fish.png" alt="Рыба" class="fish-image">
                 </div>
                 <p class="empty-cart-text">
-                    <strong>Корзина пуста, но море полное.</strong><br>
-                    Загляните в меню — там волны вкуса.
+                    ${emptyCartHTML}
                 </p>
             </div>
             <div class="rudder-pattern"></div>
