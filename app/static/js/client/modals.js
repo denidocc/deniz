@@ -420,6 +420,8 @@ class ModalManager {
             'order-accepted': 'Ваш заказ принят в обработку!',
             'order-number': 'Заказ №',
             'order-cancel-time': 'Вы можете отменить или убрать пункты из вашего заказа в течении:',
+            'order-confirm-warning': '⚠️ При нажатии "Подтвердить" заказ будет отправлен на кухню немедленно',
+            'order-auto-confirm-info': 'Если модалка закроется, заказ автоматически подтвердится через 5 минут',
             'close': 'Закрыть',
             'cancel-remove': 'Отменить/убрать',
             'confirm': 'Подтвердить'
@@ -436,6 +438,12 @@ class ModalManager {
                     ${t['order-cancel-time']}
                 </div>
                 <div class="countdown-timer" id="countdownTimer">${this.formatTime(remainingTime)}</div>
+                
+                <div class="order-warning" style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 12px; margin: 15px 0; font-size: 14px; line-height: 1.4;">
+                    <div style="color: #856404; margin-bottom: 8px;">${t['order-confirm-warning']}</div>
+                    <div style="color: #6c757d; font-size: 12px;">${t['order-auto-confirm-info']}</div>
+                </div>
+                
                 <div class="order-actions">
                     <button class="btn" style="width: 100%; background: var(--ocean-green); color: var(--white);" onclick="confirmOrder()">${t['confirm']}</button>
                     <button class="btn" style="background: var(--minus-btn); color: var(--white); width: 100%;" id="cancelOrderBtn">
