@@ -126,6 +126,9 @@ class NotificationManager {
         this.container.appendChild(notification);
         this.notifications.set(id, notification);
         
+        // Принудительно вызываем reflow для применения начальных стилей
+        notification.offsetHeight;
+        
         // Анимация появления
         setTimeout(() => {
             notification.classList.add('show');

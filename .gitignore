@@ -212,5 +212,6 @@ __marimo__/
 logs/
 receipts/
 backups/
-.start_time
+*.start_time
 start_deniz_desktop.bat
+migrations/

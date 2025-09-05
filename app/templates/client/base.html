@@ -18,7 +18,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/client/modals.css') }}?v=2">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/client/carousel.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/client/menu.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/client/notifications.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/client/notifications.css') }}?v=2">
     {% block extra_css %}{% endblock %}
     
     <!-- Meta для планшетов -->
@@ -86,7 +86,7 @@
                 <div class="categories-menu" id="categoriesMenu">
                     <!-- Кнопка "Все меню" -->
                     <div class="category-item active" data-category="all">
-                        <div class="category-name">Все меню</div>
+                        <div class="category-name" id="allMenuText">Все меню</div>
                         <div class="category-count" id="allMenuCount">0 блюд</div>
                     </div>
                     
@@ -176,7 +176,7 @@
     <script src="{{ url_for('static', filename='js/client/websocket.js') }}"></script>
     
     <!-- Core Scripts -->
-    <script src="{{ url_for('static', filename='js/client/utils.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/client/utils.js') }}?v=2"></script>
     <script src="{{ url_for('static', filename='js/client/api.js') }}?v=3" onerror="console.error('❌ Ошибка загрузки api.js')"></script>
     <script src="{{ url_for('static', filename='js/client/language.js') }}"></script>
     <script src="{{ url_for('static', filename='js/client/theme.js') }}"></script>
