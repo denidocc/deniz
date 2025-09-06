@@ -505,6 +505,22 @@
                     </div>
                     
                     <div class="mb-3">
+                        <label for="itemDescEn" class="form-label">Описание (английский)</label>
+                        {{ item_form.description_en(class="form-control", rows=3) }}
+                        <div class="invalid-feedback">
+                            {{ item_form.description_en.errors[0] if item_form.description_en.errors else '' }}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="itemDescTk" class="form-label">Описание (туркменский)</label>
+                        {{ item_form.description_tk(class="form-control", rows=3) }}
+                        <div class="invalid-feedback">
+                            {{ item_form.description_tk.errors[0] if item_form.description_tk.errors else '' }}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
                         <div class="form-check">
                             {{ item_form.is_active(class="form-check-input", checked=true) }}
                             <label class="form-check-label" for="itemAvailable">
@@ -655,6 +671,16 @@
                     </div>
                     
                     <div class="mb-3">
+                        <label for="editItemDescEn" class="form-label">Описание (английский)</label>
+                        <textarea class="form-control" id="editItemDescEn" name="description_en" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editItemDescTk" class="form-label">Описание (туркменский)</label>
+                        <textarea class="form-control" id="editItemDescTk" name="description_tk" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="editItemAvailable" name="is_active" checked>
                             <label class="form-check-label" for="editItemAvailable">
@@ -798,6 +824,8 @@
             name_en: formData.get('name_en') || '',
             name_tk: formData.get('name_tk') || '',
             description_ru: formData.get('description_ru') || '',
+            description_en: formData.get('description_en') || '',
+            description_tk: formData.get('description_tk') || '',
             price: parseFloat(formData.get('price')),
             estimated_time: parseInt(formData.get('estimated_time') || '15'),
             preparation_type: formData.get('preparation_type') || 'kitchen',
@@ -884,6 +912,8 @@
                     document.getElementById('editItemNameEn').value = item.name_en || '';
                     document.getElementById('editItemNameTk').value = item.name_tk || '';
                     document.getElementById('editItemDescRu').value = item.description_ru || '';
+                    document.getElementById('editItemDescEn').value = item.description_en || '';
+                    document.getElementById('editItemDescTk').value = item.description_tk || '';
                     document.getElementById('editItemPrice').value = item.price;
                     document.getElementById('editItemCookingTime').value = item.estimated_time || 15;
                     document.getElementById('editItemPreparationType').value = item.preparation_type || 'kitchen';
@@ -946,6 +976,8 @@
             name_en: document.getElementById('editItemNameEn').value || '',
             name_tk: document.getElementById('editItemNameTk').value || '',
             description_ru: document.getElementById('editItemDescRu').value || '',
+            description_en: document.getElementById('editItemDescEn').value || '',
+            description_tk: document.getElementById('editItemDescTk').value || '',
             price: parseFloat(document.getElementById('editItemPrice').value),
             estimated_time: parseInt(document.getElementById('editItemCookingTime').value || '15'),
             preparation_type: document.getElementById('editItemPreparationType').value || 'kitchen',
