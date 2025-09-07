@@ -4,6 +4,8 @@
 
 class ModalManager {
     static currentOrderData = null;
+    static globalOrderTimer = null;
+    static orderTimerData = null;
     
     static init() {
 
@@ -15,6 +17,8 @@ class ModalManager {
         this.createOverlay();
         this.setupEventListeners();
         
+        // Восстанавливаем таймер заказа если есть
+        this.restoreOrderTimerFromStorage();
 
     }
 
@@ -412,8 +416,14 @@ class ModalManager {
         this.currentOrderData = orderData;
         
         const timeoutSeconds = window.CLIENT_SETTINGS?.order_cancel_timeout || 300;
-        let remainingTime = timeoutSeconds;
-        let countdownInterval;
+        
+        // Если уже есть активный глобальный таймер для этого заказа, используем его время
+        if (this.orderTimerData && this.orderTimerData.orderId === orderData.order_id) {
+            console.log('🔄 Восстанавливаем модальное окно для заказа #' + orderData.order_id + ', осталось времени: ' + this.orderTimerData.remainingTime + 'с');
+        } else {
+            // Создаем новый глобальный таймер
+            this.startGlobalOrderTimer(orderData.order_id, timeoutSeconds);
+        }
         
         // Получаем переводы
         const t = window.CURRENT_TRANSLATIONS || {
@@ -437,7 +447,7 @@ class ModalManager {
                 <div class="order-submessage">
                     ${t['order-cancel-time']}
                 </div>
-                <div class="countdown-timer" id="countdownTimer">${this.formatTime(remainingTime)}</div>
+                <div class="countdown-timer" id="countdownTimer">${this.formatTime(this.orderTimerData.remainingTime)}</div>
                 
                 <div class="order-warning" style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 12px; margin: 15px 0; font-size: 14px; line-height: 1.4;">
                     <div style="color: #856404; margin-bottom: 8px;">${t['order-confirm-warning']}</div>
@@ -455,37 +465,43 @@ class ModalManager {
         
         const modalId = this.show(content, { 
             className: 'order-confirmation-modal',
-            hideClose: true
+            hideClose: false,
+            onClose: () => {
+                console.log('📱 Модальное окно закрыто, но глобальный таймер продолжает работать');
+                // Не очищаем глобальный таймер при закрытии модального окна
+            }
         });
         
         const modal = document.querySelector(`[data-modal-id="${modalId}"]`);
         const timer = modal.querySelector('#countdownTimer');
         const cancelBtn = modal.querySelector('#cancelOrderBtn');
         
-        // Запускаем обратный отсчет
-        countdownInterval = setInterval(() => {
-            remainingTime--;
-            
-            const formattedTime = this.formatTime(remainingTime);
-            timer.textContent = formattedTime;
-            
-            // Меняем цвет таймера
-            if (remainingTime <= 60) {
-                timer.className = 'countdown-timer danger';
-            } else if (remainingTime <= 120) {
-                timer.className = 'countdown-timer warning';
+        // Обновляем UI каждую секунду на основе глобального таймера
+        const uiUpdateInterval = setInterval(() => {
+            if (!this.orderTimerData) {
+                clearInterval(uiUpdateInterval);
+                return;
             }
             
-            if (remainingTime <= 0) {
-                clearInterval(countdownInterval);
+            const remainingTime = this.orderTimerData.remainingTime;
+            const formattedTime = this.formatTime(remainingTime);
+            
+            if (timer) {
+                timer.textContent = formattedTime;
+                
+                // Меняем цвет таймера
+                if (remainingTime <= 60) {
+                    timer.className = 'countdown-timer danger';
+                } else if (remainingTime <= 120) {
+                    timer.className = 'countdown-timer warning';
+                }
+            }
+            
+            if (cancelBtn && remainingTime <= 0) {
                 cancelBtn.disabled = true;
                 cancelBtn.textContent = 'Время истекло';
-                timer.textContent = '0:00';
-                
-                // Автоматически подтверждаем заказ
-                setTimeout(() => {
-                    confirmOrder();
-                }, 1000); // Небольшая задержка для показа "Время истекло"
+                if (timer) timer.textContent = '0:00';
+                clearInterval(uiUpdateInterval);
             }
         }, 1000);
         
@@ -507,7 +523,10 @@ class ModalManager {
                         }
                         
                         await window.ClientAPI.cancelOrder(orderData.order_id);
-                        clearInterval(countdownInterval);
+                        
+                        // Останавливаем глобальный таймер
+                        this.stopGlobalOrderTimer();
+                        clearInterval(uiUpdateInterval);
                         
                         // Закрываем модалку подтверждения
                         this.closeActive();
@@ -527,10 +546,10 @@ class ModalManager {
             );
         });
         
-        // Очищаем интервал при закрытии
+        // Очищаем UI интервал при закрытии модального окна
         const originalClose = this.closeActive.bind(this);
         this.closeActive = () => {
-            clearInterval(countdownInterval);
+            clearInterval(uiUpdateInterval);
             this.closeActive = originalClose;
             originalClose();
         };
@@ -858,6 +877,193 @@ class ModalManager {
         this.show(alertContent, { className: 'alert-modal' });
     }
     
+    // Управление глобальным таймером заказа
+    static startGlobalOrderTimer(orderId, timeoutSeconds) {
+        console.log('⏰ Запускаем глобальный таймер для заказа #' + orderId + ' на ' + timeoutSeconds + ' секунд');
+        
+        // Останавливаем предыдущий таймер если есть
+        this.stopGlobalOrderTimer();
+        
+        // Создаем данные таймера
+        this.orderTimerData = {
+            orderId: orderId,
+            remainingTime: timeoutSeconds,
+            startTime: Date.now()
+        };
+        
+        // Запускаем глобальный таймер
+        this.globalOrderTimer = setInterval(() => {
+            this.orderTimerData.remainingTime--;
+            
+            if (this.orderTimerData.remainingTime <= 0) {
+                console.log('⏰ Время истекло для заказа #' + orderId + ', автоматически подтверждаем');
+                this.stopGlobalOrderTimer();
+                
+                // Автоматически подтверждаем заказ
+                setTimeout(() => {
+                    this.confirmOrder();
+                }, 1000);
+            }
+        }, 1000);
+        
+        // Сохраняем в localStorage для восстановления после перезагрузки страницы
+        this.saveOrderTimerToStorage();
+        
+        // Показываем индикатор активного заказа
+        this.showOrderTimerIndicator();
+    }
+    
+    static stopGlobalOrderTimer() {
+        if (this.globalOrderTimer) {
+            console.log('🛑 Останавливаем глобальный таймер заказа');
+            clearInterval(this.globalOrderTimer);
+            this.globalOrderTimer = null;
+        }
+        
+        this.orderTimerData = null;
+        this.clearOrderTimerFromStorage();
+        
+        // Скрываем индикатор активного заказа
+        this.hideOrderTimerIndicator();
+    }
+    
+    static saveOrderTimerToStorage() {
+        if (this.orderTimerData) {
+            localStorage.setItem('orderTimer', JSON.stringify({
+                orderId: this.orderTimerData.orderId,
+                remainingTime: this.orderTimerData.remainingTime,
+                startTime: this.orderTimerData.startTime
+            }));
+        }
+    }
+    
+    static clearOrderTimerFromStorage() {
+        localStorage.removeItem('orderTimer');
+    }
+    
+    static restoreOrderTimerFromStorage() {
+        const stored = localStorage.getItem('orderTimer');
+        if (stored) {
+            try {
+                const data = JSON.parse(stored);
+                const elapsed = Math.floor((Date.now() - data.startTime) / 1000);
+                const remainingTime = Math.max(0, data.remainingTime - elapsed);
+                
+                if (remainingTime > 0) {
+                    console.log('🔄 Восстанавливаем таймер заказа #' + data.orderId + ', осталось: ' + remainingTime + 'с');
+                    this.orderTimerData = {
+                        orderId: data.orderId,
+                        remainingTime: remainingTime,
+                        startTime: data.startTime
+                    };
+                    
+                    // Восстанавливаем данные заказа
+                    this.currentOrderData = { order_id: data.orderId };
+                    
+                    // Показываем индикатор
+                    this.showOrderTimerIndicator();
+                    
+                    // Перезапускаем таймер
+                    this.globalOrderTimer = setInterval(() => {
+                        this.orderTimerData.remainingTime--;
+                        this.saveOrderTimerToStorage();
+                        
+                        if (this.orderTimerData.remainingTime <= 0) {
+                            console.log('⏰ Время истекло для восстановленного заказа #' + data.orderId);
+                            this.stopGlobalOrderTimer();
+                            
+                            // Автоматически подтверждаем заказ
+                            setTimeout(() => {
+                                this.confirmOrder();
+                            }, 1000);
+                        }
+                    }, 1000);
+                    
+                    return true;
+                } else {
+                    // Время уже истекло
+                    console.log('⏰ Время истекло для сохраненного заказа #' + data.orderId + ', автоматически подтверждаем');
+                    this.clearOrderTimerFromStorage();
+                    
+                    // Устанавливаем данные заказа для подтверждения
+                    this.currentOrderData = { order_id: data.orderId };
+                    setTimeout(() => {
+                        this.confirmOrder();
+                    }, 1000);
+                    
+                    return false;
+                }
+            } catch (error) {
+                console.error('❌ Ошибка восстановления таймера:', error);
+                this.clearOrderTimerFromStorage();
+            }
+        }
+        return false;
+    }
+    
+    // Управление индикатором активного заказа
+    static showOrderTimerIndicator() {
+        if (!this.orderTimerData) return;
+        
+        // Удаляем существующий индикатор если есть
+        this.hideOrderTimerIndicator();
+        
+        const indicator = document.createElement('div');
+        indicator.id = 'orderTimerIndicator';
+        indicator.className = 'order-timer-indicator';
+        indicator.innerHTML = `
+            <div class="indicator-content" onclick="ModalManager.showActiveOrderModal()">
+                <div class="indicator-icon">⏰</div>
+                <div class="indicator-text">
+                    <div class="order-info">Заказ #${this.orderTimerData.orderId}</div>
+                    <div class="time-remaining" id="indicatorTime">${this.formatTime(this.orderTimerData.remainingTime)}</div>
+                </div>
+                <div class="indicator-arrow">👆</div>
+            </div>
+        `;
+        
+        document.body.appendChild(indicator);
+        
+        // Обновляем время в индикаторе
+        this.updateIndicatorTimer = setInterval(() => {
+            const timeElement = document.getElementById('indicatorTime');
+            if (timeElement && this.orderTimerData) {
+                timeElement.textContent = this.formatTime(this.orderTimerData.remainingTime);
+                
+                // Меняем цвет при приближении к концу
+                if (this.orderTimerData.remainingTime <= 60) {
+                    indicator.classList.add('danger');
+                } else if (this.orderTimerData.remainingTime <= 120) {
+                    indicator.classList.add('warning');
+                }
+            }
+        }, 1000);
+        
+        // Показываем индикатор с анимацией
+        setTimeout(() => {
+            indicator.classList.add('show');
+        }, 100);
+    }
+    
+    static hideOrderTimerIndicator() {
+        const indicator = document.getElementById('orderTimerIndicator');
+        if (indicator) {
+            indicator.remove();
+        }
+        
+        if (this.updateIndicatorTimer) {
+            clearInterval(this.updateIndicatorTimer);
+            this.updateIndicatorTimer = null;
+        }
+    }
+    
+    static showActiveOrderModal() {
+        if (!this.orderTimerData || !this.currentOrderData) return;
+        
+        // Открываем модальное окно с текущими данными заказа
+        this.openOrderConfirmation(this.currentOrderData);
+    }
+
     // Подтверждение заказа клиентом (отправка на печать)
     static async confirmOrder() {
         if (!this.currentOrderData || !this.currentOrderData.order_id) {
@@ -898,6 +1104,9 @@ class ModalManager {
                 console.log('✅ Заказ успешно подтвержден и отправлен на печать');
                 const t = window.CURRENT_TRANSLATIONS || { 'order-confirmed': 'Заказ подтвержден и отправлен на кухню!' };
                 NotificationManager.showSuccess(t['order-confirmed']);
+                
+                // Останавливаем глобальный таймер
+                this.stopGlobalOrderTimer();
                 
                 // Закрываем модалку
                 this.closeActive();
