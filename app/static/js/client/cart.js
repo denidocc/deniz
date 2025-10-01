@@ -75,6 +75,15 @@ class CartManager {
         this.clearCartBtn = document.getElementById('clearCartBtn');
         this.tableSelectBtn = document.getElementById('tableSelectBtn');
         this.currentTableNumber = document.getElementById('currentTableNumber');
+        
+        // Логируем для отладки
+        console.log('🔗 CartManager elements initialized:', {
+            cartContent: !!this.cartContent,
+            cartFooter: !!this.cartFooter,
+            clearCartBtn: !!this.clearCartBtn,
+            tableSelectBtn: !!this.tableSelectBtn,
+            currentTableNumber: !!this.currentTableNumber
+        });
     }
 
     static setupEventListeners() {
@@ -460,9 +469,17 @@ class CartManager {
         
         console.log('🛒 setTable called with:', { tableId, tableNumber, finalTableId: this.tableId });
         
-        if (this.currentTableNumber) {
-            this.currentTableNumber.textContent = this.tableNumber;
+        // Обновляем номер стола в интерфейсе - ищем элемент каждый раз для надежности
+        const currentTableNumberElement = document.getElementById('currentTableNumber');
+        if (currentTableNumberElement) {
+            currentTableNumberElement.textContent = this.tableNumber;
+            console.log('✅ Table number updated in UI:', this.tableNumber);
+        } else {
+            console.warn('⚠️ currentTableNumber element not found!');
         }
+        
+        // Также обновляем сохраненную ссылку
+        this.currentTableNumber = currentTableNumberElement;
         
         // Сохраняем в localStorage
         StorageManager.set('tableId', this.tableId);
@@ -475,6 +492,15 @@ class CartManager {
     static getCurrentTableId() {
         console.log('🔍 getCurrentTableId called, current tableId:', this.tableId);
         return this.tableId;
+    }
+
+    static updateTableNumberInUI() {
+        // Принудительное обновление номера стола в интерфейсе
+        const currentTableNumberElement = document.getElementById('currentTableNumber');
+        if (currentTableNumberElement && this.tableNumber) {
+            currentTableNumberElement.textContent = this.tableNumber;
+            console.log('🔄 Forced table number update:', this.tableNumber);
+        }
     }
 
     static openBonusCard() {
