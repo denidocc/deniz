@@ -1288,7 +1288,12 @@
             
             for (let element of formElements) {
                 if (element.name && element.type !== 'file') {
-                    formData.append(element.name, element.value);
+                    if (element.type === 'checkbox') {
+                        // Для checkbox отправляем true/false, а не только при отметке
+                        formData.append(element.name, element.checked);
+                    } else {
+                        formData.append(element.name, element.value);
+                    }
                 }
             }
             

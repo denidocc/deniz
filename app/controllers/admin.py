@@ -1878,6 +1878,7 @@ def create_menu_item_api():
         is_active_raw = data.get('is_active', True)
         is_active_processed = to_bool(is_active_raw, True)
         current_app.logger.info(f"🍽️ Creating menu item - is_active raw: {is_active_raw} (type: {type(is_active_raw)}), processed: {is_active_processed}")
+        current_app.logger.info(f"🍽️ Full form data: {data}")
         
         # Получаем следующий порядок сортировки для категории
         max_sort_order = db.session.query(db.func.max(MenuItem.sort_order))\
@@ -2654,4 +2655,36 @@ def get_table_usage_report():
         return jsonify({
             'status': 'error',
             'message': f'Ошибка получения отчета по загрузке столов: {str(e)}'
+        }), 500
+
+@admin_bp.route('/orders/<int:order_id>/print-final-receipt', methods=['POST'])
+@admin_required
+@audit_action("print_final_receipt")
+def admin_print_final_receipt(order_id):
+    """Печать финального чека для клиента (админ)."""
+    order = Order.query.get_or_404(order_id)
+    
+    try:
+        from app.utils.print_service import PrintService
+        
+        print_service = PrintService()
+        success = print_service.print_final_receipt(order)
+        if success:
+            # Только выставляем флаг печати итогового чека, статус не меняем
+            order.final_receipt_printed = True
+            db.session.commit()
+        
+        return jsonify({
+            'status': 'success' if success else 'error',
+            'message': 'Финальный чек напечатан' if success else 'Ошибка печати финального чека',
+            'data': {
+                'receipt_printed': success
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Admin final receipt print error: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Ошибка печати финального чека: {str(e)}'
         }), 500
