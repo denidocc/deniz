@@ -295,7 +295,7 @@
 }
 
 .order-success-icon {
-  font-size: 64px;
+  font-size: 32px;
   color: var(--success-green);
   margin-bottom: var(--gap-large);
 }

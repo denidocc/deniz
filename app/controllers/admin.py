@@ -2254,7 +2254,7 @@ def get_bonus_card(card_id):
         card = BonusCard.query.get_or_404(card_id)
         return jsonify({
             'status': 'success',
-            'data': card.to_dict()
+            'data': card.to_dict(include_sensitive=True)  # Включаем чувствительные данные для админа
         })
     except Exception as e:
         current_app.logger.error(f"Error getting bonus card {card_id}: {e}")

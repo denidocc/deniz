@@ -82,7 +82,7 @@
                 <h5 class="modal-title" id="createCardModalLabel">
                     <i class="bi bi-plus-circle"></i> Создать новую карту
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
             </div>
             <div class="modal-body">
                 <form id="createCardForm">
@@ -134,47 +134,60 @@
     </div>
 </div>
 
-<!-- Card Edit Form (Hidden by default) -->
-<div class="card-creation-form" id="editCardForm" style="display: none;">
-    <h5 class="mb-3"><i class="bi bi-pencil"></i> Редактировать карту</h5>
-    <form id="updateCardForm">
-        <input type="hidden" id="editCardId">
-        <div class="row">
-            <div class="col-md-3">
-                <label for="editCardNumber" class="form-label">Номер карты *</label>
-                <input type="text" class="form-control" id="editCardNumber" required>
-            </div>
-            <div class="col-md-2">
-                <label for="editDiscountPercent" class="form-label">Скидка (%) *</label>
-                <input type="number" class="form-control" id="editDiscountPercent" required 
-                       min="1" max="100">
-            </div>
-            <div class="col-md-2">
-                <label for="editFirstName" class="form-label">Имя *</label>
-                <input type="text" class="form-control" id="editFirstName" required>
-            </div>
-            <div class="col-md-2">
-                <label for="editLastName" class="form-label">Фамилия *</label>
-                <input type="text" class="form-control" id="editLastName" required>
-            </div>
-            <div class="col-md-3">
-                <label for="editActivatedAt" class="form-label">Дата активации *</label>
-                <input type="date" class="form-control" id="editActivatedAt" required>
-            </div>
-            <div class="col-md-3">
-                <label for="editDeactivatedAt" class="form-label">Дата деактивации *</label>
-                <input type="date" class="form-control" id="editDeactivatedAt" required>
-            </div>
-            <div class="col-md-2 d-flex align-items-end gap-2">
-                <button type="submit" class="btn btn-warning">
-                    <i class="bi bi-check"></i> Сохранить
+<!-- Edit Card Modal -->
+<div class="modal fade" id="editCardModal" tabindex="-1" aria-labelledby="editCardModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editCardModalLabel">
+                    <i class="bi bi-pencil"></i> Редактировать бонусную карту
+                </h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
                 </button>
-                <button type="button" class="btn btn-secondary" onclick="cancelEdit()">
-                    <i class="bi bi-x"></i> Отмена
+            </div>
+            <div class="modal-body">
+                <form id="updateCardForm">
+                    <input type="hidden" id="editCardId">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="editCardNumber" class="form-label">Номер карты *</label>
+                            <input type="text" class="form-control" id="editCardNumber" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editDiscountPercent" class="form-label">Скидка (%) *</label>
+                            <input type="number" class="form-control" id="editDiscountPercent" required 
+                                   min="1" max="100">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editFirstName" class="form-label">Имя *</label>
+                            <input type="text" class="form-control" id="editFirstName" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editLastName" class="form-label">Фамилия *</label>
+                            <input type="text" class="form-control" id="editLastName" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editActivatedAt" class="form-label">Дата активации *</label>
+                            <input type="date" class="form-control" id="editActivatedAt" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editDeactivatedAt" class="form-label">Дата деактивации *</label>
+                            <input type="date" class="form-control" id="editDeactivatedAt" required>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                    Отмена
+                </button>
+                <button type="button" class="btn btn-warning" onclick="updateBonusCard()">
+                    Сохранить изменения
                 </button>
             </div>
         </div>
-    </form>
+    </div>
 </div>
 
 <!-- Cards Table -->
@@ -259,6 +272,12 @@
         document.getElementById('updateCardForm').addEventListener('submit', function(e) {
             e.preventDefault();
             updateBonusCard();
+        });
+        
+        // Обработчик закрытия модального окна редактирования (Bootstrap 4)
+        $('#editCardModal').on('hidden.bs.modal', function() {
+            // Очищаем форму при закрытии модального окна
+            document.getElementById('updateCardForm').reset();
         });
     });
     
@@ -525,21 +544,19 @@
             if (data.status === 'success') {
                 const card = data.data;
                 
+                console.log('Card data received:', card); // Отладочная информация
+                
                 // Заполняем форму редактирования
                 document.getElementById('editCardId').value = card.id;
-                document.getElementById('editCardNumber').value = card.card_number;
-                document.getElementById('editDiscountPercent').value = card.discount_percent;
+                document.getElementById('editCardNumber').value = card.card_number || '';
+                document.getElementById('editDiscountPercent').value = card.discount_percent || '';
                 document.getElementById('editFirstName').value = card.first_name || '';
                 document.getElementById('editLastName').value = card.last_name || '';
                 document.getElementById('editActivatedAt').value = card.activated_at ? card.activated_at.split('T')[0] : '';
                 document.getElementById('editDeactivatedAt').value = card.deactivated_at ? card.deactivated_at.split('T')[0] : '';
                 
-                // Показываем форму редактирования
-                document.getElementById('createCardForm').style.display = 'none';
-                document.getElementById('editCardForm').style.display = 'block';
-                
-                // Прокручиваем к форме
-                document.getElementById('editCardForm').scrollIntoView({ behavior: 'smooth' });
+                // Показываем модальное окно редактирования (Bootstrap 4)
+                $('#editCardModal').modal('show');
             } else {
                 showAlert(data.message || 'Ошибка загрузки данных карты', 'danger');
             }
@@ -586,7 +603,11 @@
             
             if (data.status === 'success') {
                 showAlert('Бонусная карта успешно обновлена!', 'success');
-                cancelEdit();
+                
+                // Закрываем модальное окно (Bootstrap 4)
+                $('#editCardModal').modal('hide');
+                
+                // Перезагружаем список карт
                 loadBonusCards();
             } else {
                 showAlert(data.message || 'Ошибка обновления карты', 'danger');
@@ -597,14 +618,6 @@
         }
     }
     
-    function cancelEdit() {
-        // Скрываем форму редактирования
-        document.getElementById('editCardForm').style.display = 'none';
-        // Показываем форму создания
-        document.getElementById('createCardForm').style.display = 'block';
-        // Очищаем форму редактирования
-        document.getElementById('updateCardForm').reset();
-    }
     
     async function deleteCard(cardId) {
         // Подтверждение удаления
