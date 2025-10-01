@@ -456,7 +456,18 @@ class MenuManager {
         const currentTableNumber = document.getElementById('currentTableNumber');
         if (tableLabel && currentTableNumber) {
             const tableNumber = currentTableNumber.textContent;
-            tableLabel.innerHTML = `${texts['table-label']}<span id="currentTableNumber">${tableNumber}</span>`;
+            // Обновляем только текст, не пересоздаем элемент
+            const tableLabelText = tableLabel.childNodes[0];
+            if (tableLabelText && tableLabelText.nodeType === Node.TEXT_NODE) {
+                tableLabelText.textContent = texts['table-label'];
+            } else {
+                // Если структура изменилась, пересоздаем с сохранением элемента
+                tableLabel.innerHTML = `${texts['table-label']}<span id="currentTableNumber">${tableNumber}</span>`;
+                // Обновляем ссылку в CartManager если он уже инициализирован
+                if (window.CartManager && window.CartManager.currentTableNumber) {
+                    window.CartManager.currentTableNumber = document.getElementById('currentTableNumber');
+                }
+            }
         }
         
         // Обновляем текст "Все меню"
