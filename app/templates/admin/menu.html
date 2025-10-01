@@ -827,53 +827,7 @@
         }
     }
 
-    // Save new item
-    async function saveItem() {
-        const button = event.target;
-        const originalText = showLoading(button);
-        
-        // Получаем значения из WTForms полей
-        const form = document.getElementById('addItemForm');
-        const formData = new FormData(form);
-        
-        // Получаем значение checkbox правильно
-        const isActiveCheckbox = form.querySelector('input[name="is_active"]');
-        const isActiveValue = isActiveCheckbox ? isActiveCheckbox.checked : true;
-        
-        const data = {
-            category_id: parseInt(formData.get('category_id')),
-            name_ru: formData.get('name_ru'),
-            name_en: formData.get('name_en') || '',
-            name_tk: formData.get('name_tk') || '',
-            description_ru: formData.get('description_ru') || '',
-            description_en: formData.get('description_en') || '',
-            description_tk: formData.get('description_tk') || '',
-            price: parseFloat(formData.get('price')),
-            estimated_time: parseInt(formData.get('estimated_time') || '15'),
-            preparation_type: formData.get('preparation_type') || 'kitchen',
-            image_url: formData.get('image_url') || '',
-            sort_order: parseInt(formData.get('sort_order') || '0'),
-            is_active: isActiveValue
-        };
-        
-        try {
-            const response = await apiRequest('{{ url_for("admin.create_menu_item_api") }}', 'POST', data);
-            
-            showAlert('Блюдо успешно создано', 'success');
-            
-            // Close modal and refresh page
-            $('#addItemModal').modal('hide');
-            
-            setTimeout(() => {
-                location.reload();
-            }, 1000);
-            
-        } catch (error) {
-            showAlert('Ошибка при создании блюда: ' + error.message, 'danger');
-        } finally {
-            hideLoading(button, originalText);
-        }
-    }
+    // Старая функция saveItem удалена, используем новую с валидацией
 
     // Toggle item availability
     async function toggleItemAvailability(itemId, newAvailability) {
@@ -995,6 +949,30 @@
         
         const itemId = document.getElementById('editItemId').value;
         
+        // Валидация формы редактирования
+        const categoryId = document.getElementById('editItemCategory').value;
+        const nameRu = document.getElementById('editItemNameRu').value.trim();
+        const price = document.getElementById('editItemPrice').value.trim();
+        
+        // Проверяем обязательные поля
+        if (!categoryId) {
+            showAlert('Пожалуйста, выберите категорию', 'warning');
+            hideLoading(button, originalText);
+            return;
+        }
+        
+        if (!nameRu) {
+            showAlert('Пожалуйста, введите название блюда (русский)', 'warning');
+            hideLoading(button, originalText);
+            return;
+        }
+        
+        if (!price || isNaN(parseFloat(price)) || parseFloat(price) <= 0) {
+            showAlert('Пожалуйста, введите корректную цену', 'warning');
+            hideLoading(button, originalText);
+            return;
+        }
+        
         try {
             const formData = new FormData();
             
@@ -1052,7 +1030,20 @@
             }
             
         } catch (error) {
-            showAlert('Ошибка при обновлении блюда: ' + error.message, 'danger');
+            console.error('Error updating item:', error);
+            
+            // Получаем более подробное сообщение об ошибке
+            let errorMessage = 'Ошибка при обновлении блюда';
+            
+            if (error.message.includes('400')) {
+                errorMessage = 'Некорректные данные. Проверьте все поля формы.';
+            } else if (error.message.includes('500')) {
+                errorMessage = 'Внутренняя ошибка сервера. Попробуйте позже.';
+            } else if (error.message && !error.message.includes('HTTP error')) {
+                errorMessage = error.message;
+            }
+            
+            showAlert(errorMessage, 'danger');
         } finally {
             hideLoading(button, originalText);
         }
@@ -1264,11 +1255,35 @@
         const button = event.target;
         const originalText = showLoading(button);
         
+        // Валидация формы
+        const form = document.getElementById('addItemForm');
+        const categoryId = form.querySelector('[name="category_id"]').value;
+        const nameRu = form.querySelector('[name="name_ru"]').value.trim();
+        const price = form.querySelector('[name="price"]').value.trim();
+        
+        // Проверяем обязательные поля
+        if (!categoryId) {
+            showAlert('Пожалуйста, выберите категорию', 'warning');
+            hideLoading(button, originalText);
+            return;
+        }
+        
+        if (!nameRu) {
+            showAlert('Пожалуйста, введите название блюда (русский)', 'warning');
+            hideLoading(button, originalText);
+            return;
+        }
+        
+        if (!price || isNaN(parseFloat(price)) || parseFloat(price) <= 0) {
+            showAlert('Пожалуйста, введите корректную цену', 'warning');
+            hideLoading(button, originalText);
+            return;
+        }
+        
         try {
             const formData = new FormData();
             
             // Добавляем все поля формы
-            const form = document.getElementById('addItemForm');
             const formElements = form.elements;
             
             for (let element of formElements) {
@@ -1311,7 +1326,20 @@
             }
             
         } catch (error) {
-            showAlert('Ошибка при создании блюда: ' + error.message, 'danger');
+            console.error('Error creating item:', error);
+            
+            // Получаем более подробное сообщение об ошибке
+            let errorMessage = 'Ошибка при создании блюда';
+            
+            if (error.message.includes('400')) {
+                errorMessage = 'Некорректные данные. Проверьте все поля формы.';
+            } else if (error.message.includes('500')) {
+                errorMessage = 'Внутренняя ошибка сервера. Попробуйте позже.';
+            } else if (error.message && !error.message.includes('HTTP error')) {
+                errorMessage = error.message;
+            }
+            
+            showAlert(errorMessage, 'danger');
         } finally {
             hideLoading(button, originalText);
         }
