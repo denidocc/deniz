@@ -308,7 +308,7 @@ def get_menu():
         categories = categories_query.all()
         dishes = dishes_query.order_by(MenuItem.sort_order).all()
         
-        # Подсчитываем количество блюд в каждой категории
+        # Подсчитываем количество АКТИВНЫХ блюд в каждой категории
         category_counts = db.session.query(
             MenuItem.category_id,
             func.count(MenuItem.id).label('count')

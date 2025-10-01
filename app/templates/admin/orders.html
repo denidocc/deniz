@@ -188,7 +188,10 @@
                 <!-- Контент будет загружен динамически -->
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Закрыть</button>
+                <button type="button" class="btn btn-primary" onclick="printFinalReceipt()">
+                    <i class="bi bi-printer"></i> Печать чека
+                </button>
             </div>
         </div>
     </div>
@@ -376,6 +379,9 @@
     
     function viewOrderDetails(orderId) {
         console.log('Загрузка деталей заказа:', orderId);
+        
+        // Сохраняем ID заказа для печати чека
+        currentOrderId = orderId;
         
         // Показываем индикатор загрузки
         const modal = document.getElementById('orderDetailsModal');
@@ -566,6 +572,61 @@
     function exportOrders(format) {
         // TODO: Реализовать экспорт
         alert(`Экспорт в ${format.toUpperCase()} в разработке`);
+    }
+    
+    // Глобальная переменная для хранения ID текущего заказа
+    let currentOrderId = null;
+    
+    function printFinalReceipt() {
+        if (!currentOrderId) {
+            alert('Ошибка: не выбран заказ');
+            return;
+        }
+        
+        const button = event.target;
+        const originalText = button.innerHTML;
+        
+        // Показываем индикатор загрузки
+        button.innerHTML = '<i class="bi bi-hourglass-split"></i> Печать...';
+        button.disabled = true;
+        
+        fetch(`/admin/orders/${currentOrderId}/print-final-receipt`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name=csrf-token]').getAttribute('content')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Показываем успешное сообщение
+                button.innerHTML = '<i class="bi bi-check-circle"></i> Напечатано';
+                button.classList.remove('btn-primary');
+                button.classList.add('btn-success');
+                
+                // Возвращаем кнопку в обычное состояние через 2 секунды
+                setTimeout(() => {
+                    button.innerHTML = originalText;
+                    button.classList.remove('btn-success');
+                    button.classList.add('btn-primary');
+                    button.disabled = false;
+                }, 2000);
+                
+                // Обновляем список заказов
+                loadOrders();
+            } else {
+                throw new Error(data.message || 'Ошибка печати');
+            }
+        })
+        .catch(error => {
+            console.error('Print error:', error);
+            alert('Ошибка печати чека: ' + error.message);
+            
+            // Возвращаем кнопку в обычное состояние
+            button.innerHTML = originalText;
+            button.disabled = false;
+        });
     }
 </script>
 {% endblock %}
