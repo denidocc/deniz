@@ -217,5 +217,5 @@ start_deniz_desktop.bat
 migrations/
 
 app/static/assets/banner/
-app/static/assets/meaal/
+app/static/assets/meal/
 app/static/images/
