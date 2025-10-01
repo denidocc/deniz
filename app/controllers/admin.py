@@ -42,7 +42,8 @@ def dashboard():
     
     # Статистика за сегодня
     today_orders = Order.query.filter(
-        func.date(Order.created_at) == today
+        func.date(Order.created_at) == today,
+        Order.status.in_(['completed', 'confirmed']) 
     ).all()
     
     today_stats = {
@@ -150,7 +151,7 @@ def create_category():
         name_en=form.name_en.data or '',
         name_tk=form.name_tk.data or '',
         sort_order=form.sort_order.data or 0,
-        is_active=True  # По умолчанию категория активна
+        is_active=False  # По умолчанию категория активна
     )
     
     current_app.logger.info(f"Category object created: {category}")
@@ -388,7 +389,8 @@ def sales_report():
     # Запрос данных
     orders = Order.query.filter(
         func.date(Order.created_at) >= start_date,
-        func.date(Order.created_at) <= end_date
+        func.date(Order.created_at) <= end_date,
+        Order.status.in_(['completed', 'confirmed']) 
     ).all()
     
     # Агрегация данных
@@ -794,6 +796,8 @@ def update_menu_item(item_id):
             image_file = request.files.get('image')
         
         # Обновляем основные поля
+        if 'category_id' in data and data['category_id']:
+            item.category_id = int(data['category_id'])
         if 'name_ru' in data:
             item.name_ru = data['name_ru']
         if 'name_en' in data:
@@ -806,9 +810,9 @@ def update_menu_item(item_id):
             item.description_en = data['description_en']
         if 'description_tk' in data:
             item.description_tk = data['description_tk']
-        if 'price' in data:
+        if 'price' in data and data['price']:
             item.price = float(data['price'])
-        if 'estimated_time' in data:
+        if 'estimated_time' in data and data['estimated_time']:
             item.estimated_time = int(data['estimated_time'])
         if 'preparation_type' in data:
             item.preparation_type = data['preparation_type']
@@ -816,7 +820,7 @@ def update_menu_item(item_id):
             item.has_size_options = data['has_size_options'].lower() == 'true'
         if 'can_modify_ingredients' in data:
             item.can_modify_ingredients = data['can_modify_ingredients'].lower() == 'true'
-        if 'sort_order' in data:
+        if 'sort_order' in data and data['sort_order']:
             item.sort_order = int(data['sort_order'])
         if 'is_active' in data:
             if isinstance(data['is_active'], bool):
@@ -841,7 +845,7 @@ def update_menu_item(item_id):
                     'message': message
                 }), 400
             
-            item.image_url = image_path
+            item.image_url = f'/static/assets/{image_path}'
         elif 'image_url' in data:
             # Если изображение не загружено, используем URL из формы
             item.image_url = data['image_url']

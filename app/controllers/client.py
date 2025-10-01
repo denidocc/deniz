@@ -320,12 +320,14 @@ def get_menu():
         categories_data = []
         for category in categories:
             count = count_dict.get(category.id, 0)
-            categories_data.append({
-                'id': category.id,
-                'name': get_localized_name(category, language),
-                'count': count,
-                'sort_order': category.sort_order
-            })
+            # Не показываем категории с нулевым количеством блюд
+            if count > 0:
+                categories_data.append({
+                    'id': category.id,
+                    'name': get_localized_name(category, language),
+                    'count': count,
+                    'sort_order': category.sort_order
+                })
         
         dishes_data = []
         for dish in dishes:
@@ -335,7 +337,7 @@ def get_menu():
                 'name': get_localized_name(dish, language),
                 'description': get_localized_description(dish, language),
                 'price': float(dish.price),
-                'image_url': dish.image_url.replace('/images/', '/static/images/') if dish.image_url else None,
+                'image_url': dish.image_url if dish.image_url else None,
                 'preparation_type': dish.preparation_type,
                 'estimated_time': dish.estimated_time,
                 'has_size_options': dish.has_size_options,
