@@ -256,6 +256,7 @@ body {
   background: transparent;
   overflow-y: auto;
   z-index: var(--z-sidebar);
+  padding-bottom: 20px;
 }
 
 /* Content Area */

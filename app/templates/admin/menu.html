@@ -489,7 +489,7 @@
                                         <i class="bi bi-trash"></i> Убрать
                                     </button>
                                 </div>
-                                <div class="form-text">Изображение будет сохранено в папке static/assets/meals/</div>
+                                <div class="form-text">Изображение будет сохранено в папке static/assets/meal/</div>
                             </div>
                             
                             <input type="hidden" name="sort_order" value="0">
@@ -654,8 +654,30 @@
                             </div>
                             
                             <div class="mb-3">
-                                <label for="editItemImageUrl" class="form-label">URL изображения</label>
-                                <input type="url" class="form-control" id="editItemImageUrl" name="image_url">
+                                <label for="editItemImageUpload" class="form-label">Изображение блюда</label>
+                                <div class="image-upload-container">
+                                    <div class="image-upload-area" id="editImageUploadArea" 
+                                         ondrop="handleEditImageDrop(event)" 
+                                         ondragover="handleDragOver(event)" 
+                                         ondragleave="handleDragLeave(event)"
+                                         onclick="document.getElementById('editItemImageFile').click()">
+                                        <div class="upload-placeholder" id="editUploadPlaceholder">
+                                            <i class="bi bi-cloud-upload"></i>
+                                            <p>Перетащите изображение сюда или кликните для выбора</p>
+                                            <small>Поддерживаемые форматы: JPG, PNG, GIF, WebP (макс. 5MB)</small>
+                                        </div>
+                                        <img id="editImagePreview" class="image-preview" style="display: none;" alt="Preview">
+                                    </div>
+                                    <input type="file" id="editItemImageFile" name="image" accept="image/*" style="display: none;" onchange="handleEditImageSelect(event)">
+                                    <input type="hidden" id="editItemImageUrl" name="image_url">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm mt-2" onclick="document.getElementById('editItemImageFile').click()">
+                                        <i class="bi bi-folder2-open"></i> Выбрать файл
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger btn-sm mt-2 ms-2" id="editRemoveImageBtn" onclick="removeEditImage()" style="display: none;">
+                                        <i class="bi bi-trash"></i> Убрать
+                                    </button>
+                                </div>
+                                <div class="form-text">Изображение будет сохранено в папке static/assets/meal/</div>
                             </div>
                             
                             <div class="mb-3">
@@ -917,9 +939,11 @@
                     document.getElementById('editItemPrice').value = item.price;
                     document.getElementById('editItemCookingTime').value = item.estimated_time || 15;
                     document.getElementById('editItemPreparationType').value = item.preparation_type || 'kitchen';
-                    document.getElementById('editItemImageUrl').value = item.image_url || '';
                     document.getElementById('editItemSortOrder').value = item.sort_order || 0;
                     document.getElementById('editItemAvailable').checked = item.is_active;
+                    
+                    // Показываем текущее изображение
+                    setEditImageFromUrl(item.image_url);
                     
                     // Показываем модальное окно
                     $('#editItemModal').modal('show');
@@ -970,33 +994,62 @@
         const originalText = showLoading(button);
         
         const itemId = document.getElementById('editItemId').value;
-        const data = {
-            category_id: parseInt(document.getElementById('editItemCategory').value),
-            name_ru: document.getElementById('editItemNameRu').value,
-            name_en: document.getElementById('editItemNameEn').value || '',
-            name_tk: document.getElementById('editItemNameTk').value || '',
-            description_ru: document.getElementById('editItemDescRu').value || '',
-            description_en: document.getElementById('editItemDescEn').value || '',
-            description_tk: document.getElementById('editItemDescTk').value || '',
-            price: parseFloat(document.getElementById('editItemPrice').value),
-            estimated_time: parseInt(document.getElementById('editItemCookingTime').value || '15'),
-            preparation_type: document.getElementById('editItemPreparationType').value || 'kitchen',
-            image_url: document.getElementById('editItemImageUrl').value || '',
-            sort_order: parseInt(document.getElementById('editItemSortOrder').value || '0'),
-            is_active: document.getElementById('editItemAvailable').checked
-        };
         
         try {
-            const response = await apiRequest(`/admin/menu/item/${itemId}`, 'PUT', data);
+            const formData = new FormData();
             
-            showAlert('Блюдо успешно обновлено', 'success');
+            // Добавляем все поля формы
+            formData.append('category_id', document.getElementById('editItemCategory').value);
+            formData.append('name_ru', document.getElementById('editItemNameRu').value);
+            formData.append('name_en', document.getElementById('editItemNameEn').value || '');
+            formData.append('name_tk', document.getElementById('editItemNameTk').value || '');
+            formData.append('description_ru', document.getElementById('editItemDescRu').value || '');
+            formData.append('description_en', document.getElementById('editItemDescEn').value || '');
+            formData.append('description_tk', document.getElementById('editItemDescTk').value || '');
+            formData.append('price', document.getElementById('editItemPrice').value);
+            formData.append('estimated_time', document.getElementById('editItemCookingTime').value || '15');
+            formData.append('preparation_type', document.getElementById('editItemPreparationType').value || 'kitchen');
+            formData.append('sort_order', document.getElementById('editItemSortOrder').value || '0');
+            formData.append('is_active', document.getElementById('editItemAvailable').checked);
             
-            // Close modal and refresh page
-            $('#editItemModal').modal('hide');
+            // Добавляем файл изображения, если есть
+            const imageFile = document.getElementById('editItemImageFile').files[0];
+            if (imageFile) {
+                formData.append('image', imageFile);
+            } else {
+                // Если нового файла нет, оставляем старый URL
+                const currentImageUrl = document.getElementById('editItemImageUrl').value;
+                if (currentImageUrl) {
+                    formData.append('image_url', currentImageUrl);
+                }
+            }
             
-            setTimeout(() => {
-                location.reload();
-            }, 1000);
+            const response = await fetch(`/admin/menu/item/${itemId}`, {
+                method: 'POST',  // Используем POST для FormData
+                headers: {
+                    'X-CSRFToken': document.querySelector('meta[name=csrf-token]').getAttribute('content')
+                },
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                showAlert('Блюдо успешно обновлено', 'success');
+                
+                // Close modal and refresh page
+                $('#editItemModal').modal('hide');
+                
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            } else {
+                showAlert(data.message || 'Ошибка при обновлении блюда', 'danger');
+            }
             
         } catch (error) {
             showAlert('Ошибка при обновлении блюда: ' + error.message, 'danger');
@@ -1119,6 +1172,91 @@
     // Очистка формы при открытии модала
     function resetImageUpload() {
         removeImage();
+    }
+
+    // === ФУНКЦИИ ДЛЯ РЕДАКТИРОВАНИЯ ИЗОБРАЖЕНИЙ ===
+    
+    function handleEditImageDrop(event) {
+        event.preventDefault();
+        event.currentTarget.classList.remove('dragover');
+        
+        const files = event.dataTransfer.files;
+        if (files.length > 0) {
+            handleEditImageFile(files[0]);
+        }
+    }
+
+    function handleEditImageSelect(event) {
+        const file = event.target.files[0];
+        if (file) {
+            handleEditImageFile(file);
+        }
+    }
+
+    function handleEditImageFile(file) {
+        // Проверка типа файла
+        if (!file.type.startsWith('image/')) {
+            showAlert('Пожалуйста, выберите изображение', 'warning');
+            return;
+        }
+
+        // Проверка размера файла (5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            showAlert('Размер файла не должен превышать 5MB', 'warning');
+            return;
+        }
+
+        // Показываем превью
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.getElementById('editImagePreview');
+            const placeholder = document.getElementById('editUploadPlaceholder');
+            const uploadArea = document.getElementById('editImageUploadArea');
+            const removeBtn = document.getElementById('editRemoveImageBtn');
+
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+            placeholder.style.display = 'none';
+            uploadArea.classList.add('has-image');
+            removeBtn.style.display = 'inline-block';
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function removeEditImage() {
+        const preview = document.getElementById('editImagePreview');
+        const placeholder = document.getElementById('editUploadPlaceholder');
+        const uploadArea = document.getElementById('editImageUploadArea');
+        const fileInput = document.getElementById('editItemImageFile');
+        const urlInput = document.getElementById('editItemImageUrl');
+        const removeBtn = document.getElementById('editRemoveImageBtn');
+
+        preview.style.display = 'none';
+        placeholder.style.display = 'block';
+        uploadArea.classList.remove('has-image');
+        fileInput.value = '';
+        urlInput.value = '';
+        removeBtn.style.display = 'none';
+    }
+
+    function setEditImageFromUrl(imageUrl) {
+        if (!imageUrl) {
+            removeEditImage();
+            return;
+        }
+        
+        const preview = document.getElementById('editImagePreview');
+        const placeholder = document.getElementById('editUploadPlaceholder');
+        const uploadArea = document.getElementById('editImageUploadArea');
+        const urlInput = document.getElementById('editItemImageUrl');
+        const removeBtn = document.getElementById('editRemoveImageBtn');
+
+        preview.src = imageUrl;
+        preview.style.display = 'block';
+        placeholder.style.display = 'none';
+        uploadArea.classList.add('has-image');
+        urlInput.value = imageUrl;
+        removeBtn.style.display = 'inline-block';
     }
 
     // Обновляем функцию saveItem для работы с файлами
